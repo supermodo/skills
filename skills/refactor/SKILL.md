@@ -310,7 +310,14 @@ All N tests passing. No behavior changes.
 
 **Persist it:** standalone runs write this report to
 `.skills/supermodo/refactor/<YYYYMMDD-HHMMSS>.md` per
-`../protocols/references/reports.md` — an assessment living only in chat
+`../protocols/references/reports.md`
+
+**Then publish it** per `../protocols/references/reports.md`: invoke
+`node <skills>/reports/scripts/render.ts --report <that path>` and NAME the
+page in your final message. Standalone runs only — inside a `flow` run the
+orchestrator renders the run page and stages render nothing.
+
+An assessment living only in chat
 dies with the session.
 
 ---

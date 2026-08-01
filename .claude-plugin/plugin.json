@@ -1,7 +1,7 @@
 {
   "name": "supermodo",
   "description": "A coherent, opinionated toolkit for documentation-driven development with twin-model adversarial checks: flow, next, grill, librarian, work, tests, hunt, bug-council, tdd, refactor, reports, commit, release, sync-configs, config, protocols.",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "author": {
     "name": "supermodo"
   }

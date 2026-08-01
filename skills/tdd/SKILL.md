@@ -335,6 +335,21 @@ This workflow references techniques from related skills where they apply:
 - **test-driven-development** — Apply its Red-Green discipline during Steps 2 and 5 for writing proper failing tests and minimal fixes
 - **verification-before-completion** — Verify the fix actually resolves the original bug report before declaring done
 
+## Persist and publish
+
+Standalone runs write this report to
+`.skills/supermodo/tdd/<YYYYMMDD-HHMMSS>.md` per
+`../protocols/references/reports.md` — a result living only in chat dies with
+the session. Then publish it:
+
+```
+node <skills>/reports/scripts/render.ts --report <that path>
+```
+
+and NAME the page in your final message. Inside a `flow` run this does not
+apply: the stage report is the artifact and the orchestrator renders the one
+run page.
+
 ## Verification Checklist
 
 Before declaring the bug fixed, verify all of these. Items marked **(RUN)** require executing a command — do not check them by reading code.

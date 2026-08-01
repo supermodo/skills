@@ -84,11 +84,15 @@ const renderAll = (model: Model): readonly string[] => [
 
 // ── open policy ─────────────────────────────────────────────────────────────
 
+// Deliberately NOT gated on isTTY: this script is normally spawned by a skill,
+// so stdout is a pipe every time that matters. A pipe means "an agent ran me",
+// not "there is no desktop" — gating on it disabled auto-open everywhere.
 const headless = (): string | undefined =>
   process.env.CI !== undefined && process.env.CI !== "" ? "CI is set"
-    : process.stdout.isTTY !== true ? "no TTY"
-      : process.env.SSH_CONNECTION !== undefined && process.env.DISPLAY === undefined && process.platform !== "darwin"
-        ? "SSH without a display"
+    : process.env.SSH_CONNECTION !== undefined && process.env.DISPLAY === undefined && process.platform !== "darwin"
+      ? "SSH without a display"
+      : process.platform === "linux" && process.env.DISPLAY === undefined && process.env.WAYLAND_DISPLAY === undefined
+        ? "no display server"
         : undefined;
 
 const shouldOpen = (isRun: boolean): boolean => {

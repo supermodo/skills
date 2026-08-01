@@ -70,10 +70,24 @@ Every report is also published as a web page. The `.md` file stays the source
 of truth — machine-readable, hashable, the medium the next stage reads; the
 HTML is a **projection**, regenerable and never load-bearing.
 
-- **After writing a report, invoke the renderer for it:**
-  `node <skills>/reports/scripts/render.ts --report <path.md>` (flow uses
-  `--run <run-id>`). That is the whole duty — no skill generates HTML, formats
-  a page, or decides when to open a browser.
+- **After writing a report, invoke the renderer for it, then NAME THE PAGE in
+  your final message.** A page nobody is pointed at is a page nobody opens.
+
+  ```
+  node <skills>/reports/scripts/render.ts --report <path.md>
+  ```
+
+  That is the whole duty — no skill generates HTML, formats a page, or decides
+  when to open a browser; `render.ts` opens it per `reports.open`.
+
+  **Exception — inside a flow run:** a stage skill writes its
+  `<NN>-<skill>.md` and stops there. It does NOT render and does NOT open
+  anything: the orchestrator renders the ONE run page after every stage (eight
+  stages must never become eight browser tabs). Rendering per-report applies to
+  STANDALONE invocations only.
+
+  This duty is not optional and is not "reporting style": a skill that
+  finishes without persisting and publishing its run has not finished.
 - Pages land beside their source: `runs/<run-id>/report.html`,
   `<skill>/<ts>.html`, plus `.skills/supermodo/index.html` (the archive).
 - Rendering is best-effort: it never fails a stage, never changes a verdict,
@@ -100,11 +114,48 @@ and they remain legible as text in the `.md`.
 | `supermodo:bars` | `{title, unit?, series:[{label, value, max?, state?}]}` — `state`: `ok`/`warn`/`bad`/absent |
 | `supermodo:tree` | `{title?, root:{label, meta?, state?, children?:[…]}}` — recursive |
 | `supermodo:graph` | `{title?, nodes:[{id, label, kind?}], edges:[{from, to, kind?}]}` — layered, `kind: "cycle"` marks a bad edge |
-| `supermodo:board` | the worklist board, emitted by `next` only — `{generated, source, suggestions:[…], groups:[{priority, label, items:[…]}], waiting:[…], repairs:[…]}`; each item may carry `description`, `created`, `effort`, `state`, `blocked`, `unblocks`, `triage`, `progress` and `tasks:[{id, title, state}]` |
+| `supermodo:board` | the worklist board — `next` ONLY; full shape below |
 
-Task `state` inside a board block uses the four states of the docs convention
-(pending, in-progress, done, paused) and nothing else; an unrecognised value is
-rendered as unknown, never normalised into one of the four.
+### `supermodo:board`
+
+The board is a BLOCK, never markdown tables. A `next` report whose body is
+prose or tables renders as an unstyled wall of text and loses the board
+entirely. Emit exactly this shape — every key except `item` is optional, and
+`groups` must be ordered P0 → P3:
+
+````
+```supermodo:board
+{
+  "generated": "YYYY-MM-DD HH:MM",
+  "source": "docs/README.md",
+  "suggestions": [
+    {"kind": "priority lead", "item": "work:<slug>", "priority": "P1",
+     "why": "one or two sentences naming the evidence",
+     "command": "/supermodo:flow --job work:<slug>"}
+  ],
+  "groups": [
+    {"priority": "P1", "label": "next", "items": [
+      {"item": "work:<slug>", "state": "in progress", "effort": "M",
+       "note": "released · workflow-breaking", "created": "YYYY-MM-DD",
+       "description": "what this work is and why it matters, one paragraph",
+       "blocked": ["<slug>"], "unblocks": 1, "triage": true,
+       "progress": {"done": 3, "total": 5},
+       "tasks": [{"id": "AB-1", "title": "…", "state": "done"}]}
+    ]}
+  ],
+  "waiting": [{"item": "<slug>", "why": "no priority: line"}],
+  "repairs": ["path — what is missing"]
+}
+```
+````
+
+- `state` on an ITEM is its execution state (`in progress`, `ready`,
+  `backlog`, `paused`).
+- `state` on a TASK is one of the four docs-convention states — `pending`,
+  `in-progress`, `done`, `paused` — and nothing else. An unrecognised value is
+  rendered as unknown, never normalised into one of the four.
+- Anything the board says beyond this block (a triage transcript, the lines
+  owed to librarian) goes BELOW it as ordinary markdown.
 
 Malformed JSON or an unknown block type renders as its own source text with a
 warning badge — never an error, never a blank page.

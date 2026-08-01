@@ -208,6 +208,12 @@ survived), coverage snapshot, and explicitly-clean dimensions. Present the
 summary, then ask which buckets to implement (missing tests / weak-test fixes /
 nothing yet).
 
+**Then publish it** per `../protocols/references/reports.md`: invoke
+`node <skills>/reports/scripts/render.ts --report <that path>` and NAME the
+page in your final message. Standalone runs only — inside a `flow` run the
+orchestrator renders the run page and stages render nothing.
+
+
 ### 7. Implement (if asked)
 Missing tests first (most protection), then strengthen weak assertions. Targeted
 per-package verification as in Fix mode, full `commands.testUnit` +

@@ -58,6 +58,14 @@ reuse/replace check.
    everything is untracked: read the files directly, same as step 0.
 4. `git log --oneline -15` — absorb the repo's vocabulary and format habits
    (skip when there is no history).
+   **Also settle what happened to any plan you proposed earlier.** The user
+   may have run it themselves, committed by hand, or changed the scope — git
+   is the only witness. NEVER state from memory that a commit "is still
+   pending" or "was never made": a proposal that went unanswered in chat is
+   not evidence of an unchanged repository. Compare `HEAD` and the working
+   tree with what that plan would have produced; if the work is in, say so
+   and move on to what remains. Getting this wrong tells the user their work
+   vanished.
 5. Session context tells you intent; the diff tells you what actually changed.
    On conflict, the diff wins.
 
@@ -168,6 +176,12 @@ the outcome — message, files, committed-or-not — to
 `.skills/supermodo/commit/<YYYYMMDD-HHMMSS>.md` per
 `../protocols/references/reports.md` when the directory exists (a configured
 project); skip silently in unconfigured repos.
+
+**Then publish it** per `../protocols/references/reports.md`: invoke
+`node <skills>/reports/scripts/render.ts --report <that path>` and NAME the
+page in your final message. Standalone runs only — inside a `flow` run the
+orchestrator renders the run page and stages render nothing.
+
 
 ## Changelog fragment (default ON)
 

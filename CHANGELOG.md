@@ -9,6 +9,38 @@ contracts), **PATCH** = fixes and wording. `1.0.0` will mean the config
 schema (`configVersion`), the docs convention, and the protocol contracts
 are stable — from then on breaking those is a MAJOR with a migration path.
 
+## [0.5.1] - 2026-08-01
+
+### Fixed
+- Skills now actually publish the web page they write. `next` in particular
+  would compute a board, hand the priorities to `librarian` and never mention
+  the page — its own instructions said it "writes nothing", which is true of
+  documentation but not of its run report, and the reports protocol was
+  missing from what it reads. Every skill that produces a report now renders
+  it and names the page in its final message, and the protocol states the duty
+  once, including the rule that stages inside a `flow` run render nothing so
+  that eight stages never become eight browser tabs. `tdd`, `work`,
+  `librarian`, `bug-council` and `sync-configs` also persist their standalone
+  runs for the first time — previously those results existed only in the
+  conversation and died with the session.
+- Report pages now actually open. The renderer refused to launch a browser
+  whenever it could not see a terminal, which is every time a skill runs it —
+  so the default `open: "auto"` never opened anything and only printed a
+  `file://` link. Being run by an agent is no longer mistaken for being
+  headless; CI and displayless machines still just print the link. The board
+  also renders as the board again: `next` was writing its worklist as markdown
+  tables instead of the block the page is built from, so the Board tab showed
+  a wall of text. The block's full shape is now written out in the reports
+  protocol, and `next` is told to open its report with it.
+- `commit` and `release` no longer describe your repository from memory. If a
+  commit plan went unanswered, or a release stopped halfway, the skill now
+  reads git — `HEAD`, the working tree, local and remote tags, published
+  releases — before saying what has or has not happened. Previously an
+  unanswered proposal was treated as proof that nothing had changed, so work
+  you had already committed yourself could be reported as still pending, and a
+  release step that had already run could be offered again — which is how a
+  tag gets moved or a release gets duplicated.
+
 ## [0.5.0] - 2026-08-01
 
 ### Added
