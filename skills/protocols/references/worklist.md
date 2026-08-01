@@ -116,8 +116,8 @@ low-priority blocker of a P0 does not rot at the bottom.
 
 | state | test |
 | --- | --- |
-| `in-progress` | some task marked `/` |
-| `not-started` | only pending `- [ ]` tasks |
+| `in-progress` | some task marked `/`, **or** some task done while others remain — work that has begun is in progress, whatever marker it stopped on |
+| `not-started` | no task done and none in progress |
 | `needs-human-input` | unchecked entries under `## Open questions` |
 | `dependency-blocked` | some declared dependency unmet |
 | `paused` | every remaining task marked `^` or `-` |
@@ -144,10 +144,27 @@ the same priority.
 3. **leverage**, descending — the count of DIRECT dependents for which this
    item is the ONLY unmet dependency. Transitive counts are noise: they
    credit an item for work it does not unblock on its own.
-4. **oldest date** — `Created:` for triads, the entry date for backlog
-   items; missing dates sort last
-5. **ASCII order of identity path** — final tie-break, so two runs over the
+4. **completion**, descending — `done / total` tasks. Within one bucket and
+   one state, finish what is nearly finished: 20 of 21 outranks 0 of 21.
+   Items with no task list count as 0.
+5. **has a triad**, before a bare backlog entry — a triad exists because
+   someone already spent attention on this: it was specced, planned and
+   broken into tasks. Within one priority and one state that investment is
+   real evidence of intent.
+6. **most recently touched**, descending — the last commit date touching the
+   triad's directory (read-only `git log -1`, NOT filesystem mtime, which a
+   checkout resets). Backlog entries have none and sort after.
+7. **oldest date** — `Created:` for triads, the entry date for backlog
+   items; missing dates sort last. Kept AFTER recency deliberately: recency
+   surfaces what you are living in, this keeps neglected work from sinking
+   forever.
+8. **ASCII order of identity path** — final tie-break, so two runs over the
    same docs produce the same board
+
+Steps 2–6 are the order WITHIN a priority bucket, and they must do real work:
+if a bucket ever comes out in alphabetical order, the earlier keys were all
+ties and that is a signal something is mis-stated (a started item reading as
+`not-started`, a missing `Created:`), not that the items are equivalent.
 
 **Context never reorders the board. Effort never reorders the board.** Both
 are annotations; only the suggestion layer may consult context.
@@ -207,9 +224,21 @@ starting with the priority lead.
 
 Each entry carries a **role label** explaining why it earned its place. Roles
 are labels, NOT reserved slots: a role with no candidate simply does not
-appear, and its place goes to the next item in board order. A shortlist is
-never padded with placeholders, and never says "nothing qualifies" while
-doable work exists.
+appear. A shortlist is never padded with placeholders, and never says
+"nothing qualifies" while doable work exists.
+
+**Board order alone is not relevance.** Fill the shortlist in two passes:
+
+1. the **priority lead** first, always;
+2. then up to TWO role entries that board order would bury — a `quick win`,
+   an `unblocks others`, a `continues your work` — taken from anywhere in the
+   doable set, provided they sit no more than one bucket below the lead;
+3. then `next in line` items in board order until the list holds 3–5.
+
+Without pass 2 the shortlist is just the top of the board with labels on it,
+and a P2 item at 20 of 21 tasks — minutes from done — never surfaces while
+seven untouched P1 entries queue ahead of it. Naming that item is the whole
+point of a shortlist.
 
 | role | earned by |
 | --- | --- |

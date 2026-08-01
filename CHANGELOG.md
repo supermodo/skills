@@ -9,6 +9,25 @@ contracts), **PATCH** = fixes and wording. `1.0.0` will mean the config
 schema (`configVersion`), the docs convention, and the protocol contracts
 are stable — from then on breaking those is a MAJOR with a migration path.
 
+## [0.5.3] - 2026-08-02
+
+### Fixed
+- Work that has begun no longer reads as untouched: an item with some tasks
+  done is `in-progress`, where before only a `/` marker counted — so a triad
+  at 20 of 21 tasks was labelled `not-started` and sorted below untouched
+  backlog entries. Ordering inside a priority bucket now uses real signals in
+  turn — what unblocks others, what is nearest done, what has a triad at all,
+  what you touched most recently — instead of falling through to alphabetical.
+  The shortlist reaches past the top of the board too, reserving up to two
+  places for a quick win or a blocker that strict ordering would bury.
+- Every item now carries the command to act on it, so the board answers "how
+  do I start this" for every row rather than only the shortlist. Task lists
+  keep the grouping their `tasks.md` gives them — a seventy-task triad shows
+  the author's own headings with per-group progress instead of one flat list —
+  and titles render their code spans and paths properly. Priority groups are
+  always open, accordions announce themselves, and states that say nothing
+  (`not-started`, `backlog`) no longer print a label.
+
 ## [0.5.2] - 2026-08-01
 
 ### Fixed

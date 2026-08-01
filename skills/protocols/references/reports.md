@@ -140,7 +140,10 @@ entirely. Emit exactly this shape — every key except `item` is optional, and
        "description": "what this work is and why it matters, one paragraph",
        "blocked": ["<slug>"], "unblocks": ["<slug>"], "triage": true,
        "progress": {"done": 3, "total": 5},
-       "tasks": [{"id": "AB-1", "title": "…", "state": "done"}]}
+       "command": "/supermodo:flow --job work:<slug>",
+       "modified": "2026-07-30",
+       "tasks": [{"id": "AB-1", "title": "…", "state": "done",
+                  "group": "Group 1 — Preview/draft authorization"}]}
     ]}
   ],
   "waiting": [{"item": "<slug>", "why": "no priority: line"}],
@@ -162,14 +165,24 @@ will say so in a warning box:
 | `blocked` | `["<slug>"]` — an ARRAY | `"depends: <slug> (live)"` |
 | `unblocks` | `["<slug>"]` — WHICH items it unblocks | a bare count: "unblocks 1" answers nothing |
 | `tasks` | `[{"id","title","state"}]` — every task of the triad | omitting it |
-| `command` | the exact command to run, on every suggestion | omitting it |
+| `command` | the exact command to run — on every suggestion AND every item | omitting it |
+| `tasks` state | `pending` / `in-progress` / `done` / `paused` | anything else |
 
 `id` and a `"3/5"` string are tolerated and read as best they can be, but they
 are mistakes and the page reports them. Everything else that is mistyped is
 lost.
 
-- `state` on an ITEM is its execution state (`in progress`, `ready`,
-  `backlog`, `paused`, `blocked`).
+- `state` on an ITEM is its execution state per `worklist.md` — and an item
+  with some tasks done is `in-progress`, never `not-started`.
+- `modified` is the last commit date touching the triad (read-only git), not
+  a filesystem timestamp. Omit for backlog entries.
+- `group` on a task mirrors the heading it sits under in `tasks.md`. When
+  `tasks.md` groups its checklist, KEEP that grouping: the headings are the
+  author's decomposition of the work, and flattening them into one list
+  throws away the only structure a 70-task triad has. Tasks keep their file
+  order inside a group.
+- `command` is what the reader copies to act on that item: start a backlog
+  entry, continue a triad, triage an untriaged one. Every item carries one.
 - `state` on a TASK is one of the four docs-convention states — `pending`,
   `in-progress`, `done`, `paused` — and nothing else. An unrecognised value is
   rendered as unknown, never normalised into one of the four.
