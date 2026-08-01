@@ -138,7 +138,7 @@ entirely. Emit exactly this shape — every key except `item` is optional, and
       {"item": "work:<slug>", "state": "in progress", "effort": "M",
        "note": "released · workflow-breaking", "created": "YYYY-MM-DD",
        "description": "what this work is and why it matters, one paragraph",
-       "blocked": ["<slug>"], "unblocks": 1, "triage": true,
+       "blocked": ["<slug>"], "unblocks": ["<slug>"], "triage": true,
        "progress": {"done": 3, "total": 5},
        "tasks": [{"id": "AB-1", "title": "…", "state": "done"}]}
     ]}
@@ -149,8 +149,27 @@ entirely. Emit exactly this shape — every key except `item` is optional, and
 ```
 ````
 
+**Required keys, exactly these names.** The renderer reads names, not
+intentions — a near-miss silently loses that part of the board, and the page
+will say so in a warning box:
+
+| key | required shape | NOT |
+| --- | --- | --- |
+| `item` | the identity WITH its kind: `work:<slug>` or `backlog:<slug>` | a bare slug, `id`, `name` |
+| `state` | one execution state (below) | a sentence |
+| `effort` | a band: `S` `M` `L` `XL` `?` | `"XL — 70 open tasks…"` (put the evidence in `description`) |
+| `progress` | `{"done": 3, "total": 5}` | `"3/5 done"` |
+| `blocked` | `["<slug>"]` — an ARRAY | `"depends: <slug> (live)"` |
+| `unblocks` | `["<slug>"]` — WHICH items it unblocks | a bare count: "unblocks 1" answers nothing |
+| `tasks` | `[{"id","title","state"}]` — every task of the triad | omitting it |
+| `command` | the exact command to run, on every suggestion | omitting it |
+
+`id` and a `"3/5"` string are tolerated and read as best they can be, but they
+are mistakes and the page reports them. Everything else that is mistyped is
+lost.
+
 - `state` on an ITEM is its execution state (`in progress`, `ready`,
-  `backlog`, `paused`).
+  `backlog`, `paused`, `blocked`).
 - `state` on a TASK is one of the four docs-convention states — `pending`,
   `in-progress`, `done`, `paused` — and nothing else. An unrecognised value is
   rendered as unknown, never normalised into one of the four.

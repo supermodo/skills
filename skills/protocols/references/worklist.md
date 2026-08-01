@@ -198,21 +198,36 @@ Every line carries: identity · effective priority (`→` when inherited,
 `unset` when provisional) · execution state · effort with evidence ·
 dependency or leverage note.
 
-## Suggestions — at most three, never auto-picked
+## Suggestions — a shortlist of three to five, never auto-picked
 
-1. **Priority lead** — the head of the board.
-2. **Context lead** — the highest-ranked item matching read-only evidence
-   (current branch name, recent commit subjects, uncommitted diff paths,
-   session context), **clamped to the priority lead's bucket or one lower**.
-   Context may break a tie; it may never jump a priority gap. It MUST name
-   its evidence in one line. Omitted when nothing matches meaningfully.
-3. **Human unblocker** — the highest-ranked `needs-human-input` item whose
-   dependencies ARE met, phrased as the decision owed, quoting the open
-   question verbatim.
+The user asked what to work on. Answer with a SHORTLIST of real, doable work
+they can choose from — never with empty slots. Take the first **3 to 5**
+doable items in board order (the deterministic total order above), always
+starting with the priority lead.
+
+Each entry carries a **role label** explaining why it earned its place. Roles
+are labels, NOT reserved slots: a role with no candidate simply does not
+appear, and its place goes to the next item in board order. A shortlist is
+never padded with placeholders, and never says "nothing qualifies" while
+doable work exists.
+
+| role | earned by |
+| --- | --- |
+| `priority lead` | head of the board — always first |
+| `continues your work` | matches read-only evidence (branch, recent commit subjects, uncommitted diff paths, session context), **clamped to the lead's bucket or one lower**. Context may break a tie, never jump a priority gap. MUST name its evidence in one line. |
+| `unblocks others` | this item is the only unmet dependency of one or more active items — name them |
+| `waiting on you` | a `needs-human-input` item whose dependencies ARE met, phrased as the decision owed, quoting the open question verbatim |
+| `quick win` | effort S with no unmet dependency, inside the lead's bucket or one lower |
+| `next in line` | no special role; it is simply next in board order |
+
+Every entry states its identity (`work:<slug>` / `backlog:<slug>`), its
+priority, one line of why, and the **exact command** to start it.
 
 `dependency-blocked`, `paused` and `invalid` items are never suggested.
-Duplicates collapse. An empty board yields "nothing doable" plus the repairs
-list — never a fabricated suggestion.
+Duplicates collapse — an item earning two roles appears once, with the
+stronger role. Fewer than three doable items → show what exists. A board with
+NO doable item yields "nothing doable", the reason, and the repairs list —
+never a fabricated suggestion.
 
 **The selection is always the user's; nothing auto-picks.**
 

@@ -145,16 +145,22 @@ const graph = (data: Obj): string => {
 // Colour discipline: --ok/--warn/--bad mean STATUS and nothing else, and
 // --accent means "you can interact with this". Priority, effort and structure
 // are carried by weight, fill and position — never by borrowing a status hue.
+//
+// TOLERANT BUT LOUD: common shape mistakes are accepted (`id` for `item`, a
+// "3/5" string for `progress`, a bare string for `blocked`), because half a
+// board beats none. Anything that cannot be salvaged is REPORTED on the page
+// instead of silently dropped — a board that quietly loses its task lists is
+// worse than one that says it did.
 
 const bchip = (text: string, cls = ""): string =>
   `<span class="bchip ${cls}">${esc(text)}</span>`;
 
 // The four task states of the docs convention, and nothing invented beyond
 // them: ` ` pending, `/` in-progress, `x`/`X` done, `^`/`-` paused.
-// Aliases are accepted because `next` may name them either way; an unknown
-// state is SHOWN as unknown rather than quietly rendered as pending.
 const TASK_STATE: Readonly<Record<string, readonly [string, string]>> = {
   pending: ["pending", "·"],
+  "not-started": ["pending", "·"],
+  todo: ["pending", "·"],
   "in-progress": ["doing", "▸"],
   doing: ["doing", "▸"],
   wip: ["doing", "▸"],
@@ -167,78 +173,153 @@ const task = (t: Json): string => {
   const state = asStr(t.state, "pending");
   const known = TASK_STATE[state];
   const [cls, glyph] = known ?? ["unknown", "?"];
+  const id = asStr(t.id);
   return `<li class="task t-${cls}"${known === undefined ? ` title="unrecognised state: ${esc(state)}"` : ""}>` +
     `<span class="tmark">${glyph}</span>` +
-    `<span class="tid">${esc(asStr(t.id))}</span>` +
-    `<span class="ttitle">${esc(asStr(t.title))}</span>` +
+    (id === "" ? "" : `<span class="tid">${esc(id)}</span>`) +
+    `<span class="ttitle">${esc(asStr(t.title, asStr(t.text)))}</span>` +
     (known === undefined ? `<span class="bchip hard">${esc(state)}?</span>` : "") +
     `</li>`;
 };
 
-const progress = (p: Json): string => {
-  if (!isObj(p)) return "";
-  const total = asNum(p.total, 0), done = asNum(p.done, 0);
-  if (total === 0) return "";
+/** `{done,total}`, or a "3/5" / "3/5 done" string. */
+const progressOf = (p: Json): { readonly done: number; readonly total: number } | undefined => {
+  if (isObj(p)) {
+    const total = asNum(p.total, 0);
+    return total > 0 ? { done: asNum(p.done, 0), total } : undefined;
+  }
+  const m = asStr(p).match(/(\d+)\s*\/\s*(\d+)/);
+  return m === null || Number(m[2]) === 0 ? undefined : { done: Number(m[1]), total: Number(m[2]) };
+};
+
+const progressBar = (p: Json): string => {
+  const v = progressOf(p);
+  if (v === undefined) return "";
   return `<span class="prog"><span class="prog-bar">` +
-    `<span class="prog-fill" style="width:${Math.round((done / total) * 100)}%"></span></span>` +
-    `<span class="prog-n">${done}/${total}</span></span>`;
+    `<span class="prog-fill" style="width:${Math.round((v.done / v.total) * 100)}%"></span></span>` +
+    `<span class="prog-n">${v.done}/${v.total}</span></span>`;
+};
+
+/** An effort band is short ("M", "XL", "?"); anything longer is evidence. */
+const effortOf = (v: Json): { readonly band: string; readonly evidence: string } => {
+  const raw = asStr(v, "?").trim();
+  const m = raw.match(/^([SMLX?]+|XL|XXL)\b\s*[—–-]?\s*(.*)$/i);
+  return m === null
+    ? { band: raw.length <= 3 ? raw : "?", evidence: raw.length <= 3 ? "" : raw }
+    : { band: m[1].toUpperCase(), evidence: m[2] };
+};
+
+const listOf = (v: Json): readonly string[] =>
+  typeof v === "string" && v.trim() !== "" ? [v]
+    : asArr(v).filter((x): x is string => typeof x === "string");
+
+const DOT: Readonly<Record<string, string>> = {
+  "in progress": "running", "in-progress": "running", doing: "running",
+  paused: "skipped", "not-started": "idle", pending: "idle", backlog: "idle",
+  "dependency-blocked": "blocked", blocked: "blocked",
+  ready: "ok", "not started": "idle",
 };
 
 const boardItem = (it: Obj): string => {
-  const blocked = asArr(it.blocked).filter((b): b is string => typeof b === "string");
-  const unblocks = asNum(it.unblocks, 0);
+  const name = asStr(it.item, asStr(it.id));
+  const blocked = listOf(it.blocked);
+  const unblocksNames = listOf(it.unblocks);
+  const unblocksCount = unblocksNames.length > 0 ? unblocksNames.length : asNum(it.unblocks, 0);
   const tasks = asArr(it.tasks).filter(isObj);
-  const state = asStr(it.state);
-  const dot = state === "in progress" ? "running" : state === "paused" ? "skipped" : "ok";
+  const state = asStr(it.state, "—");
+  const effort = effortOf(it.effort);
+  const note = asStr(it.note);
+  const created = asStr(it.created);
+  const desc = asStr(it.description);
+  const detail = [desc, effort.evidence, note].filter((x) => x !== "");
   return `<details class="bitem-row"><summary>` +
-    `<span class="dot ${dot}"></span>` +
-    `<span class="bitem">${esc(asStr(it.item))}</span>` +
+    `<span class="dot ${attrClass(DOT[state] ?? "idle")}"></span>` +
+    identity(name) +
     `<span class="bstate">${esc(state)}</span>` +
-    bchip(`effort ${asStr(it.effort, "?")}`) +
+    bchip(`effort ${effort.band}`) +
     (blocked.length > 0 ? bchip(`blocked by ${blocked.join(", ")}`, "hard") : "") +
-    (unblocks > 0 ? bchip(`unblocks ${unblocks}`) : "") +
+    (unblocksNames.length > 0
+      ? bchip(`unblocks ${unblocksNames.join(", ")}`)
+      : unblocksCount > 0 ? bchip(`unblocks ${unblocksCount} item${unblocksCount === 1 ? "" : "s"} (unnamed)`) : "") +
     (it.triage === true ? bchip("needs triage", "hard") : "") +
-    progress(it.progress) +
+    progressBar(it.progress) +
     `<span class="chev" aria-hidden="true">▸</span>` +
     `</summary><div class="bitem-body">` +
-    `<p class="bdesc">${esc(asStr(it.description))}</p>` +
-    `<p class="bmeta">${esc(asStr(it.note))}${asStr(it.created) === "" ? "" : ` · created ${esc(asStr(it.created))}`}</p>` +
-    (tasks.length === 0 ? "" : `<ul class="tasks">${tasks.map(task).join("")}</ul>`) +
+    detail.map((d) => `<p class="bdesc">${esc(d)}</p>`).join("") +
+    (created === "" ? "" : `<p class="bmeta">created ${esc(created)}</p>`) +
+    (tasks.length > 0
+      ? `<ul class="tasks">${tasks.map(task).join("")}</ul>`
+      : `<p class="bmeta">No task list in the board data.</p>`) +
     `</div></details>`;
+};
+
+const attrClass = (s: string): string => esc(s);
+
+/** `work:csv-export` → dim kind, bold slug. A bare slug says neither. */
+const identity = (name: string): string => {
+  if (name === "") return `<span class="bitem missing">(item name missing)</span>`;
+  const m = name.match(/^(work|backlog):(.+)$/);
+  return m === null
+    ? `<span class="bitem"><span class="kindless" title="no work:/backlog: prefix">${esc(name)}</span></span>`
+    : `<span class="bitem"><span class="ikind">${esc(m[1])}:</span>${esc(m[2])}</span>`;
 };
 
 const boardGroup = (g: Obj): string => {
   const items = asArr(g.items).filter(isObj);
   const pri = asStr(g.priority);
+  const label = asStr(g.label);
   return `<section class="bgroup">` +
     `<header><span class="bpri ${esc(pri.toLowerCase())}">${esc(pri)}</span>` +
-    `<span class="blabel">${esc(asStr(g.label))}</span>` +
+    (label === "" || label === pri ? "" : `<span class="blabel">${esc(label)}</span>`) +
     `<span class="bcount">${items.length}</span></header>` +
     items.map(boardItem).join("") +
     `</section>`;
 };
 
-const suggestion = (sg: Obj, i: number): string =>
-  `<li class="sugg">` +
-  `<div class="sugg-top"><span class="rank">${i + 1}</span>` +
-  `<span class="bitem">${esc(asStr(sg.item))}</span>` +
-  `<span class="bpri ${esc(asStr(sg.priority).toLowerCase())}">${esc(asStr(sg.priority))}</span>` +
-  `<span class="kind">${esc(asStr(sg.kind))}</span></div>` +
-  `<p class="why">${esc(asStr(sg.why))}</p>` +
-  `<pre class="cmd"><code>${esc(asStr(sg.command))}</code></pre>` +
-  `</li>`;
+const suggestion = (sg: Obj, i: number): string => {
+  const item = asStr(sg.item, asStr(sg.id));
+  if (item === "") return "";  // an empty slot is not advice; the shortlist omits it
+  const command = asStr(sg.command);
+  const priority = asStr(sg.priority);
+  return `<li class="sugg">` +
+    `<div class="sugg-top"><span class="rank">${i + 1}</span>` +
+    identity(item) +
+    (priority === "" ? "" : `<span class="bpri ${esc(priority.toLowerCase())}">${esc(priority)}</span>`) +
+    `<span class="kind">${esc(asStr(sg.kind).replace(/-/g, " "))}</span></div>` +
+    `<p class="why">${esc(asStr(sg.why))}</p>` +
+    (command === "" ? "" : `<pre class="cmd"><code>${esc(command)}</code></pre>`) +
+    `</li>`;
+};
 
 const bullets = (heading: string, items: readonly string[]): string =>
   items.length === 0 ? "" :
     `<div class="bwait"><h4>${esc(heading)}</h4><ul>${items.map((t) => `<li>${esc(t)}</li>`).join("")}</ul></div>`;
 
+/** Shape problems worth telling the reader about, rather than hiding. */
+const boardComplaints = (groups: readonly Obj[]): readonly string[] => {
+  const items = groups.flatMap((g) => asArr(g.items).filter(isObj));
+  const noName = items.filter((it) => asStr(it.item, asStr(it.id)) === "").length;
+  const usedId = items.filter((it) => asStr(it.item) === "" && asStr(it.id) !== "").length;
+  const noTasks = items.filter((it) => asArr(it.tasks).length === 0).length;
+  const noPrefix = items.filter((it) => !/^(work|backlog):/.test(asStr(it.item, asStr(it.id)))).length;
+  return [
+    ...(noName > 0 ? [`${noName} item(s) have no "item" name`] : []),
+    ...(noPrefix > 0 ? [`${noPrefix} item(s) lack the "work:" / "backlog:" prefix — the board cannot tell a triad from a backlog entry`] : []),
+    ...(usedId > 0 ? [`${usedId} item(s) used "id" instead of "item" — read as the name`] : []),
+    ...(noTasks === items.length && items.length > 0
+      ? ['no item carries a "tasks" list — the accordions have nothing to open']
+      : []),
+  ];
+};
+
 const board = (data: Obj): string => {
   const suggestions = asArr(data.suggestions).filter(isObj);
   const groups = asArr(data.groups).filter(isObj);
   const waiting = asArr(data.waiting).filter(isObj)
-    .map((w) => `${asStr(w.item)} — ${asStr(w.why)}`);
+    .map((w) => `${asStr(w.item, asStr(w.id))} — ${asStr(w.why)}`);
   const repairs = asArr(data.repairs).filter((r): r is string => typeof r === "string");
   if (suggestions.length === 0 && groups.length === 0) return "";
+  const complaints = boardComplaints(groups);
   return `<div class="board">` +
     (suggestions.length === 0 ? "" :
       `<div class="bsection"><h3 class="bhead">Do next</h3>` +
@@ -250,6 +331,10 @@ const board = (data: Obj): string => {
       `<div class="bsection quiet"><h3 class="bhead">Waiting on you</h3>` +
       bullets("Needs triage", waiting) + bullets("Convention repairs", repairs) +
       `</div>`) +
+    (complaints.length === 0 ? "" :
+      `<div class="blk-raw"><div class="blk-warn">Incomplete board data — re-run ` +
+      `<code>/supermodo:next</code> after checking the block shape in reports.md</div>` +
+      `<ul>${complaints.map((c) => `<li>${esc(c)}</li>`).join("")}</ul></div>`) +
     `<p class="bstamp">Snapshot from <code>${esc(asStr(data.source))}</code> ` +
     `at ${esc(asStr(data.generated))} — re-run <code>/supermodo:next</code> to refresh.</p>` +
     `</div>`;

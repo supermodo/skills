@@ -1,7 +1,7 @@
 # next — the worklist board
 
 Shows everything that could be worked on, grouped by priority, then suggests
-at most three things to do. It reads; it never changes your documentation and
+a shortlist of three to five things to do. It reads; it never changes your documentation and
 never touches git.
 
 ## When to use
@@ -14,7 +14,7 @@ never touches git.
 ## Invocation
 
 ```
-/supermodo:next                  # the board + up to three suggestions
+/supermodo:next                  # the board + a shortlist of 3-5 to pick from
 /supermodo:next --suggest        # suggestions only
 /supermodo:next --triage         # set priorities on items that lack one
 /supermodo:next --repair         # report convention debt to librarian

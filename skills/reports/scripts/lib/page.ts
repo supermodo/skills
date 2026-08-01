@@ -16,7 +16,14 @@ body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.6 var(--ui);paddi
 a{color:var(--accent)}
 code,pre{font-family:var(--mono);font-size:12.5px}
 code{background:var(--code);padding:1px 4px;border-radius:var(--rs)}
-pre{background:var(--code);padding:10px 12px;border-radius:var(--r);overflow-x:auto}
+pre{position:relative;background:var(--code);padding:10px 12px;border-radius:var(--r);overflow-x:auto}
+.copy{position:absolute;top:5px;right:5px;z-index:1;background:var(--bg);color:var(--dim);
+border:1px solid var(--line);border-radius:var(--rs);font:inherit;font-size:10.5px;
+padding:2px 8px;cursor:pointer;opacity:0;transition:opacity .12s ease}
+pre:hover .copy,.copy:focus{opacity:1}
+.copy.done{color:var(--ok);border-color:var(--ok);opacity:1}
+.bitem.missing{color:var(--bad);font-style:italic}
+.sugg.empty{opacity:.7}
 pre code{background:none;padding:0}
 .hd{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;max-width:var(--page);margin:0 auto;padding:0 var(--gutter)}
 header.top{border-bottom:1px solid var(--line)}
@@ -61,7 +68,7 @@ box-shadow:0 6px 20px rgba(0,0,0,.14);animation:toast .35s ease-out 1,toastout .
 .tabs .pin [aria-current=true]{background:var(--accent);color:var(--bg);border-color:var(--accent)}
 .tsep{width:1px;background:var(--line);margin:6px 10px 9px;align-self:stretch}
 /* board — structure carried by weight and fill; status hues stay for status */
-.board{max-width:780px;margin:0 auto}
+.board{max-width:100%}
 .bsection{margin:0 0 34px}
 .bsection.quiet{opacity:.8}
 .bhead{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.09em;
@@ -76,6 +83,8 @@ font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-co
 .why{margin:8px 0 10px;font-size:13.5px}
 .cmd{margin:0;padding:7px 10px;font-size:12px}
 .bitem{font-family:var(--mono);font-size:12.5px;font-weight:600}
+.ikind{color:var(--dim);font-weight:400}
+.kindless{border-bottom:1px dotted var(--warn)}
 /* priority: a neutral ramp, darkest first — order without stealing a status colour */
 .bpri{font-family:var(--mono);font-size:11px;font-weight:700;border-radius:var(--rs);
 padding:1px 7px;border:1px solid var(--line);letter-spacing:.02em}
@@ -131,6 +140,7 @@ nav.rail button{display:flex;align-items:center;gap:8px;width:100%;text-align:le
 nav.rail button:hover{background:var(--card)}
 nav.rail button[aria-current=true]{background:var(--card);font-weight:600}
 main{flex:1;min-width:0;padding:18px 0 60px}
+.wrap:not(.split) main{max-width:860px;margin:0 auto}
 .wrap.split main{padding-left:22px}
 [data-panel]{display:none}
 [data-panel].on{display:block}
@@ -141,6 +151,8 @@ main h4,main h5{font-size:13px;margin:14px 0 4px}
 .dot.ok{background:var(--ok)}.dot.failed,.dot.unreadable{background:var(--bad)}
 .dot.running,.dot.needs-input,.dot.partial{background:var(--warn)}
 .dot.skipped{background:var(--line)}
+.dot.idle{background:var(--dim);opacity:.5}
+.dot.blocked{background:transparent;border:2px solid var(--dim)}
 .sub{color:var(--dim);font-size:12px;margin:0 0 14px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;margin:0 0 14px}
 .card h3{margin-top:0}
@@ -193,6 +205,31 @@ nav.rail,.list{position:static;width:100%;max-height:none;border-right:0;border-
 
 const JS = `
 (function(){
+  // copy-to-clipboard on every code block; execCommand fallback because the
+  // async clipboard API is not available on file:// in every browser.
+  function copyText(text,btn){
+    function ok(){btn.textContent='copied';btn.classList.add('done');
+      setTimeout(function(){btn.textContent='copy';btn.classList.remove('done');},1400);}
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(ok,function(){legacy();});
+    } else {legacy();}
+    function legacy(){
+      var ta=document.createElement('textarea');
+      ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
+      document.body.appendChild(ta);ta.select();
+      try{document.execCommand('copy');ok();}catch(e){}
+      ta.remove();
+    }
+  }
+  document.querySelectorAll('pre').forEach(function(pre){
+    var btn=document.createElement('button');
+    btn.className='copy';btn.type='button';btn.textContent='copy';
+    btn.addEventListener('click',function(e){
+      e.stopPropagation();
+      copyText((pre.querySelector('code')||pre).textContent,btn);
+    });
+    pre.appendChild(btn);
+  });
   function measure(){
     var c=document.querySelector('.chrome');
     document.documentElement.style.setProperty('--chrome-h',(c?c.offsetHeight:0)+'px');
