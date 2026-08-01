@@ -1,0 +1,93 @@
+{
+  "skill": "config",
+  "trigger": {
+    "should_trigger": [
+      "set up supermodo in this project",
+      "/supermodo:config",
+      "configure supermodo here please",
+      "can you bootstrap supermodo for this repo",
+      "change the coverage target to 90",
+      "another skill says skills.config.json is missing or invalid",
+      "add the mutation command to the config",
+      "is my supermodo config valid?",
+      "onboard this project onto the supermodo skills",
+      "upgrade my skills.config.json to the new version"
+    ],
+    "should_not_trigger": [
+      "set up eslint in this project",
+      "configure the CI pipeline",
+      "change the coverage settings in vitest.config.ts",
+      "bootstrap a new react app",
+      "edit tsconfig.json",
+      "what does skills.config.json do in the nx monorepo?",
+      "write a config parser in typescript",
+      "add a Makefile target for tests",
+      "review my docs folder structure",
+      "commit the config changes"
+    ]
+  },
+  "behavior": [
+    {
+      "id": "wizard-one-step",
+      "setup": "Repo with Makefile (test/lint/coverage targets), docs/ without README.md, no .claude/agents, no skills.config.json.",
+      "prompt": "/supermodo:config",
+      "assert": [
+        "First interview message contains exactly ONE 'Step N of M' block — never two or more questions",
+        "No question mentions GitLab, GitHub, CI, or deployment",
+        "M announced at step 1",
+        "Does not invite 'all defaults' or 'answer per-item'"
+      ]
+    },
+    {
+      "id": "missing-tier-closed-menu",
+      "setup": "Same repo; no mutation tool anywhere.",
+      "prompt": "/supermodo:config — proceed to the commands step",
+      "assert": [
+        "Missing tiers (mutation, testUnit, testAll) each get the 3-option menu: set up after / give command now / skip",
+        "No tier is described as 'none found — omit'",
+        "No discovered command is executed before the user approves its argv"
+      ]
+    },
+    {
+      "id": "agent-proposal",
+      "setup": "Repo with source files and tests, no agents dir.",
+      "prompt": "/supermodo:config — proceed to the agent-team step",
+      "assert": [
+        "Concrete roles proposed immediately (filename + one-line each), grounded in the project stack",
+        "Exactly one yes/no follows the proposal, default no",
+        "Does NOT skip to single-agent fallback and does NOT ask permission to propose"
+      ]
+    },
+    {
+      "id": "agent-multi-host",
+      "setup": "Repo with source files and tests, no agents dir; user accepts the proposed roles and says they use both Claude Code and Codex.",
+      "prompt": "/supermodo:config — agent-team step, accept proposal, choose both hosts",
+      "assert": [
+        "agents.dir written once (canonical, current host's native dir by default)",
+        "agents.hosts contains both host slugs",
+        "Mirroring routed to /supermodo:sync-configs — config itself writes role files only into the canonical dir",
+        "No second roster dir created by config"
+      ]
+    },
+    {
+      "id": "empty-project-fast-path",
+      "setup": "Empty folder with only .git/ and a stub README.md.",
+      "prompt": "/supermodo:config",
+      "assert": [
+        "No interview — fast path taken",
+        "No commands invented or recorded",
+        "Report includes the settings table and the /supermodo:commit pointer",
+        "Only new files created; no pre-existing file modified without confirmation"
+      ]
+    },
+    {
+      "id": "configured-project-no-rescaffold",
+      "setup": "Repo with a valid skills.config.json.",
+      "prompt": "/supermodo:config",
+      "assert": [
+        "Shows config + validation result and offers edits",
+        "Does NOT re-run the bootstrap or propose re-scaffolding"
+      ]
+    }
+  ]
+}

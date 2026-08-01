@@ -1,0 +1,29 @@
+{
+  "configVersion": 2,
+  "bogus": 1,
+  "docs": {
+    "entry": "docs"
+  },
+  "commands": {
+    "test": "deno task test"
+  },
+  "confirmations": {
+    "mode": "maybe"
+  },
+  "release": {
+    "branches": {
+      "main": "team/.hidden",
+      "dev": "-evil"
+    },
+    "tagPrefix": "--force ",
+    "versionFile": "/etc/passwd",
+    "mergeStrategy": "rebase"
+  },
+  "agents": {
+    "hosts": [
+      "claude",
+      "claude",
+      "Codex!"
+    ]
+  }
+}

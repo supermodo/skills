@@ -1,0 +1,20 @@
+# personal / working material — never publish
+/my-skills
+PLAN*.md
+PLAN-REVIEW-LOG.md
+NOTICE.md
+.remember/
+
+# local install & test artifacts
+.skills/
+skills-lock.json
+/agent/
+/.agents/
+/.claude/
+/worktrees/
+
+# os noise
+.DS_Store
+
+# maintainer-only, never published
+CLAUDE.md

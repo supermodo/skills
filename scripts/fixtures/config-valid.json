@@ -1,0 +1,57 @@
+{
+  "configVersion": 1,
+  "docs": {
+    "entry": "docs/README.md",
+    "conventions": "docs/CONVENTIONS.md"
+  },
+  "commands": {
+    "test": [
+      "deno",
+      "task",
+      "test"
+    ]
+  },
+  "workspace": {
+    "worktree": true
+  },
+  "coverage": {
+    "target": 80
+  },
+  "questions": {
+    "transport": "chat"
+  },
+  "confirmations": {
+    "mode": "ask",
+    "perSkill": {
+      "release": "auto"
+    }
+  },
+  "reports": {
+    "html": true,
+    "open": "auto"
+  },
+  "changelog": {
+    "fragments": true,
+    "dir": "changes"
+  },
+  "release": {
+    "mode": "light",
+    "branches": {
+      "main": "main",
+      "dev": "dev"
+    },
+    "versionFile": "package.json",
+    "versionPath": "version",
+    "changelog": "CHANGELOG.md",
+    "tagPrefix": "v",
+    "mergeStrategy": "squash",
+    "githubRelease": true
+  },
+  "agents": {
+    "dir": ".claude/agents",
+    "hosts": [
+      "claude",
+      "codex"
+    ]
+  }
+}

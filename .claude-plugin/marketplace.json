@@ -1,0 +1,14 @@
+{
+  "name": "supermodo-skills",
+  "owner": {
+    "name": "supermodo"
+  },
+  "plugins": [
+    {
+      "name": "supermodo",
+      "source": "./",
+      "description": "Documentation-driven development with twin-model adversarial checks: 16 skills from task intake (grill) to release."
+    }
+  ],
+  "description": "A coherent, opinionated toolkit for documentation-driven development with twin-model adversarial checks."
+}
