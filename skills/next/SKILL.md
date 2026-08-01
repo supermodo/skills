@@ -1,6 +1,6 @@
 ---
 name: next
-description: "Shows the worklist board — everything that could be worked on, grouped by priority, annotated with effort, execution state, dependencies and whether triage is still owed by the human — followed by at most three suggestions. Use whenever the user asks what to work on next, wants an overview of open work, asks to see the board, the backlog by priority, or what is blocked, what needs their input, or what is worth doing now. Also `--triage` to set priorities on items that lack one and `--repair` to report convention debt to librarian. Triggers on 'what should I work on', 'what's next', 'show the board', 'what's blocked', 'what needs me', 'prioritize the backlog'."
+description: "Shows the worklist board — everything that could be worked on, grouped by priority, annotated with effort, execution state, dependencies and whether triage is still owed by the human — followed by a shortlist of three to five things worth doing now. Use whenever the user asks what to work on next, wants an overview of open work, asks to see the board, the backlog by priority, or what is blocked, what needs their input, or what is worth doing now. Also `--triage` to set priorities on items that lack one and `--repair` to report convention debt to librarian. Triggers on 'what should I work on', 'what's next', 'show the board', 'what's blocked', 'what needs me', 'prioritize the backlog'."
 ---
 
 # next — the worklist board
@@ -35,7 +35,7 @@ including `--triage` and `--repair`. Skipping that is a failed run.
 
 | form | behavior |
 | --- | --- |
-| `next` | render the full board, then at most three suggestions |
+| `next` | render the full board, then a shortlist of 3–5 things to do now |
 | `--suggest` | the suggestions only, no board |
 | `--triage [<identity>]` | run the intake questions for items with no stored priority — all of them, or just the named one |
 | `--repair` | report convention debt; offer to hand it to `librarian` |
@@ -49,7 +49,9 @@ including `--triage` and `--repair`. Skipping that is a failed run.
 3. Gather read-only evidence for the context lead: current branch, last ~10
    commit subjects, uncommitted diff paths, session context. Read-only git
    only.
-4. Print the board, then the suggestions, then the repairs list.
+4. Print the board, then the shortlist (3–5 real, doable items — never an
+   empty slot, never "nothing qualifies" while doable work exists), then the
+   repairs list.
 5. Offer the handoff — for the item the user picks:
    `/supermodo:flow --job work:<triad-path>` (existing triad) or
    `/supermodo:flow --job backlog:<slug>` (backlog entry). Offer only;
@@ -90,6 +92,21 @@ literally. The block carries the whole resolved board: suggestions, priority
 groups, and per item its description, effort, execution state, dependencies,
 progress and task list with per-task state.
 
+**Identity always carries its kind** — `work:<slug>` for a triad,
+`backlog:<slug>` for a backlog entry. A bare slug tells the reader nothing
+about what they are looking at, and is what `flow --job` needs anyway.
+
+**`unblocks` names the items** it unblocks, never a count.
+
+**The shortlist holds 3–5 REAL items** — no placeholder entries, no "nothing
+qualifies" while doable work exists. Roles are labels earned in board order,
+per the worklist master.
+
+**Every open item carries its `tasks` array** — the whole checklist with each
+task's state, read from `tasks.md`. The accordion exists to show them; an item
+without them renders as an empty drawer. Same for `command` on every
+suggestion: it is what the user copies.
+
 **Never render the board as markdown tables.** A table renders as a wall of
 text and the Board tab loses everything — the block IS the board. Prose that
 is not the board (a triage transcript, the lines owed to `librarian`) goes
@@ -99,15 +116,17 @@ BELOW the block as ordinary markdown.
 still knows the whole board, and "what did I owe last week" is a real
 question.
 
-Then invoke the renderer and TELL THE USER the page exists — a board they are
-never pointed at is a board they will not open:
+Then invoke the renderer with NO target, so it refreshes everything and opens
+the **archive index** — whose front page is the Board:
 
 ```
-node <skills>/reports/scripts/render.ts --report .skills/supermodo/next/<ts>.md
+node <skills>/reports/scripts/render.ts
 ```
 
-The newest of these files IS the Board tab of the HTML archive, and the
-renderer opens it per `reports.open` (default `auto`).
+Open the index, never the individual report page: the board belongs in its
+tab, next to the runs and to what needs the user. Name the opened path in the
+final message. The newest `next/<ts>.md` IS the Board tab, and the renderer
+opens it per `reports.open` (default `auto`).
 
 The renderer only draws what this skill resolves: ordering, priority
 inheritance and suggestion choice stay here and in the worklist master, never

@@ -47,7 +47,7 @@ and rows light up as their status changes.
 ## The archive
 
 `index.html` opens on the **Board** — the worklist as of the last time you ran
-`/supermodo:next`: the three suggestions, then everything open by priority as
+`/supermodo:next`: the shortlist of what to do now, then everything open by priority as
 rows you can click open for the description, the dates and the full task list
 with per-task state. It sits apart from the other tabs because it describes
 *now*, not history, and it carries a stamp saying when it was computed. The

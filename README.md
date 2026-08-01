@@ -49,7 +49,7 @@ flags, behavior).
 | [`config`](docs/config.md) ⚙︎ | **Core dependency.** Config keeper: show/validate/edit `skills.config.json`; bootstraps the project when none exists |
 | [`protocols`](docs/protocols.md) ⚙︎ | **Core dependency.** The shared protocols every skill follows + package help & install doctor |
 | [`flow`](docs/flow.md) | Thin orchestrator: runs the 8-stage pipeline in full or `--from` any stage, with a context-aware next-job suggestion |
-| [`next`](docs/next.md) | The worklist board: everything open by priority, with effort, status, blockers — plus up to three suggestions |
+| [`next`](docs/next.md) | The worklist board: everything open by priority, with effort, status, blockers — plus a shortlist of 3-5 things to do now |
 | [`grill`](docs/grill.md) | Twin-agent adversarial interview (Claude + Codex plan independently, disprove each other, you answer only real conflicts) |
 | [`librarian`](docs/librarian.md) | Sole owner of documentation: lifecycle pass, backlog ops, task intake, `--absorb` onboarding |
 | [`work`](docs/work.md) | Lead implementer: docs router → context chain → team or solo → implement → cross-provider verify |
