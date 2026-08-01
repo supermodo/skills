@@ -98,6 +98,23 @@ about what they are looking at, and is what `flow --job` needs anyway.
 
 **`unblocks` names the items** it unblocks, never a count.
 
+**Every item carries its own `command`** — the next action for THAT item, so
+the board answers "how do I start this" for all 34 rows, not just the
+shortlist. `/supermodo:flow --job backlog:<slug>` to start a backlog entry,
+`/supermodo:flow --job work:<slug>` to continue a triad,
+`/supermodo:next --triage <slug>` when it has no priority yet.
+
+**Preserve the task grouping.** If `tasks.md` divides its checklist under
+headings, every task carries that heading as its `group` — the board shows
+the same decomposition the author wrote. Never flatten a grouped checklist.
+
+**Supply `modified`** for triads — the last commit date touching the triad
+directory (`git log -1 --format=%ad --date=short -- <path>`, read-only). It
+orders the board and tells the user what they were last living in.
+
+**An item with any task done is `in-progress`,** never `not-started` — see
+the execution-state table in the worklist master.
+
 **The shortlist holds 3–5 REAL items** — no placeholder entries, no "nothing
 qualifies" while doable work exists. Roles are labels earned in board order,
 per the worklist master.

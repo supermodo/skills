@@ -98,15 +98,19 @@ padding:1px 7px;border:1px solid var(--line);letter-spacing:.02em}
 /* rows: dense like a table, but each one opens */
 .bitem-row{border-bottom:1px solid var(--line)}
 .bitem-row>summary{display:flex;align-items:center;gap:9px;flex-wrap:wrap;
-padding:9px 4px;cursor:pointer;list-style:none}
+padding:9px 4px 9px 2px;cursor:pointer;list-style:none}
 .bitem-row>summary::-webkit-details-marker{display:none}
 .bitem-row>summary:hover{background:var(--card)}
+/* one affordance for every accordion on the page */
+details>summary .caret{display:inline-flex;align-items:center;justify-content:center;
+width:18px;height:18px;flex:none;margin-right:4px;color:var(--dim);font-size:22px;
+line-height:.6;transform-origin:50% 50%;transition:transform .13s ease}
+details[open]>summary .caret{transform:rotate(90deg)}
 .bstate{font-size:12px;color:var(--dim);min-width:74px}
 .bchip{font-size:10.5px;color:var(--dim);border:1px solid var(--line);border-radius:10px;
 padding:1px 8px;white-space:nowrap}
 .bchip.hard{color:var(--fg);border-color:var(--dim)}
-.chev{margin-left:auto;color:var(--dim);font-size:11px;transition:transform .15s ease}
-.bitem-row[open]>summary .chev{transform:rotate(90deg)}
+
 .prog{display:inline-flex;align-items:center;gap:6px}
 .prog-bar{width:54px;height:4px;border-radius:2px;background:var(--line);overflow:hidden}
 .prog-fill{display:block;height:100%;background:var(--dim)}
@@ -114,10 +118,28 @@ padding:1px 8px;white-space:nowrap}
 .bitem-body{padding:2px 4px 14px 21px}
 .bdesc{margin:0 0 6px;font-size:13.5px;max-width:62ch}
 .bmeta{margin:0 0 10px;font-size:11.5px;color:var(--dim)}
-.tasks{list-style:none;margin:0;padding:0;display:grid;gap:1px}
-.task{display:flex;align-items:baseline;gap:9px;font-size:12.5px;padding:3px 0}
-.tmark{width:13px;text-align:center;color:var(--dim);font-size:11px;flex:none}
-.tid{font-family:var(--mono);font-size:11px;color:var(--dim);min-width:38px;flex:none}
+.bsub{margin:0 0 12px;font-size:11.5px;color:var(--dim)}
+.tasklist{margin-top:10px}
+.tband{margin:0 0 12px}
+.tbh{display:flex;align-items:center;gap:7px;font-size:10.5px;text-transform:uppercase;
+letter-spacing:.07em;color:var(--dim);padding:0 0 5px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.tgroup>summary{display:flex;align-items:center;gap:7px;cursor:pointer;list-style:none;
+padding:6px 2px;border-bottom:1px solid var(--line)}
+.tgroup>summary::-webkit-details-marker{display:none}
+.tgroup>summary:hover .tbname{color:var(--fg)}
+.tgroup>summary .tbname{flex:1;min-width:0;font-size:12px;color:var(--dim)}
+.tgroup[open]>summary .tbname{color:var(--fg);font-weight:600}
+.tgroup>ul.tasks{padding:6px 0 10px}
+.tbn{font-family:var(--mono);font-size:10.5px;opacity:.75}
+.tasks{list-style:none;margin:0;padding:0}
+.task{display:grid;grid-template-columns:14px 1fr auto;align-items:baseline;
+gap:10px;font-size:12.5px;padding:4px 2px;border-radius:var(--rs)}
+.task:hover{background:var(--card)}
+.tmark{text-align:center;color:var(--dim);font-size:11px}
+.ttitle{min-width:0;overflow-wrap:anywhere}
+.ttitle code{font-size:11.5px}
+.tid{font-family:var(--mono);font-size:10.5px;color:var(--dim);opacity:.75;
+white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis}
 .task.t-done .ttitle{color:var(--dim);text-decoration:line-through;text-decoration-thickness:1px}
 .task.t-done .tmark{color:var(--ok)}
 .task.t-doing .tmark{color:var(--warn)}
@@ -128,6 +150,18 @@ padding:1px 8px;white-space:nowrap}
 .bwait h4{margin:0 0 5px;font-size:12.5px}
 .bwait ul{margin:0 0 12px;padding-left:18px;font-size:12.5px;color:var(--dim)}
 .bstamp{color:var(--dim);font-size:11.5px;margin:0}
+.bstamp.top{margin:0 0 18px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.bchip.quiet{opacity:.7}
+.bmeta.warnish{color:var(--warn)}
+.donefold{margin-top:6px}
+.donefold>summary{cursor:pointer;font-size:11.5px;color:var(--dim);list-style:none;padding:2px 0}
+.donefold>summary::-webkit-details-marker{display:none}
+.donefold>summary{display:flex;align-items:center;gap:7px;text-transform:uppercase;
+letter-spacing:.07em;font-size:10.5px}
+.doit{margin-top:12px}
+.doit .label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--dim);margin-bottom:4px}
+.doit .cmd{margin:0}
+.bgroup>header{display:flex;align-items:center;gap:9px;margin:0 0 2px}
 .chip{font-size:11px;padding:2px 9px;border-radius:11px;border:1px solid var(--line);color:var(--dim);white-space:nowrap}
 .chip.ok{color:var(--ok);border-color:var(--ok)}
 .chip.failed,.chip.unreadable{color:var(--bad);border-color:var(--bad)}
@@ -556,7 +590,7 @@ const boardPanel = (model: Model): string => {
     `<div class="wrap"><main>` +
     (b === undefined
       ? `<div class="empty">No board yet — run <code>/supermodo:next</code>.</div>`
-      : markdown(b.body)) +
+      : (b.summary === "" ? "" : `<p class="sub">${esc(b.summary)}</p>`) + markdown(b.body)) +
     `</main></div></section>`;
 };
 
