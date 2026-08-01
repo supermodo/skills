@@ -248,6 +248,21 @@ not skipping care. Run a scoped version of the workflow:
 
 If the pair is already in sync, say so and stop.
 
+## Persist and publish
+
+Standalone runs write this report to
+`.skills/supermodo/sync-configs/<YYYYMMDD-HHMMSS>.md` per
+`../protocols/references/reports.md` — a result living only in chat dies with
+the session. Then publish it:
+
+```
+node <skills>/reports/scripts/render.ts --report <that path>
+```
+
+and NAME the page in your final message. Inside a `flow` run this does not
+apply: the stage report is the artifact and the orchestrator renders the one
+run page.
+
 ## Guardrails
 
 - Never commit, merge, or push. Never touch git state.

@@ -70,10 +70,24 @@ Every report is also published as a web page. The `.md` file stays the source
 of truth — machine-readable, hashable, the medium the next stage reads; the
 HTML is a **projection**, regenerable and never load-bearing.
 
-- **After writing a report, invoke the renderer for it:**
-  `node <skills>/reports/scripts/render.ts --report <path.md>` (flow uses
-  `--run <run-id>`). That is the whole duty — no skill generates HTML, formats
-  a page, or decides when to open a browser.
+- **After writing a report, invoke the renderer for it, then NAME THE PAGE in
+  your final message.** A page nobody is pointed at is a page nobody opens.
+
+  ```
+  node <skills>/reports/scripts/render.ts --report <path.md>
+  ```
+
+  That is the whole duty — no skill generates HTML, formats a page, or decides
+  when to open a browser; `render.ts` opens it per `reports.open`.
+
+  **Exception — inside a flow run:** a stage skill writes its
+  `<NN>-<skill>.md` and stops there. It does NOT render and does NOT open
+  anything: the orchestrator renders the ONE run page after every stage (eight
+  stages must never become eight browser tabs). Rendering per-report applies to
+  STANDALONE invocations only.
+
+  This duty is not optional and is not "reporting style": a skill that
+  finishes without persisting and publishing its run has not finished.
 - Pages land beside their source: `runs/<run-id>/report.html`,
   `<skill>/<ts>.html`, plus `.skills/supermodo/index.html` (the archive).
 - Rendering is best-effort: it never fails a stage, never changes a verdict,

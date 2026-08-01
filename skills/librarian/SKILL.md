@@ -213,3 +213,18 @@ promoted / split / archived / generated files, docs-check result before and
 after, and any user decisions still required. Concise chat reporting per
 `output.verbosity` (default concise); generated artifacts always follow the
 convention formats.
+
+## Persist and publish
+
+Standalone runs write this report to
+`.skills/supermodo/librarian/<YYYYMMDD-HHMMSS>.md` per
+`../protocols/references/reports.md` — a result living only in chat dies with
+the session. Then publish it:
+
+```
+node <skills>/reports/scripts/render.ts --report <that path>
+```
+
+and NAME the page in your final message. Inside a `flow` run this does not
+apply: the stage report is the artifact and the orchestrator renders the one
+run page.

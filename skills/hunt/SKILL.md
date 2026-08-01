@@ -316,7 +316,9 @@ skipping it ships the inflation to the user.
      report's structure.
    - Hunt ALWAYS writes its report + shards under
      `.skills/supermodo/hunt/YYYY-MM-DD-<target-name>.md` (reports
-     protocol) — never directly into `docs/`, never a new `docs/audits/`
+     protocol), then PUBLISHES it — `node <skills>/reports/scripts/render.ts
+     --report <that path>`, naming the page in the final message (standalone
+     runs only; inside `flow` the orchestrator renders the run page) — never directly into `docs/`, never a new `docs/audits/`
      folder. When the project's docs contract dictates an audit location
      inside `docs/`, that location is honored THROUGH librarian: hand the
      finished report over (invoke librarian, or flag it for its next pass)

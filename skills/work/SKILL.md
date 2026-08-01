@@ -152,3 +152,18 @@ work. Per `../protocols/references/cross-model.md` + `../protocols/references/ad
 
 Hand the clean working tree to the user. Never commit, merge, rebase, or
 push — the user performs all git operations.
+
+## Persist and publish
+
+Standalone runs write this report to
+`.skills/supermodo/work/<YYYYMMDD-HHMMSS>.md` per
+`../protocols/references/reports.md` — a result living only in chat dies with
+the session. Then publish it:
+
+```
+node <skills>/reports/scripts/render.ts --report <that path>
+```
+
+and NAME the page in your final message. Inside a `flow` run this does not
+apply: the stage report is the artifact and the orchestrator renders the one
+run page.

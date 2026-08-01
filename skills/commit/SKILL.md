@@ -169,6 +169,12 @@ the outcome — message, files, committed-or-not — to
 `../protocols/references/reports.md` when the directory exists (a configured
 project); skip silently in unconfigured repos.
 
+**Then publish it** per `../protocols/references/reports.md`: invoke
+`node <skills>/reports/scripts/render.ts --report <that path>` and NAME the
+page in your final message. Standalone runs only — inside a `flow` run the
+orchestrator renders the run page and stages render nothing.
+
+
 ## Changelog fragment (default ON)
 
 The model writing the commit is the one holding the full context of what

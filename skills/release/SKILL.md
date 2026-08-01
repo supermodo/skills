@@ -206,7 +206,10 @@ NOT yet merged is listed as "still open — not cleaned up", never force-removed
 - **Persist the outcome** per `../protocols/references/reports.md`
   (standalone location): preflight result, proposed + chosen bump,
   changelog entry, and exactly which commands ran — so a half-done or
-  declined release survives session loss.
+  declined release survives session loss. Then publish it per the reports protocol — render it with
+  `node <skills>/reports/scripts/render.ts --report <that path>` and name the
+  page in your final message (standalone runs only; inside `flow` the
+  orchestrator renders the run page).
 
 ## What this skill is not
 
