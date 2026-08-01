@@ -82,11 +82,22 @@ suggestion block always keep the master's format — protocol-mandated
 formats are never compressed.
 
 **Persist every invocation** per `../protocols/references/reports.md`:
-`.skills/supermodo/next/<YYYYMMDD-HHMMSS>.md`, carrying a `supermodo:board`
-block with the resolved board — groups, per-item description, effort,
-dependencies, task list with states, suggestions, triage debt and repairs.
-`--triage` and `--repair` persist the same way; "what did I owe last week" is
-a real question.
+`.skills/supermodo/next/<YYYYMMDD-HHMMSS>.md`.
+
+**The body of that report OPENS with a `supermodo:board` block** — the exact
+shape is in `reports.md` under "supermodo:board"; read it and follow it
+literally. The block carries the whole resolved board: suggestions, priority
+groups, and per item its description, effort, execution state, dependencies,
+progress and task list with per-task state.
+
+**Never render the board as markdown tables.** A table renders as a wall of
+text and the Board tab loses everything — the block IS the board. Prose that
+is not the board (a triage transcript, the lines owed to `librarian`) goes
+BELOW the block as ordinary markdown.
+
+`--triage` and `--repair` persist the same way, block included — a triage run
+still knows the whole board, and "what did I owe last week" is a real
+question.
 
 Then invoke the renderer and TELL THE USER the page exists — a board they are
 never pointed at is a board they will not open:

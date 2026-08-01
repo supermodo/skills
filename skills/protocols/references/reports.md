@@ -114,11 +114,48 @@ and they remain legible as text in the `.md`.
 | `supermodo:bars` | `{title, unit?, series:[{label, value, max?, state?}]}` — `state`: `ok`/`warn`/`bad`/absent |
 | `supermodo:tree` | `{title?, root:{label, meta?, state?, children?:[…]}}` — recursive |
 | `supermodo:graph` | `{title?, nodes:[{id, label, kind?}], edges:[{from, to, kind?}]}` — layered, `kind: "cycle"` marks a bad edge |
-| `supermodo:board` | the worklist board, emitted by `next` only — `{generated, source, suggestions:[…], groups:[{priority, label, items:[…]}], waiting:[…], repairs:[…]}`; each item may carry `description`, `created`, `effort`, `state`, `blocked`, `unblocks`, `triage`, `progress` and `tasks:[{id, title, state}]` |
+| `supermodo:board` | the worklist board — `next` ONLY; full shape below |
 
-Task `state` inside a board block uses the four states of the docs convention
-(pending, in-progress, done, paused) and nothing else; an unrecognised value is
-rendered as unknown, never normalised into one of the four.
+### `supermodo:board`
+
+The board is a BLOCK, never markdown tables. A `next` report whose body is
+prose or tables renders as an unstyled wall of text and loses the board
+entirely. Emit exactly this shape — every key except `item` is optional, and
+`groups` must be ordered P0 → P3:
+
+````
+```supermodo:board
+{
+  "generated": "YYYY-MM-DD HH:MM",
+  "source": "docs/README.md",
+  "suggestions": [
+    {"kind": "priority lead", "item": "work:<slug>", "priority": "P1",
+     "why": "one or two sentences naming the evidence",
+     "command": "/supermodo:flow --job work:<slug>"}
+  ],
+  "groups": [
+    {"priority": "P1", "label": "next", "items": [
+      {"item": "work:<slug>", "state": "in progress", "effort": "M",
+       "note": "released · workflow-breaking", "created": "YYYY-MM-DD",
+       "description": "what this work is and why it matters, one paragraph",
+       "blocked": ["<slug>"], "unblocks": 1, "triage": true,
+       "progress": {"done": 3, "total": 5},
+       "tasks": [{"id": "AB-1", "title": "…", "state": "done"}]}
+    ]}
+  ],
+  "waiting": [{"item": "<slug>", "why": "no priority: line"}],
+  "repairs": ["path — what is missing"]
+}
+```
+````
+
+- `state` on an ITEM is its execution state (`in progress`, `ready`,
+  `backlog`, `paused`).
+- `state` on a TASK is one of the four docs-convention states — `pending`,
+  `in-progress`, `done`, `paused` — and nothing else. An unrecognised value is
+  rendered as unknown, never normalised into one of the four.
+- Anything the board says beyond this block (a triage transcript, the lines
+  owed to librarian) goes BELOW it as ordinary markdown.
 
 Malformed JSON or an unknown block type renders as its own source text with a
 warning badge — never an error, never a blank page.
