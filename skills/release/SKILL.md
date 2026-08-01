@@ -28,6 +28,17 @@ version lives — `package.json:version`, `.claude-plugin/plugin.json:version`,
 
 ## Step 1 — Preflight (deterministic, read-only)
 
+**Establish where the release actually got to — from git, never from memory.**
+A release is many steps (version bump, changelog, merge, tag, push, GitHub
+release) and any of them may already have been run by the user or by an
+earlier attempt. Read `HEAD`, the tags (local AND remote), the branches, and
+`gh release list` before you say anything about state. NEVER report a step as
+"still pending" or "never done" because you did not see it happen in this
+conversation: a proposal that went unanswered in chat is not evidence of an
+unchanged repository. If the tag exists, say so and continue from there —
+re-running a completed step is how tags get moved and releases get
+duplicated.
+
 If `skills.config.json` exists, validate it FIRST (run the config skill's
 `config-check.ts` or apply `../protocols/references/config.md`) — never feed
 unvalidated values into git commands. Then run the bundled script, resolved
