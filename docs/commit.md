@@ -73,8 +73,20 @@ from the files themselves, and the offered command plan opens with
 `git init`. Initializing a repository is its own explicit question — never
 skipped, even in auto mode.
 
+A standalone commit writes no report and opens no page: the commit is already
+the record, permanent and diffable, and a browser tab per commit would be an
+interruption charged against the most frequent action in the toolkit. See
+[reports.md](reports.md).
+
+The exception is a commit that **failed after staging** — rejected by a hook,
+a signing error, anything. Then there is no commit to be the record, and you
+have a half-staged tree to sort out, so you do get a report and a page: the
+message, every command marked ran or not-run, the error, and what state the
+index was left in.
+
 In `flow`, commit is stage 8: the message is generated only from the run's
-own baseline diff, and ambiguous overlap with your pre-existing changes is
-asked about, never guessed.
+own baseline diff, ambiguous overlap with your pre-existing changes is
+asked about, never guessed, and the stage report is written like every other
+stage — there it is how the run hands off, not a copy.
 
 Requires: `protocols`; uses `skills.config.json` when present.

@@ -126,28 +126,89 @@ If a file is large but well-structured — each function small, pure, and focuse
 
 ## Phase 2: Plan & Approval
 
-Present the plan. Wait for explicit approval before touching code.
+**Write the plan down before asking about it.** A refactor plan is the single
+most consequential thing this skill shows the user: it proposes moving code
+they did not ask you to touch, and approving it as a wall of chat bullets is
+approving it blind. Per `../protocols/references/reports.md` ("Show what you
+are asking about"), the plan is written to the run's report with
+`status: needs-input` and the approval question in `questions`, BEFORE the
+question is put. Phase 5 completes that same file; it is one report per run,
+not two.
+
+**Where it is written, and who asks, depends on how this skill was invoked:**
+
+| | standalone | inside `flow` (stage 6) |
+| --- | --- | --- |
+| write the plan to | `.skills/supermodo/refactor/<YYYYMMDD-HHMMSS>.md` | `.skills/supermodo/runs/<run-id>/06-refactor.md` |
+| render it | yes — `node <skills>/reports/scripts/render.ts --report <that path>`, and NAME the page in the question | **no** — the orchestrator renders the one run page |
+| ask the user | directly, under the named page | **no** — return `status: needs-input` with the question and stop; the orchestrator routes it and continues this subagent with the answer |
+
+A flow stage runs as a subagent and **cannot talk to the user at all**, so
+asking directly there is not a stylistic slip: the question reaches nobody,
+the orchestrator never receives its stage report, and a mandatory pipeline
+stalls at stage 6 with the tests gate already spent. See "Flow integration"
+below — this is the same `needs-input` routing every other stage uses, applied
+to the approval gate.
+
+Then wait for explicit approval before touching code.
 
 ### Plan Format
 
-```markdown
+The three blocks below open the plan, in this order. They are not
+illustrations of the prose — they ARE the plan, and the prose underneath
+carries what a diagram cannot (why, risk, alternatives).
+
+````markdown
 ## Refactoring Plan: <target>
 
 ### Assessment
-- Files to refactor: N (with line counts)
-- Files to skip: N (with reasons)
-- Estimated new files: N
+```supermodo:bars
+{"title":"Scope","unit":"files","series":[
+  {"label":"to refactor","value":N,"state":"warn"},
+  {"label":"to skip","value":N},
+  {"label":"new files proposed","value":N,"state":"ok"},
+  {"label":"dead exports to delete","value":N,"state":"bad"}]}
+```
+
+- Files to skip: N (with reasons — a file deliberately left alone is a
+  decision, not an omission)
 - Dead exports found: N (list with caller counts — pending user decision)
 - Potential bugs found: N (list with evidence)
 
+### What moves where
+```supermodo:tree
+{"title":"Proposed structure","root":{"label":"packages/data/src","children":[
+  {"label":"types.ts","state":"ok","meta":"new — 6 types from orchestrator.ts:12-88",
+   "children":[{"label":"OrderId, Watermark, …","meta":"branded"}]},
+  {"label":"validators.ts","state":"ok","meta":"new — from orchestrator.ts:90-210, try/catch removed"},
+  {"label":"orchestrator.ts","state":"warn","meta":"810 ln → ~120 ln, I/O wiring only"},
+  {"label":"legacy-shim.ts","state":"bad","meta":"deleted — 0 callers"}]}}
+```
+
+Every file the refactor touches appears exactly once, with `state` saying
+which of the four things happens to it — `ok` created, `warn` changed, `bad`
+deleted, no state left alone — and `meta` carrying the evidence: the source
+range it comes from, the before → after size, the caller count that justifies
+a deletion. A reader checks this in seconds; they do not check nineteen
+paragraphs. Nothing appears here that the analysis did not establish: a line
+range you did not read is not written down.
+
 ### Execution Order (bottom-up)
-1. `types.ts` (leaf) — extract domain types, add branded types
-2. `validators.ts` (leaf) — extract validation, eliminate try/catch
-3. `transforms.ts` (depends on types) — extract pure transforms
-4. `orchestrator.ts` (root) — thin I/O wiring only
+```supermodo:graph
+{"title":"Dependency order — leaves first","nodes":[
+  {"id":"types","label":"1. types.ts","kind":"ok"},
+  {"id":"valid","label":"2. validators.ts","kind":"ok"},
+  {"id":"orch","label":"4. orchestrator.ts","kind":"warn"}],
+ "edges":[{"from":"valid","to":"types"},{"from":"orch","to":"valid"}]}
+```
+
+The order IS the dependency graph, so draw it as one — numbered so the
+sequence survives in the text. Any cycle found in Phase 1 is an edge with
+`"kind": "cycle"`; it must be broken before the files it touches are
+refactored, and the plan says how.
 
 ### Per-File Changes
-For each file:
+For each file, under the tree:
 - Current state (size, smell count)
 - Proposed extractions (what moves where, before/after for key changes)
 - New files with proposed paths
@@ -171,9 +232,16 @@ For each structural change that could affect runtime:
 ### Utilities to Extract
 - Functions to move to packages (with target package)
 - Existing similar utilities found (with file paths and line numbers)
-```
+````
 
 When pragmatism vs strictness is ambiguous — especially around external API types, third-party library patterns, or shared utility changes — ask the user (transport per `questions.transport`) rather than assuming.
+
+**If the user declines**, keep the plan body exactly as written and update the
+frontmatter: `status` → `skipped`, `questions` emptied, the reason in
+`summary`. A rejected plan is worth keeping — it records what was proposed and
+why it was not wanted, which is what stops the next run proposing it again —
+but leaving it at `needs-input` with an open question would strand it in the
+archive's "Needs you" tab, still asking a question the user has answered.
 
 ---
 
@@ -290,8 +358,16 @@ After all files are refactored:
 2. Run linter and type-checker
 3. Present metrics summary:
 
-```markdown
+````markdown
 ## Refactor Summary: <target>
+
+```supermodo:bars
+{"title":"Purity and coverage","unit":"%","series":[
+  {"label":"pure functions — before","value":N,"max":100,"state":"bad"},
+  {"label":"pure functions — after","value":N,"max":100,"state":"ok"},
+  {"label":"test coverage — before","value":N,"max":100},
+  {"label":"test coverage — after","value":N,"max":100,"state":"ok"}]}
+```
 
 | Metric              | Before | After  |
 |---------------------|--------|--------|
@@ -306,11 +382,30 @@ After all files are refactored:
 | Silent catch blocks | N      | 0      |
 
 All N tests passing. No behavior changes.
-```
+````
 
-**Persist it:** standalone runs write this report to
-`.skills/supermodo/refactor/<YYYYMMDD-HHMMSS>.md` per
-`../protocols/references/reports.md`
+The percentage rows lead as a bars block and stay in the table below it — the
+chart is what a reader sees, the table is what they check
+(`../protocols/references/reports.md`, "Report bodies"). Counts that go to
+zero (`let`, silent catches, dead exports) stay table-only: a bar chart of
+four bars against zero says less than the row does.
+
+When the refactor changed the module structure — a cycle broken, a `types.ts`
+extracted, a dependency inverted — draw the after-state as a
+`supermodo:graph` under the summary, with `kind: "cycle"` on any edge still
+closing a loop. That is the one result of a structural refactor that prose
+genuinely cannot carry.
+
+**Persist it:** the summary is appended to the report Phase 2 already wrote —
+same file, same page, `status` now `ok` (or `failed`), `questions` cleared,
+`task` set when the refactor was scoped to one triad, and `summary` naming
+what actually moved. One report per run: the page the user approved becomes
+the page recording what happened to it. Never a second file.
+
+If the plan's tree and the outcome disagree — something you proposed to move
+stayed, something you did not propose got deleted — say so under the summary.
+An approved plan that quietly changed shape during execution is the one thing
+this report exists to make impossible.
 
 **Then publish it** per `../protocols/references/reports.md`: invoke
 `node <skills>/reports/scripts/render.ts --report <that path>` and NAME the

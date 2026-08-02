@@ -151,6 +151,9 @@ white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis}
 .bwait ul{margin:0 0 12px;padding-left:18px;font-size:12.5px;color:var(--dim)}
 .bstamp{color:var(--dim);font-size:11.5px;margin:0}
 .bstamp.top{margin:0 0 18px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.bcaveat{margin:0 0 18px;padding:10px 12px;border:1px solid var(--warn);border-radius:var(--rs);
+font-size:12.5px;line-height:1.5}
+.bcaveat b{color:var(--warn);font-weight:600}
 .bchip.quiet{opacity:.7}
 .bmeta.warnish{color:var(--warn)}
 .donefold{margin-top:6px}
@@ -229,7 +232,7 @@ ul.tree li{padding:2px 0}
 .tree-node.s-ok{color:var(--ok)}.tree-node.s-warn{color:var(--warn)}.tree-node.s-bad{color:var(--bad)}
 .tree-meta{color:var(--dim);font-size:11.5px;margin-left:8px}
 .g-box{fill:var(--card);stroke:var(--line)}
-.g-box.s-bad{stroke:var(--bad)}
+.g-box.s-ok{stroke:var(--ok)}.g-box.s-warn{stroke:var(--warn)}.g-box.s-bad{stroke:var(--bad)}
 .g-text{font-size:12px;fill:var(--fg);text-anchor:middle}
 .g-edge{fill:none;stroke:var(--dim);stroke-width:1.4}
 .g-edge.s-bad{stroke:var(--bad);stroke-dasharray:4 3}

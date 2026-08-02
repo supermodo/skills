@@ -171,16 +171,33 @@ Both steps, in order — neither substitutes for the other:
    call is invisible to the user — a message that only appears inside the
    heredoc was never delivered. Then say it's on the clipboard.
 
-If a commit is later executed (or declined after staging discussion), append
-the outcome — message, files, committed-or-not — to
-`.skills/supermodo/commit/<YYYYMMDD-HHMMSS>.md` per
-`../protocols/references/reports.md` when the directory exists (a configured
-project); skip silently in unconfigured repos.
+**A standalone commit writes no report and renders no page** — see "What
+earns a report" in `../protocols/references/reports.md`. The commit IS the
+artifact: permanent, diffable, and already the record. A second copy under
+`.skills/supermodo/` says nothing `git show` does not, and a browser tab per
+commit is an interruption charged against the most frequent action in the
+package. A declined commit leaves the message in chat and the fragment in the
+working tree, which is exactly where the user needs both.
 
-**Then publish it** per `../protocols/references/reports.md`: invoke
-`node <skills>/reports/scripts/render.ts --report <that path>` and NAME the
-page in your final message. Standalone runs only — inside a `flow` run the
-orchestrator renders the run page and stages render nothing.
+**Unless the commit did not happen and the index moved.** That rule rests on
+the commit existing; when it does not, its reasoning inverts. The plan runs
+`git restore --staged` and `git add` lines BEFORE `git commit`, so a commit
+rejected by a hook, a signing failure or any other error leaves a mutated
+index, no commit, and — under an unconditional no-report rule — no durable
+trace of the message, the exact commands, or which of them ran. That state is
+precisely "reasoning and state that exist nowhere else", and losing the
+session loses it entirely.
+
+So: **write a report whenever any git or index mutation ran without producing
+the intended commit** — the message, every planned command marked ran or
+not-run, the error verbatim, and the resulting index state (`git status
+--porcelain`). `status: failed`. Render it and name the page, because the user
+now has a half-staged tree to sort out. Suppress the report only for a clean
+success or a message-only run that touched nothing.
+
+Inside a `flow` run this does NOT apply: stage 8 writes its stage report like
+every other stage (below) — there the report is the handoff medium, not a
+courtesy copy.
 
 
 ## Changelog fragment (default ON)

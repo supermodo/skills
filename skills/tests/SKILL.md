@@ -208,6 +208,38 @@ survived), coverage snapshot, and explicitly-clean dimensions. Present the
 summary, then ask which buckets to implement (missing tests / weak-test fixes /
 nothing yet).
 
+Sections, in this order every run — two audits a month apart must be
+comparable: **Coverage** · **Mutation** · **Findings by severity** ·
+**Clean dimensions** (named explicitly — what was checked and found strong is
+evidence too) · **Recommended buckets**.
+
+The first two are measurements, so they open as blocks rather than prose
+(`../protocols/references/reports.md`, "Report bodies") — the numbers already
+exist, and a reader sees which package is thin without reading a table:
+
+````
+```supermodo:bars
+{"title":"Line coverage by package","unit":"%","series":[
+  {"label":"packages/data","value":84,"max":100,"state":"ok"},
+  {"label":"apps/web","value":41,"max":100,"state":"bad"}]}
+```
+
+```supermodo:bars
+{"title":"Mutation testing","unit":"mutants","series":[
+  {"label":"caught","value":11,"state":"ok"},
+  {"label":"survived","value":3,"state":"bad"}]}
+```
+````
+
+Only measured values go in: a package you did not measure is absent from the
+chart, never a zero bar, and a coverage number the tooling did not produce is
+never estimated to complete a series.
+
+Frontmatter: `status` is `ok` for an audit that ran (findings are its output,
+not its failure) and `failed` only when the suite or the tooling would not
+run; `summary` carries the numbers a reader decides on; set `task` when the
+audit was scoped to one triad.
+
 **Then publish it** per `../protocols/references/reports.md`: invoke
 `node <skills>/reports/scripts/render.ts --report <that path>` and NAME the
 page in your final message. Standalone runs only — inside a `flow` run the

@@ -1262,3 +1262,28 @@ node <skills>/reports/scripts/render.ts --report <that path>
 and NAME the page in your final message. Inside a `flow` run this does not
 apply: the stage report is the artifact and the orchestrator renders the one
 run page.
+
+Where the seats landed opens the report as a block
+(`../protocols/references/reports.md`, "Report bodies") — a council's value is
+that independent sessions converged or did not, and that is a shape, not a
+paragraph:
+
+````
+```supermodo:bars
+{"title":"Seats by hypothesis","unit":"seats","series":[
+  {"label":"stale cache key","value":3,"state":"ok"},
+  {"label":"race in the writer","value":1,"state":"warn"},
+  {"label":"no conclusion reached","value":1,"state":"bad"}]}
+```
+````
+
+Only seats that actually ran are counted. A seat that failed to launch or
+returned nothing is never folded into another hypothesis to make the chart
+look decisive — it is its own bar, or it is absent and said in words. When the
+adjudicated cause runs through several modules, a `supermodo:graph` of the
+chain beats describing it.
+
+Frontmatter: `status` is `ok` when the council reached an adjudicated cause,
+`needs-input` when it ended on a question only the user can answer (with that
+question in `questions`), `failed` when no seat produced a usable report; set
+`task` when the bug belongs to a triad.

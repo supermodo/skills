@@ -13,6 +13,7 @@ evidence establish — nothing is invented. See
 | `/supermodo:librarian` | Full **lifecycle pass** (below) |
 | `/supermodo:librarian --task [description]` | **Task intake**: grill → create the spec/plan/tasks triad |
 | `/supermodo:librarian --backlog <op>` | **Backlog operations** on `docs/work/BACKLOG.md` |
+| `/supermodo:librarian --priorities` | Write **confirmed triage answers** into the items they belong to |
 | `/supermodo:librarian --absorb` | One-time **sweep of pre-existing docs** into the convention |
 
 ## Lifecycle pass
@@ -57,6 +58,29 @@ later, lose nothing in between.
 - `drop` strikes through with a dated reason; `reap` deletes only
   already-dropped entries after confirming their disposition is recorded.
 
+Backlog operations produce **no report and no browser tab**. The entry itself
+is the result — it is in `BACKLOG.md`, in git, and on your board the next time
+you run `/supermodo:next`. A page announcing a one-line insert is an
+interruption charged against a five-second task.
+
+## Recording priorities (`--priorities`)
+
+You won't type this one. It is where [`next --triage`](next.md) sends the
+priorities you confirm, so they reach disk in the same run you answered them
+in — `next` reads the board but cannot write documentation, and only the
+librarian writes `Priority:`.
+
+Triage is the repair path, though, not the normal route. Every mode that
+creates work — `--task`, `--backlog add`, and `--absorb` for every document it
+turns into work — asks the three priority questions right there, while you
+have the thing in front of you. `--graduate` asks nothing: the entry's
+priority moves to the new task unchanged.
+
+It fills blanks and nothing else: an item that already has a valid priority is
+left alone and the conflict reported, because priorities are yours and are
+frozen once set. Malformed or unresolvable entries are rejected individually
+and named, never guessed at.
+
 ## Absorbing pre-existing docs (`--absorb`)
 
 The one-time onboarding sweep for repos that had documentation before
@@ -71,6 +95,18 @@ through a per-file plan with two questions:
    that still depend on the file — unresolved dependents are never deleted.
 
 Per-file approval, nothing silent. It never runs implicitly.
+
+**You see the plan before you answer it.** A sweep routinely covers forty
+files, and forty dispositions as chat bullets get approved unread — so the
+proposal is written and opened as a page first: a tree of where everything is
+going, each file once, coloured by what happens to it, with the reason and the
+inbound-dependency count beside it.
+
+Anything classified as **work** gets its priority asked right there, folded
+into that file's questions. An absorb is usually the first supermodo run in a
+repo with years of history in it; skipping the question here is what produces
+a first board of thirty unranked rows — the exact state you ran absorb to get
+out of.
 
 ## Guardrails
 

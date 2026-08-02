@@ -350,6 +350,28 @@ and NAME the page in your final message. Inside a `flow` run this does not
 apply: the stage report is the artifact and the orchestrator renders the one
 run page.
 
+Sections, same order every run: **What was fixed** (per finding: status,
+files, tests, deviations — Step 7's record) · **Root cause** · **Tests
+added** · **Sweep results** · **Still open**.
+
+When the run worked through a findings document, the disposition opens as a
+block (`../protocols/references/reports.md`, "Report bodies") — "did this
+close the audit" is the question the reader arrives with:
+
+````
+```supermodo:bars
+{"title":"Findings this session","unit":"findings","series":[
+  {"label":"fixed","value":7,"state":"ok"},
+  {"label":"could not reproduce","value":2,"state":"warn"},
+  {"label":"still open","value":3,"state":"bad"}]}
+```
+````
+
+Frontmatter: `status` is `ok` when the bug is fixed with a test proving it,
+`needs-input` when the fix needs a decision the user owns, `failed` when the
+loop ran out without a green test; `task` set to the triad the bug belongs
+to; `summary` naming the actual cause, not "fixed the bug".
+
 ## Verification Checklist
 
 Before declaring the bug fixed, verify all of these. Items marked **(RUN)** require executing a command — do not check them by reading code.

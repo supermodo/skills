@@ -246,14 +246,34 @@ not skipping care. Run a scoped version of the workflow:
    pair now matches. Mention nothing about other surfaces — you did not look,
    so do not imply you did.
 
-If the pair is already in sync, say so and stop.
+If the pair is already in sync, say so and stop — nothing was found and
+nothing was decided, so nothing is written
+(`../protocols/references/reports.md`, "What earns a report").
 
 ## Persist and publish
 
-Standalone runs write this report to
-`.skills/supermodo/sync-configs/<YYYYMMDD-HHMMSS>.md` per
-`../protocols/references/reports.md` — a result living only in chat dies with
-the session. Then publish it:
+**Drift found is the trigger, not changes applied.** A run that surfaced
+divergences and was declined produced exactly the thing worth keeping: the
+analysis of what differs, which side each setting should follow, and the
+user's decision not to move. None of that is recoverable from the two config
+files — they look identical before and after — so a decline that writes
+nothing loses the whole run. Persist whenever the scan found drift, whatever
+happened next; suppress only for a clean scan.
+
+Write it to `.skills/supermodo/sync-configs/<YYYYMMDD-HHMMSS>.md` per
+`../protocols/references/reports.md`, in these sections: **Divergences
+found** · **Applied** · **Left alone** (with the reason — an intentional
+per-tool difference is a finding, not an omission) · **Unmappable** (settings
+with no equivalent on the other side). Write it BEFORE asking for approval,
+per "Show what you are asking about": the divergence list is what the user is
+deciding over.
+
+`status`: `needs-input` while the approval is outstanding, with that question
+in `questions` — then complete the SAME report once answered: `ok` when the
+pair is aligned, `skipped` with `questions` emptied when the user declined,
+`failed` if a write errored part-way. Leaving it at `needs-input` after an
+answer parks a settled decision in the archive's "Needs you" tab. Then publish
+it:
 
 ```
 node <skills>/reports/scripts/render.ts --report <that path>

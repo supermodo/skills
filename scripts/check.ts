@@ -3,7 +3,7 @@
 // protocol references resolve (no local master copies), fixtures behave.
 // Zero dependencies. Node ≥ 22.18.
 
-import { readFileSync, readdirSync, existsSync, statSync, mkdtempSync, cpSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, readdirSync, existsSync, statSync, mkdtempSync, cpSync, rmSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
@@ -196,6 +196,22 @@ const checkRenderer = (root: string, skillsDir: string): Result => {
     const second = [index, run].map((f) => readFileSync(f, "utf8"));
     const html = first.join("\n");
     const external = [...html.matchAll(/(?:src|href)="(https?:\/\/[^"]+)"/g)].map((m) => m[1]);
+
+    // Negative control for the caveat assertion: render the same store with the
+    // `caveat` line stripped. Without this, an assertion that matched the
+    // stylesheet would look green forever — which is exactly what it did.
+    const noCaveat = join(tmp, "no-caveat");
+    cpSync(fixture, noCaveat, { recursive: true });
+    const boardFile = join(noCaveat, "next/20260801-154000.md");
+    writeFileSync(boardFile, readFileSync(boardFile, "utf8")
+      .split("\n").filter((l) => !l.includes(`"caveat"`)).join("\n"), "utf8");
+    execFileSync("node", [script, "--store", noCaveat, "--no-open"], { stdio: "pipe" });
+    const bare = readFileSync(join(noCaveat, "index.html"), "utf8");
+    const caveatAbsent = bare.includes(`<p class="bcaveat">`)
+      ? "a board with NO caveat still rendered the warning element"
+      : bare.includes("bcaveat")
+        ? undefined  // the stylesheet rule, as expected
+        : "the caveat stylesheet vanished — the positive check may be passing on nothing";
     return merge(
       first.every((t, i) => t === second[i])
         ? ok("render.ts is deterministic (re-render byte-identical)")
@@ -215,6 +231,27 @@ const checkRenderer = (root: string, skillsDir: string): Result => {
       first[0].includes("t-unknown")
         ? ok("an unrecognised task state is shown, not normalised away")
         : fail("unrecognised task state was silently rendered as something else"),
+      // Assert the ELEMENT, never the bare class name: `.bcaveat` also appears
+      // in every page's inlined stylesheet, so `includes("bcaveat")` stays true
+      // with the feature deleted. Pair it with the negative render below.
+      first[0].includes(`<p class="bcaveat">`) && first[0].includes("2 of 6 items have no stored priority")
+        ? ok("a board that declares a caveat renders the warning above itself")
+        : fail("board `caveat` was dropped — a board known to be unreliable rendered silently"),
+      caveatAbsent === undefined
+        ? ok("a board with no caveat renders no warning (the check can fail)")
+        : fail(caveatAbsent),
+      // A status outside the four documented values must not pass through:
+      // `needsYou` matches them exactly, so it would drop out of the alerts.
+      !first[0].includes("needs_input")
+        ? ok("a mistyped `status` is rejected, not passed into the archive")
+        : fail("a mistyped `status` rendered as-is — it would vanish from `Needs you`"),
+      // Count the rendered status CHIPS, not the word: the fixtures carry
+      // exactly three contract violations (no frontmatter, mistyped status,
+      // empty summary) and each must produce one. A looser match stays green
+      // when a required-field check is removed.
+      (first[0].match(/class="chip unreadable"/g) ?? []).length === 3
+        ? ok("every report missing a required field renders as unreadable")
+        : fail("a report with an empty `summary` or a bad `status` was accepted as healthy"),
     );
   } finally {
     rmSync(tmp, { recursive: true, force: true });

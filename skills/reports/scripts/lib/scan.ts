@@ -53,6 +53,15 @@ export type Model = { readonly runs: readonly Run[]; readonly reports: readonly 
 /** Mandatory gates, by stage-file order prefix (see flow's eight stages). */
 const GATES = new Set(["05", "06b"]);
 
+/**
+ * The only `status` values a report may declare (reports.md). Anything else is
+ * treated as unreadable rather than passed through: `needsYou` matches these
+ * strings exactly, so a typo like `needs_input` or `failure` would otherwise
+ * render as an ordinary healthy row and drop out of the alert surface — the
+ * one place the user looks to find what went wrong.
+ */
+const STATUSES = new Set(["ok", "failed", "needs-input", "skipped"]);
+
 const readText = (file: string): string | undefined => {
   try { return readFileSync(file, "utf8"); } catch { return undefined; }
 };
@@ -107,16 +116,17 @@ const stageOf = (dir: string, name: string): Stage => {
   const { fm, body, hadFm } = parseFrontmatter(raw);
   const skill = str(fm, "skill") || name.replace(/^\d+[a-z]?-/, "").replace(/\.md$/, "");
   const status = str(fm, "status");
+  const valid = hadFm && STATUSES.has(status);
   return {
     order,
     skill,
-    status: hadFm && status !== "" ? status : "unreadable",
+    status: valid ? status : "unreadable",
     summary: str(fm, "summary"),
     questions: list(fm, "questions"),
     drift: list(fm, "drift_notes"),
     decisions: list(fm, "decisions"),
     body,
-    unreadable: !hadFm || status === "",
+    unreadable: !valid,
     gate: GATES.has(order),
   };
 };
@@ -173,13 +183,22 @@ const readReport = (root: string, skillDir: string, name: string): Report | unde
   const parsed = raw === undefined ? undefined : parseFrontmatter(raw);
   const fm = parsed?.fm ?? {};
   const status = str(fm, "status");
-  const unreadable = parsed === undefined || !parsed.hadFm || status === "";
+  // reports.md makes `skill`, `status` and `summary` required of EVERY report,
+  // and standalone reports have no orchestrator to validate them fail-closed —
+  // this scanner is their only reader, so it enforces the contract here.
+  // Showing a contract violation as `unreadable` is still "show, never judge":
+  // it reports that the file does not meet the format, not that the work failed.
+  const unreadable = parsed === undefined || !parsed.hadFm
+    || !STATUSES.has(status)
+    || str(fm, "skill") === "" || str(fm, "summary") === "";
   const questions = list(fm, "questions");
   const base = name.replace(/\.md$/, "");
   return {
     kind: skillDir === "release" ? "release" : "report",
     id: `${skillDir}/${base}`,
     file,
+    // The directory is a DISPLAY fallback only — it never satisfies the
+    // required field above, so a missing `skill` still reads as unreadable.
     skill: str(fm, "skill") || skillDir,
     task: str(fm, "task"),
     stamp: stampOf(name),

@@ -167,3 +167,20 @@ node <skills>/reports/scripts/render.ts --report <that path>
 and NAME the page in your final message. Inside a `flow` run this does not
 apply: the stage report is the artifact and the orchestrator renders the one
 run page.
+
+Sections, same order every run: **What was built** · **Tasks closed** (which
+`tasks.md` IDs moved, and to what state) · **Verification** (which tiers ran,
+which model verified, what it said) · **Drift observed** · **Decisions taken**
+· **Left for the user**.
+
+**`task` is never omitted here.** Work always runs against a triad — that is
+what makes it work rather than a patch — so the report carries the triad slug
+and the archive index links it to the item on the board. A `work` report with
+no `task` is a bug in the run, not a stylistic choice. When several tasks
+closed, a `supermodo:bars` of `done` / `in-progress` / `remaining` for that
+triad shows how far the item has moved; when only one did, the sentence is
+better than the chart.
+
+Frontmatter: `status` is `needs-input` whenever the run stopped on a question
+(with it in `questions`), `failed` when verification did not pass, `ok`
+only when the tree is clean and the tiers are green.

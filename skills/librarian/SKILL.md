@@ -42,11 +42,13 @@ and point at `config`. Never mutate git (no add/commit/merge/rebase/push).
 - **`--backlog <op>`** — operate ONLY on `docs/work/BACKLOG.md` (below).
 - **`--task [description]`** — new-task intake (below): grill → create the
   triad.
+- **`--priorities`** — write confirmed triage answers into the items they
+  belong to (below). Nothing else.
 - **`--absorb`** — one-time, explicit-only sweep of pre-existing
   documentation outside the convention (below). Never runs implicitly.
 
-Never combine a backlog op, `--task`, or `--absorb` with the full lifecycle
-pass implicitly.
+Never combine a backlog op, `--task`, `--priorities`, or `--absorb` with the
+full lifecycle pass implicitly.
 
 ## `--task` intake
 
@@ -85,7 +87,19 @@ Three sources feed it:
    Durable decisions → new ADRs; both positions of each resolved question
    logged.
 4. If it graduated from a backlog entry, replace that entry with a dated
-   graduation pointer to the new triad (never erase history).
+   graduation pointer to the new triad (never erase history), and carry its
+   stored priority across — it was already answered and confirmed by the user,
+   and re-asking is how a frozen value drifts. Ask the intake questions only
+   when the entry carried none.
+
+   **Carry the VALUE, re-emit the field name.** The two files spell the field
+   differently — `  priority: P1 — …` indented under a backlog entry,
+   `Priority: P1 — …` at the top level of `spec.md`. Copying the source line
+   verbatim lands a lowercase, indented key in `spec.md`, which the worklist
+   reads as no valid priority at all and renders as provisional `P2 — unset`.
+   The backlog entry is being replaced by a pointer in this same step, so the
+   confirmed P0 is then gone from both files. Take everything after the colon
+   and write `Priority: <that value>`.
 5. Run docs-generate, then docs-check. Report.
 
 Do not implement the plan, edit production code, or start `work`.
@@ -108,9 +122,70 @@ Do not implement the plan, edit production code, or start `work`.
 - `reap` — delete only already-dropped entries after confirming their
   disposition is recorded elsewhere or intentionally abandoned.
 - `graduate <slug>` — run `--task` intake seeded from that entry.
-- `next` — alias for the `next` skill: render the board and its suggestions
-  per `../protocols/references/worklist.md`. Librarian defines no selection
-  rules of its own. Report only — selection stays with the user.
+- `next` — alias for the `next` skill: hand over to it and let it run in full
+  (its own board, its own triage gate, its own report and page). This op is a
+  redirect, not a librarian operation: none of the `--backlog` rules above
+  apply to it, and it is NOT covered by "backlog ops write no report" —
+  suppressing `next`'s report because it was reached through this alias would
+  lose the board. Librarian defines no selection rules of its own; selection
+  stays with the user.
+
+## `--priorities` — record confirmed triage answers
+
+The receiving door for `next --triage`. That skill runs the interview and
+owns the semantics; it cannot write documentation, so the confirmed lines
+arrive here. This mode exists so triage answers reach disk in the same run
+they were given — a priority the user confirmed and nobody stored will be
+asked for again, which is the one outcome triage must never produce.
+
+**Input arrives in the invocation itself** — one pair per line, nothing else:
+
+```
+work:csv-export — P2 — capability: exports are the top support request
+backlog:rate-limit-headers — P3 — improvement: nice-to-have for API consumers
+```
+
+Identity (`work:<slug>`, `work:<program>/NN-<slug>` or `backlog:<slug>`), an
+em dash, then the priority VALUE — `P<0-3> — <classification>: <justification>`
+and nothing more. The value carries no field name: the `Priority:` /
+`  priority:` prefix belongs to the destination file and step 3 adds it, so a
+line arriving with one already attached has it stripped, never doubled.
+
+You did not see the interview that produced these and must not reconstruct it:
+what is in the list is what gets written, and if the list is empty or absent,
+say so and write nothing rather than going looking for answers elsewhere.
+
+1. Resolve each identity to its file: a triad → its `spec.md`; a backlog
+   entry → its line in `docs/work/BACKLOG.md`. Unresolvable or ambiguous →
+   write nothing for that one and report it; never guess which item was meant.
+2. Validate each line against the worklist grammar
+   (`../protocols/references/worklist.md`: `P<0-3> — <classification>:
+   <justification>`). Malformed → reject that line, report it, keep going.
+3. **Look before writing**, then write ONE field. Triage collects items whose
+   priority line is missing *or malformed*, so "no valid priority" does not
+   mean "no priority line" — appending to a file that already has a broken one
+   leaves two, which the grammar forbids and which makes every later reader
+   disagree about the real value. Scan the destination for any existing
+   priority field first, case-insensitively, and act on what is there:
+
+   | found in the destination | do |
+   | --- | --- |
+   | nothing | add the field: `Priority:` on its own line in `spec.md`, `  priority:` indented under the entry in `BACKLOG.md` |
+   | one MALFORMED field | replace that line in place — same position, correct grammar. This is the repair triage was run for. |
+   | one VALID field | write nothing, report the conflict, leave the stored value alone. Priorities are user-owned and frozen at intake; this mode fills blanks and repairs breakage, it never re-triages. |
+   | two or more priority fields | write nothing, report it for explicit repair. Which one the user meant is not knowable, and picking one silently discards the other. |
+
+   Never append a second field on any path. `docs-check` runs at step 5, after
+   the write — it reports a duplicate, it does not prevent one.
+4. Touch no other CONTENT: no lifecycle pass, no archiving, no promotion, no
+   other field of any file, no file not named in the list.
+5. Run docs-generate, then docs-check. Generated navigation is mechanical
+   output, not content — refreshing it is expected here and is the one thing
+   step 4 does not forbid. Report per item: written, rejected (with why), or
+   already set.
+
+Report the outcome per item so the caller can tell the user exactly which
+answers are now stored and which are not.
 
 ## `--absorb` — sweep pre-existing documentation (explicit flag only)
 
@@ -136,9 +211,32 @@ scaffolding when its scan saw docs outside the target paths.
    backlog entry or triad; tool- or ecosystem-facing file that must stay at
    its path (per-package README, CONTRIBUTING, LICENSE-adjacent) → keep in
    place + link from the router; stale or superseded → deletion candidate.
+
+   **Anything classified as work gets the worklist intake questions**
+   (`../protocols/references/worklist.md`, "Every item is born with a
+   priority") as part of its disposition — asked once, with the file in front
+   of the user, before the entry or triad is written. An absorb is usually the
+   FIRST supermodo run in a repository that already has years of work in it;
+   skipping the questions here is what produces a first board of thirty
+   `P2 — unset` rows, which is precisely the state the user is running absorb
+   to get out of. Batch them with the file's disposition questions rather than
+   as a second pass — one interruption per file, not two. A decline leaves
+   that item provisional, which is fine; not asking is not.
 3. **Disposition plan — approval-gated, two questions per file** (questions
    protocol; files may be grouped by proposed disposition, but every file
-   is listed individually):
+   is listed individually).
+
+   Write the plan and render it BEFORE asking
+   (`../protocols/references/reports.md`, "Show what you are asking about") —
+   an absorb sweep routinely covers forty files, and forty dispositions read
+   as chat bullets get approved unread. Draw it as a `supermodo:tree` of the
+   proposed destination, every candidate appearing once under where it is
+   going, `state` `ok` moved / `warn` kept in place and linked / `bad`
+   deleted, and `meta` carrying the reason and the inbound-dependency count.
+   The per-file questions follow it, and the report is where the user checks
+   what they are answering about.
+
+   The questions themselves:
    1. **Keep the content?** Is this file relevant enough for its content to
       live in the documentation — and where (reference / ADR / backlog /
       stay-and-link)?
@@ -150,8 +248,26 @@ scaffolding when its scan saw docs outside the target paths.
    Moves carry content verbatim; anything condensed is labeled a summary
    with a pointer to its source. Nothing is deleted or moved without its
    per-file approval.
-5. Run docs-generate, then docs-check. Report per-file outcomes — including
-   every file deliberately left untouched.
+5. Run docs-generate, then docs-check. Complete the report started at step 3
+   with the per-file outcomes — including every file deliberately left
+   untouched — and move its frontmatter off `needs-input`.
+
+   **`questions` is emptied either way**; the questions were answered, and
+   that is true regardless of how execution then went. Leaving them parks the
+   run in the archive's "Needs you" tab forever.
+
+   **`status` is earned, not assumed.** `ok` ONLY when every approved
+   disposition executed and both docs-generate and docs-check came back
+   clean. Anything else — a move that failed, a delete that could not
+   complete, a red docs-check — is `failed`, naming the exact operation that
+   broke and the file it was on.
+
+   This step moves and deletes documentation. A partial absorb leaves the
+   docs tree half-migrated, with links pointing at files that are no longer
+   there, and it is the single most expensive state this skill can produce.
+   Reporting that as `ok` because the run reached the end hides it at exactly
+   the moment the user needs to see it — and the archive, which is where they
+   would look, would be showing a clean green run.
 
 ## Lifecycle pass (no args)
 
@@ -216,15 +332,40 @@ convention formats.
 
 ## Persist and publish
 
-Standalone runs write this report to
-`.skills/supermodo/librarian/<YYYYMMDD-HHMMSS>.md` per
-`../protocols/references/reports.md` — a result living only in chat dies with
-the session. Then publish it:
+Per `../protocols/references/reports.md` ("What earns a report"), which of
+librarian's modes produce one is **not** uniform — the rule is whether the run
+produced reasoning that exists nowhere else:
+
+| mode | report |
+| --- | --- |
+| lifecycle pass (no args) | **yes** — the docs-check delta, what was promoted, archived and split, and the decisions still owed live only here |
+| `--task` | **yes** — the grill transcript and the resolved intake answers exist nowhere but this file |
+| `--absorb` | **yes** — the per-file dispositions, including every file deliberately left untouched |
+| `--backlog add/edit/drop/reap/list` | **no** — write nothing, render nothing |
+| `--backlog next` | **not librarian's** — this is an alias; the `next` skill runs and writes its own report exactly as it always does. Librarian adds nothing and suppresses nothing. |
+| `--priorities` | **no** — the lines are in the files; the caller reports the outcome |
+
+A backlog operation's entire result is the line it wrote in `BACKLOG.md`:
+already permanent, already in git, and it reaches the user on the next board
+as an item. A second copy under `.skills/supermodo/` teaches nobody anything,
+and a browser tab announcing a one-line insert is an interruption charged
+against a five-second task. Say what changed in chat and stop — no file, no
+page, no renderer call.
+
+For the modes that DO earn one: write it to
+`.skills/supermodo/librarian/<YYYYMMDD-HHMMSS>.md`, set `task:` when the run
+was about one work item (`--task` always is), then publish it:
 
 ```
 node <skills>/reports/scripts/render.ts --report <that path>
 ```
 
-and NAME the page in your final message. Inside a `flow` run this does not
-apply: the stage report is the artifact and the orchestrator renders the one
-run page.
+and NAME the page in your final message. Sections, in this order: **What
+changed** · **Docs-check** (issues before vs after as a two-bar
+`supermodo:bars`, `state` `bad` → `ok` — a before/after pair is the
+comparison a bar chart is for; when both numbers are zero, write the sentence
+instead) · **Promoted / archived** · **Decisions owed by the user** (also in the
+`questions` frontmatter — that is what surfaces them in the archive index).
+
+Inside a `flow` run none of this applies: the stage report is the artifact and
+the orchestrator renders the one run page.
