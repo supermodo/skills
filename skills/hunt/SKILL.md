@@ -356,6 +356,14 @@ running dev server.
 Generated: YYYY-MM-DD HH:MM
 
 ## Summary
+```supermodo:bars
+{"title":"Confirmed findings by severity","unit":"findings","series":[
+  {"label":"critical","value":N,"state":"bad"},
+  {"label":"high","value":N,"state":"bad"},
+  {"label":"medium","value":N,"state":"warn"},
+  {"label":"low","value":N}]}
+```
+
 | Verdict | Critical | High | Medium | Low | Total |
 |---------|----------|------|--------|-----|-------|
 | Confirmed | | | | | |
@@ -395,6 +403,21 @@ phase resolves them automatically instead of re-asking)
 ## Browser Findings (if --browser)
 Console / network / accessibility / performance / memory / interactions
 ```
+
+The bars block leads the report deliberately (`../protocols/references/reports.md`,
+"Report bodies"): a reader opening the page sees the severity shape before any
+prose, and eleven findings across four severities is one glance instead of a
+paragraph. Omit an empty severity rather than drawing a zero bar. When a
+confirmed finding's root cause runs through several modules, add a
+`supermodo:graph` under it — nodes for the modules, `kind: "cycle"` on the
+edge that closes the loop — instead of describing the chain in sentences.
+
+Frontmatter: `skill: hunt`; `status` per the vocabulary in the reports
+protocol (`ok` even when the hunt found plenty — `ok` means the hunt did its
+job, `failed` means it could not); `summary` naming the counts a reader
+decides on ("3 confirmed (1 critical), 2 disputed, 14 refuted"); `task` set to
+the triad slug whenever the hunt was scoped to one; and every deferred open
+question repeated in `questions` — that is what surfaces it in the archive.
 
 ---
 

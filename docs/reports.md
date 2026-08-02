@@ -10,6 +10,21 @@ The markdown stays the source of truth. The HTML is a **projection** —
 regenerable, never load-bearing. Delete every `.html` and the next render
 recreates it byte for byte; a failed render never fails the run that called it.
 
+## What gets a page — and what doesn't
+
+Not every run earns one. A report exists to keep **reasoning that would
+otherwise be lost**: findings, verdicts, a resolved board, what was decided
+and why. A run whose whole result is already permanent somewhere else has
+none of that to keep.
+
+So a hunt, an audit, a refactor, a board, a release and every flow stage get a
+page. A backlog insert and a commit do not: the entry is in `BACKLOG.md`, the
+commit is in the git log, both already diffable and already the record. They
+tell you what they did in chat and leave your browser alone.
+
+The test, if you ever wonder about one: would a reader six weeks from now
+learn anything from that file that `git log` and your docs don't already say?
+
 ## When to use it
 
 You mostly don't invoke it — the other skills do. Reach for it directly to
@@ -58,7 +73,7 @@ Then four archive tabs:
 | tab | what's in it |
 | --- | --- |
 | **Runs** | every flow run, newest first |
-| **Reports** | every standalone skill report — hunt, tests, grill, commit, … |
+| **Reports** | every standalone skill report — hunt, tests, refactor, tdd, next, … |
 | **Releases** | every release |
 | **Needs you** | anything failed, waiting on an answer, or with a gate that never went green |
 
@@ -80,9 +95,16 @@ the choice is remembered in that browser.
 
 ## Charts, trees and graphs
 
-Reports can embed diagrams that render in the page — bar charts, trees,
+Reports embed diagrams that render in the page — bar charts, trees,
 dependency graphs, the board itself — written as small declarative blocks in
 the markdown, drawn natively in the house style, never an external asset. They stay readable as text in the `.md` too.
+
+Skills use them wherever they have measured something, and lead with them:
+`hunt` opens on its findings by severity, `tests` on coverage per package and
+mutants caught vs survived, `refactor` on purity and coverage before and
+after, `bug-council` on where the independent seats landed. You see the shape
+of the result before you read a word of it. Nothing is ever estimated to
+complete a chart — a value that wasn't measured is absent, not guessed.
 Mermaid blocks also work as an escape hatch; they need a network connection to
 draw, and fall back to their own source text when offline, so an archived
 report is never blank.

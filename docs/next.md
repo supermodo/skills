@@ -58,6 +58,57 @@ recalculated behind your back. Work with no priority set shows as
 Something that blocks a P0 inherits P0 while it blocks it — shown as
 `P3 → P0`, never written to disk.
 
+**You are asked when the work is created, not later.** Every path that brings
+an item into existence asks these three questions on the spot — a new task,
+a backlog entry, and every piece of work found during the one-time
+[`--absorb`](librarian.md) sweep of your existing documentation. That is the
+moment you have the context to answer in seconds; a month later, against
+thirty items at once, the same questions are an interview. `--triage` is the
+repair path for what got through, not the normal way priorities are set.
+
+Graduating a backlog entry into a task carries its priority across unchanged
+— you already answered, and being asked twice is how a frozen value drifts.
+
+## When the board asks before showing itself
+
+`P2 — unset` is a placeholder so the row can be drawn. It is not a guess at
+the answer: an unclassified item could be anything from P0 to P3, and until
+you answer three questions nobody knows which.
+
+That is why one unclassified item is enough to stop the board. It could be the
+P0 — and a board that quietly sorts it into the middle as P2 is not showing
+you a lower priority, it is showing you an unanswered question wearing one.
+Thirty of them, and the whole order is guesswork rather than just its head.
+
+Blocked items count too, which is less obvious. Something blocked can still be
+a P0, and a P0 lifts whatever is blocking it — so an unclassified blocked item
+can change which *workable* item you should do first, without ever appearing
+near the top itself. Only paused and abandoned work is safely left unranked:
+it lifts nothing.
+
+So `next` stops first, and offers three choices, when any live item has no
+priority, or when unranked items are half or more of the list:
+
+1. **triage now** — every untriaged item, at most three questions each
+2. **triage what could change the answer** — everything still live, blocked
+   included; paused and abandoned items keep their placeholder
+3. **skip** — the board immediately, marked unreliable
+
+Skip is a real answer, not a nudge to be worn down: you may be looking for one
+specific item and want no interview. What it does not do is hide the cost —
+the board renders under a warning, on the page and in chat.
+
+The one place skip is not offered is `flow --job next`, where the board's pick
+becomes an eight-stage pipeline instead of a suggestion you can ignore. There,
+an unranked live item is either triaged or the pick is confirmed with you
+before anything runs.
+
+**Answers you give are stored before the run ends.** The confirmed priorities
+go straight to `librarian`, which writes them into the files, and `next`
+re-reads those files to confirm they landed. If any did not, it says so and
+names them — so you know the questions are coming back. Triage that ends as
+chat text is triage you will be asked to repeat.
+
 ## The suggestions
 
 1. **Priority lead** — the top of the board.

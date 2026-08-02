@@ -48,15 +48,42 @@ including `--triage` and `--repair`. Skipping that is a failed run.
    effort per the master.
 3. Gather read-only evidence for the context lead: current branch, last ~10
    commit subjects, uncommitted diff paths, session context. Read-only git
-   only.
-4. Print the board, then the shortlist (3–5 real, doable items — never an
+   only. The gate does not depend on this — it is computed from the items
+   alone — but the board and shortlist behind it do.
+4. Compute the provisional board and shortlist in full — then **apply the
+   triage gate** (the master's "The triage gate") before showing either.
+   Untriaged = no VALID priority line, missing or malformed.
+
+   **An untriaged priority is unknown, not P2.** Gate when **any ACTIVE item
+   is untriaged** — unknown spans P0–P3, so any one of them could be the true
+   lead — or when untriaged items are half or more of a board of four or
+   more. Two traps to avoid:
+
+   - Never test whether an untriaged item reached the *provisional* shortlist:
+     that assumes the P2 default it is supposed to be questioning, so a hidden
+     P0 sorts below the known P1s, never surfaces, and is exactly the item the
+     gate exists to catch.
+   - Never narrow this to *doable* items. A blocked item is still active and
+     still transmits: an untriaged blocked P0 lifts its blocker, which may be
+     doable and sitting in P2. Only paused, archived, dropped and invalid
+     items are safely excluded — they transmit nothing.
+
+   Then ask the three-option menu — triage all / triage the untriaged active
+   items / skip. A user who skips gets the board immediately, marked
+   unreliable (`caveat`). A user who triages goes through `--triage` below,
+   including its librarian handoff, and THEN sees the board recomputed from
+   the stored priorities.
+
+   The gate fires **once per run** — answering it always ends in a board, so
+   declining every question cannot put the same menu back on screen.
+5. Print the board, then the shortlist (3–5 real, doable items — never an
    empty slot, never "nothing qualifies" while doable work exists), then the
    repairs list.
-5. Offer the handoff — for the item the user picks:
+6. Offer the handoff — for the item the user picks:
    `/supermodo:flow --job work:<triad-path>` (existing triad) or
    `/supermodo:flow --job backlog:<slug>` (backlog entry). Offer only;
    nothing auto-picks and nothing auto-runs.
-6. **Persist and publish** (see Report below) — write the report, invoke the
+7. **Persist and publish** (see Report below) — write the report, invoke the
    renderer, and tell the user where the board page is.
 
 ## `--triage`
@@ -66,9 +93,45 @@ intake questions (closed-menu kind per the questions protocol), pre-filling
 exposure from the configured main branch's local ref and stating it as an
 assumption to confirm. Batch the items; one item per message.
 
-The confirmed lines are handed to `librarian` to write — this skill writes no
-DOCUMENTATION. Report which items now have a priority and which the user
-deferred, then persist and publish the run (see Report).
+Then **store the answers before the run ends** — the master's "Answers are
+stored, or they were not collected". This skill writes no DOCUMENTATION, so
+storing means invoking the single documentation owner, not printing lines for
+someone to copy:
+
+```
+/supermodo:librarian --priorities
+work:csv-export — P2 — capability: exports are the top support request
+backlog:rate-limit-headers — P3 — improvement: nice-to-have for API consumers
+```
+
+The lines go IN the invocation, one per line: identity, an em dash, then the
+priority VALUE only — `P<0-3> — <classification>: <justification>`. No
+`Priority:` prefix; that belongs to the destination file and librarian adds
+it. Librarian is a fresh
+context: it cannot see the interview, so anything not in that list is not
+written. Invoke it; do not describe it. Then re-read the touched `spec.md` /
+`BACKLOG.md` files and confirm each line is actually there — confirmation is
+reading the file, not the absence of an error.
+
+Report three groups, explicitly: priorities now **stored**, items the user
+**deferred**, and priorities **not stored** — named.
+
+**If any answer failed to store** (librarian unavailable, a line rejected, a
+partial write), follow the master's failure path: render the board anyway,
+set `caveat` on it, and report `status: failed`.
+
+**`failed`, not `needs-input`, and `questions` stays EMPTY.** The user answered
+every question that was asked; the machinery failed to write the answer down.
+Nothing is waiting on them, so `needs-input` would be false under the status
+invariant in `reports.md` and would park a settled question in the archive's
+"Needs you" tab. What went wrong is operational, and `failed` is what says so.
+
+**Then write the confirmed lines into the report body, verbatim, in handoff
+format** — `<identity> — <priority value>`, one per line, under a heading that
+says what they are. That block is the whole value of a failed store: it makes
+the run retryable by pasting it into `/supermodo:librarian --priorities`,
+instead of putting the user back through the interview. Losing answers the
+user already gave is the one outcome this path exists to prevent.
 
 ## `--repair`
 
@@ -91,6 +154,23 @@ shape is in `reports.md` under "supermodo:board"; read it and follow it
 literally. The block carries the whole resolved board: suggestions, priority
 groups, and per item its description, effort, execution state, dependencies,
 progress and task list with per-task state.
+
+**Set `caveat` by re-evaluating the gate, not by remembering how the run
+went.** Immediately before rendering, test the gate condition against the
+board you are about to write: any untriaged ACTIVE item, or untriaged items at
+half or more of four-plus. Still true → set `caveat`. Do not ask again — the
+gate asks once — and do not reason from which branch the user took.
+
+That matters because the gate can be answered and still leave the order
+unknown: the user triages but defers three items, or answers everything and
+the store fails, or triages only what reaches the shortlist. In each case they
+have just been through an interview and now most reasonably believe the board
+reflects it. Checking the condition catches all of them; recalling "did they
+skip?" catches one.
+
+One sentence naming the numbers (`"31 of 34 items have no stored priority —
+this order is a guess."`). Omit it entirely when the condition is false: a
+banner on every board is a banner nobody reads.
 
 **Identity always carries its kind** — `work:<slug>` for a triad,
 `backlog:<slug>` for a backlog entry. A bare slug tells the reader nothing

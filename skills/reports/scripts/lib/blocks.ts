@@ -409,6 +409,10 @@ const board = (data: Obj): string => {
   return `<div class="board">` +
     `<p class="bstamp top">Board as of ${esc(asStr(data.generated))} · from ` +
     `<code>${esc(asStr(data.source))}</code> — re-run <code>/supermodo:next</code> to refresh.</p>` +
+    // A board the skill itself does not trust says so first, above its own
+    // contents — an unreliable order presented silently is worse than none.
+    (asStr(data.caveat) === "" ? "" :
+      `<p class="bcaveat"><b>This order is not reliable.</b> ${inline(esc(asStr(data.caveat)))}</p>`) +
     (suggestions.length === 0 ? "" :
       `<div class="bsection"><h3 class="bhead">Do next</h3>` +
       `<ol class="suggs">${suggestions.map(suggestion).join("")}</ol></div>`) +

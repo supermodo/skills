@@ -9,6 +9,36 @@ contracts), **PATCH** = fixes and wording. `1.0.0` will mean the config
 schema (`configVersion`), the docs convention, and the protocol contracts
 are stable — from then on breaking those is a MAJOR with a migration path.
 
+## [0.6.0] - 2026-08-02
+
+### Added
+- The board no longer shows you an order it cannot vouch for. An unranked item
+  is unknown, not a quiet P2 — it could be the P0 — so `next` now asks the
+  three priority questions before showing a board that would be guesswork, and
+  you can triage everything, only what could change the answer, or skip and
+  get the board under a plain warning. Answers reach disk in the same run
+  through the new `librarian --priorities`, and if a write fails the run says
+  so and hands back the lines to retry rather than asking you again next week.
+  Priorities are now asked wherever work is created, including the one-time
+  `--absorb` sweep of existing docs, so a first board no longer arrives
+  entirely unranked.
+- Reports lead with the picture: findings by severity, coverage per package,
+  mutants caught against survived, purity before and after, and a tree of what
+  a refactor proposes to move — drawn in the page, still readable as text in
+  the markdown. Plans you are asked to approve are written and opened before
+  the question, so you can check a nineteen-file refactor in seconds instead
+  of trusting a wall of bullets.
+
+### Changed
+- Runs that produce nothing worth keeping no longer produce a page: a backlog
+  insert and an ordinary commit leave the entry and the commit as their record
+  and stay out of your browser. A commit that fails after staging still
+  reports, because then there is no commit to be the record.
+- Reports now declare what they are: `skill`, `status` and `summary` are
+  required, `status` is one of four values, and every report says which work
+  item it belongs to. Malformed reports are caught and shown as unreadable
+  instead of rendering as healthy rows.
+
 ## [0.5.3] - 2026-08-02
 
 ### Fixed

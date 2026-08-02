@@ -215,12 +215,20 @@ NOT yet merged is listed as "still open — not cleaned up", never force-removed
   up to the tag push, then report the GitHub-release step as NOT done with
   the ready-to-run command. Never silently skip it.
 - **Persist the outcome** per `../protocols/references/reports.md`
-  (standalone location): preflight result, proposed + chosen bump,
-  changelog entry, and exactly which commands ran — so a half-done or
-  declined release survives session loss. Then publish it per the reports protocol — render it with
-  `node <skills>/reports/scripts/render.ts --report <that path>` and name the
-  page in your final message (standalone runs only; inside `flow` the
-  orchestrator renders the run page).
+  (standalone location), in these sections every run: **Preflight** ·
+  **Version** (old → new, suggested vs chosen, and why they differ) ·
+  **Changelog entry** (the text verbatim) · **Commands** (each one, with
+  ran / not-run beside it) · **Not gated** (tiers absent from config —
+  named, never silently assumed green). A half-done or declined release must
+  be reconstructable from this file alone.
+  `status`: `ok` when the sequence completed, `failed` when it stopped
+  part-way (the Commands section then shows exactly where), `skipped` when
+  the user declined the gate — a decline is the system working, never a
+  failure — and `needs-input` for the two preflight interrupts, with the
+  question in `questions`. Then publish it per the reports protocol — render
+  it with `node <skills>/reports/scripts/render.ts --report <that path>` and
+  name the page in your final message (standalone runs only; inside `flow`
+  the orchestrator renders the run page).
 
 ## What this skill is not
 
