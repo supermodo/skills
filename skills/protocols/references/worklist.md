@@ -17,6 +17,16 @@ and a board that exists only in a chat window dies with the session. Read the
 two rules together: recompute from source every time, persist the result every
 time, never treat the persisted copy as an input.
 
+That persisted copy is a SNAPSHOT, and it goes out of date the moment
+`librarian` writes a triad, a priority or a backlog entry. It is MARKED, never
+quietly refreshed: the archive page compares the board's stamp against the
+newest mtime under the work docs and warns when the docs are newer
+(`reports.md`, "HTML projection"). And the two skills that always leave
+`docs/work/` changed — `flow` and `work` — close by naming
+`/supermodo:next` in one line. Both are pointers. Nothing recomputes a board
+outside this protocol, and nothing auto-runs one: a board that appeared without
+being asked for is a board whose triage gate fires unasked.
+
 ## Items
 
 An item is a live **work triad** (identity = `<task-slug>` or

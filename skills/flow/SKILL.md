@@ -274,3 +274,21 @@ any mandatory gate AT OR DOWNSTREAM OF THE ENTRY was skipped or red, the
 report says the run did NOT succeed; a run entered after the last
 verification gate reports at most **segment success** in the exact terms of
 the Invocation section — never bare "success".
+
+**Close the final chat message with the board pointer**, one line, last:
+
+```
+Board is stale (docs changed) — run `/supermodo:next`.
+```
+
+A run that reached stage 7 has written to `docs/work/` — tasks closed, a triad
+archived, decisions recorded — so the board the user last saw describes the
+state before this run, and the next thing they will want is what to do now. Say
+it whenever stage 7 ran, whatever the run's verdict: a failed run changed the
+docs too.
+
+It is a POINTER and nothing more (`../protocols/references/worklist.md`): no
+question, no consent gate, and nothing auto-run. A board carries its own triage
+gate, and firing that at the tail of an eight-stage run the user has already
+gated twice is an interview nobody asked for. The archive page marks the same
+staleness on its Board tab; this line is for the user who never opens it.

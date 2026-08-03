@@ -173,6 +173,22 @@ Sections, same order every run: **What was built** · **Tasks closed** (which
 which model verified, what it said) · **Drift observed** · **Decisions taken**
 · **Left for the user**.
 
+**Close the final chat message of a STANDALONE run with the board pointer**,
+one line, last:
+
+```
+Board is stale (docs changed) — run `/supermodo:next`.
+```
+
+A standalone run moves task states in `tasks.md`, and usually runs a librarian
+closeout on top, so the board the user last saw is a snapshot of the state
+before this run. It is a POINTER (`../protocols/references/worklist.md`): no
+question, no consent gate, nothing auto-run — a board fires its own triage gate
+and must never do so unasked.
+
+In flow mode this line is the orchestrator's, not the stage's: work mutates no
+docs there, and the run reports once at the end.
+
 **`task` is never omitted here.** Work always runs against a triad — that is
 what makes it work rather than a patch — so the report carries the triad slug
 and the archive index links it to the item on the board. A `work` report with

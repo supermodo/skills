@@ -12,8 +12,8 @@
 // warnings go to stderr and the exit code is ALWAYS 0, because a render must
 // never fail the flow stage that called it.
 
-import { writeFileSync, renameSync, readFileSync, existsSync } from "node:fs";
-import { join, resolve, basename, relative } from "node:path";
+import { writeFileSync, renameSync, readFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { join, resolve, basename, relative, dirname } from "node:path";
 import { spawn } from "node:child_process";
 import { scan, contained, type Model } from "./lib/scan.ts";
 import { runPage, reportPage, indexPage, navOf } from "./lib/page.ts";
@@ -34,6 +34,7 @@ const store = resolve(value("--store") ?? join(root, ".skills", "supermodo"));
 
 type Config = {
   readonly project?: { readonly name?: string };
+  readonly docs?: { readonly entry?: string };
   readonly reports?: { readonly html?: boolean; readonly open?: string };
 };
 
@@ -61,6 +62,45 @@ const write = (file: string, html: string): boolean => {
 };
 
 const project = config.project?.name ?? basename(root);
+
+// ── board staleness ─────────────────────────────────────────────────────────
+// `next` recomputes the board from the docs on every run, so a board is never
+// stale as a COMPUTATION — only this projection ages, and it ages the moment
+// librarian writes a triad, a priority or a backlog entry. All this does is
+// report that the newest board is older than the documents it was computed
+// from; it never recomputes one, because selection semantics live in `next`
+// and nowhere else.
+//
+// A coarse filesystem mtime is the RIGHT signal here, not a compromise: it also
+// catches a hand-edited spec.md, a `git pull` and a checkbox ticked by `work` —
+// none of which any skill-side hook could see. Its known lie is a fresh
+// checkout, which resets mtimes and shows the banner over a current board; that
+// costs one re-run, while the opposite error hides work the user added.
+
+const mtimeOf = (path: string): number => {
+  try { return statSync(path).mtimeMs; } catch { return 0; }
+};
+
+const newestMtime = (dir: string): number => {
+  const entries = (() => {
+    try { return readdirSync(dir, { withFileTypes: true }); } catch { return []; }
+  })();
+  return entries.reduce((newest, e) => {
+    const path = join(dir, e.name);
+    const at = e.isDirectory() ? newestMtime(path) : mtimeOf(path);
+    return at > newest ? at : newest;
+  }, 0);
+};
+
+// The board's only inputs are the triads and the backlog, both under
+// <docs>/work/ (docs-convention.md). 0 means "unknown" — an absent work
+// directory or a config that points somewhere unreadable never claims staleness.
+const docsTouched = ((): number => {
+  const entry = config.docs?.entry ?? "docs/README.md";
+  // Config paths are project-relative with no `..` segments (config.md); a
+  // config that breaks that rule gets no probe rather than an escape.
+  return entry.includes("..") ? 0 : newestMtime(join(root, dirname(entry), "work"));
+})();
 
 const renderRun = (model: Model, id: string): string | undefined => {
   const run = model.runs.find((r) => r.id === id);
@@ -145,7 +185,7 @@ const main = (): void => {
     : renderAll(model);
 
   const index = join(store, "index.html");
-  const indexOk = write(index, indexPage(project, model));
+  const indexOk = write(index, indexPage(project, model, docsTouched));
 
   const show = (f: string): string => {
     const rel = relative(root, f);

@@ -3,7 +3,7 @@
 // protocol references resolve (no local master copies), fixtures behave.
 // Zero dependencies. Node ≥ 22.18.
 
-import { readFileSync, writeFileSync, readdirSync, existsSync, statSync, mkdtempSync, cpSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, readdirSync, existsSync, statSync, mkdirSync, mkdtempSync, cpSync, rmSync, utimesSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
@@ -207,6 +207,25 @@ const checkRenderer = (root: string, skillsDir: string): Result => {
       .split("\n").filter((l) => !l.includes(`"caveat"`)).join("\n"), "utf8");
     execFileSync("node", [script, "--store", noCaveat, "--no-open"], { stdio: "pipe" });
     const bare = readFileSync(join(noCaveat, "index.html"), "utf8");
+
+    // Board staleness. Same store, same board, rendered twice against a docs
+    // tree whose ONLY difference is the mtime of docs/work/BACKLOG.md — so the
+    // pair fails if the banner is deleted AND if it fires unconditionally.
+    // The fixture board is stamped 2026-08-01, so a file written now is newer.
+    const staleRoot = join(tmp, "stale-root");
+    const backlog = join(staleRoot, "docs/work/BACKLOG.md");
+    mkdirSync(dirname(backlog), { recursive: true });
+    writeFileSync(backlog, "# Backlog\n", "utf8");
+    const staleStore = join(tmp, "stale-store");
+    cpSync(fixture, staleStore, { recursive: true });
+    const renderAgainst = (): string => {
+      execFileSync("node", [script, "--root", staleRoot, "--store", staleStore, "--no-open"], { stdio: "pipe" });
+      return readFileSync(join(staleStore, "index.html"), "utf8");
+    };
+    const staleHtml = renderAgainst();
+    const old = new Date("2026-07-01T00:00:00Z");
+    utimesSync(backlog, old, old);
+    const freshHtml = renderAgainst();
     const caveatAbsent = bare.includes(`<p class="bcaveat">`)
       ? "a board with NO caveat still rendered the warning element"
       : bare.includes("bcaveat")
@@ -240,6 +259,13 @@ const checkRenderer = (root: string, skillsDir: string): Result => {
       caveatAbsent === undefined
         ? ok("a board with no caveat renders no warning (the check can fail)")
         : fail(caveatAbsent),
+      // Assert the ELEMENT, not the class: `.bstale` is in every stylesheet.
+      staleHtml.includes(`<p class="bstale">`)
+        ? ok("the Board tab warns when the work docs changed after the board was computed")
+        : fail("a board older than its source docs rendered with no staleness warning"),
+      !freshHtml.includes(`<p class="bstale">`)
+        ? ok("a board newer than its source docs renders no warning (the check can fail)")
+        : fail("the staleness warning fired on a board that is up to date"),
       // A status outside the four documented values must not pass through:
       // `needsYou` matches them exactly, so it would drop out of the alerts.
       !first[0].includes("needs_input")

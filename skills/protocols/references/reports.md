@@ -217,6 +217,21 @@ HTML is a **projection**, regenerable and never load-bearing.
   run because the result felt small.
 - Pages land beside their source: `runs/<run-id>/report.html`,
   `<skill>/<ts>.html`, plus `.skills/supermodo/index.html` (the archive).
+- **The Board tab marks itself stale.** That tab is the newest `next` report,
+  and it ages the moment `librarian` writes a triad, a priority or a backlog
+  entry — silently, because a snapshot looks identical whether or not its
+  sources moved. The renderer compares the board's stamp against the newest
+  mtime under `<docs>/work/` (from `docs.entry`) and, when the documents are
+  newer, prints a warning above the board naming `/supermodo:next`.
+
+  It MARKS; it never recomputes. The board is computed once, in `next`
+  (`worklist.md`), and a renderer that re-derived one would be a second
+  selection owner — and would fire a triage gate nobody asked for. A coarse
+  mtime is the right signal precisely because it is coarse: it also catches a
+  hand-edited `spec.md`, a `git pull` and a checkbox ticked by `work`. Its one
+  known lie is a fresh checkout, which resets mtimes and warns over a current
+  board — one wasted re-run, against an error in the other direction that would
+  hide work the user just added.
 - Rendering is best-effort: it never fails a stage, never changes a verdict,
   and exits 0 even when it skipped something.
 - Governed by `reports.html` / `reports.open` in `skills.config.json`.
