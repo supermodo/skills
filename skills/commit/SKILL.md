@@ -107,6 +107,25 @@ BREAKING CHANGE: /v1/orders returns 410 after 2026-06-01
 
 Never more than that.
 
+## Quoting — single quotes, always
+
+Every `git commit -m` this skill prints or runs wraps the message in SINGLE
+quotes:
+
+```bash
+git commit -m 'feat(api)!: rename /v1/orders to /v1/checkout'
+```
+
+Inside DOUBLE quotes an interactive shell (bash, zsh, and the terminals built
+on them) reads `!` as a history expansion and refuses the line — so the
+messages that carry a breaking change are exactly the ones that fail when the
+user pastes them. Single quotes are literal, and nothing in a Conventional
+Commits subject ever needs interpolation.
+
+Corollary: **no apostrophe in the description.** The imperative lowercase
+style never needs one, and the escape that would survive the quoting
+(`'\''`) costs more than the word is worth.
+
 ## Mixed-concern diffs
 
 When the diff contains genuinely unrelated changes, produce two outputs:
@@ -133,13 +152,13 @@ When the diff contains genuinely unrelated changes, produce two outputs:
    1.
    ```bash
    git add packages/data/src/watermark.ts
-   git commit -m "fix(data): guard null watermark"
+   git commit -m 'fix(data): guard null watermark'
    ```
 
    2.
    ```bash
    git add docs/architecture/lease.md
-   git commit -m "docs: pipeline lease spec"
+   git commit -m 'docs: pipeline lease spec'
    ```
    ````
 
@@ -266,13 +285,13 @@ nothing and merely decides what that plan will contain. In order:
 1. **Classify — read-only.** `git status --porcelain`; nothing runs here:
    - **(a) Message describes the staged diff** (the staged-changes path of
      "Read the changes"): the index IS the commit — the plan will be the
-     `git commit -m …` line, plus one `git add -- <fragment-path>` when a
+     `git commit -m '…'` line, plus one `git add -- <fragment-path>` when a
      changelog fragment exists; the user's already-staged paths are NEVER
      re-added. A mixed-hunk file (staged + unstaged hunks) whose staged
      hunks the message describes stays in this case: plain `git commit`
      takes only the staged hunks, and the plan never re-adds that file.
    - **(b) Index empty, message describes the working tree:** the plan
-     will be `git add <paths>` (fragment included) + `git commit -m …`.
+     will be `git add <paths>` (fragment included) + `git commit -m '…'`.
    - **(c) Mismatch:** the index holds changes the message does NOT
      describe — the user's own in-flight work. SELECT SCOPE first: name
      the exact paths and ask a CLOSED MENU per the questions protocol
@@ -296,7 +315,8 @@ nothing and merely decides what that plan will contain. In order:
    mutation as a literal line in one fenced block: any
    `git restore --staged <path>`, any `git add <path>` (explicit paths
    only, the fragment's exact path among them — never `git add -A` / `.`),
-   then the `git commit -m …`. Case (a): the fragment add (if any) plus
+   then the `git commit -m '…'` (single quotes, per "Quoting" above — the
+   plan is a block the user may paste). Case (a): the fragment add (if any) plus
    the commit line. (Fragment file operations are not git mutations and
    live outside the plan: the skill may create, rewrite, or delete ONLY
    the fragment file this invocation authored, or the ONE prior pending

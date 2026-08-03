@@ -128,16 +128,21 @@ command plan), then run it command by command,
 stopping at the first failure and reporting exact state (which commands ran,
 which didn't — half-done releases must be visible, never papered over).
 
+**Every `-m` message is SINGLE-quoted**, here and in the full-mode flows below
+— an interactive shell reads `!` inside double quotes as a history expansion
+and refuses the line, and a printed sequence the user cannot paste is not a
+plan. Same rule as `commit`.
+
 **Light mode** (`dev` → `main`):
 
 ```bash
 # on dev — Step 2 already wrote the bump, the entry, and the fragment
 # deletions into the working tree; the sequence only stages and ships them:
 git add <versionFile> <changelog> <changelog.dir>
-git commit -m "chore(release): v<X.Y.Z>"
+git commit -m 'chore(release): v<X.Y.Z>'
 git switch <main>
 git merge --squash <dev>            # squash stages; the commit below creates the release commit
-git commit -m "release: v<X.Y.Z>"
+git commit -m 'release: v<X.Y.Z>'
 git tag <tagPrefix><X.Y.Z>
 git push origin <main> <tagPrefix><X.Y.Z>   # the branch and ONLY this release's tag — never --tags
 git switch <dev>
@@ -150,7 +155,7 @@ command that creates the merge commit itself — a separate `git commit` after
 `--no-ff` would find nothing to commit and abort the sequence:
 
 ```bash
-git merge --no-ff <dev> -m "release: v<X.Y.Z>"
+git merge --no-ff <dev> -m 'release: v<X.Y.Z>'
 ```
 
 Then, when `githubRelease` is true (extract the entry, publish — always a

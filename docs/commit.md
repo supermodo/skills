@@ -24,6 +24,10 @@ work is finished.
   a split suggestion with ready-to-run `git add` + `git commit` command
   pairs per suggested commit.
 
+Every printed `git commit -m` single-quotes the message, here and in
+[release](release.md), so a breaking-change `!` survives the paste — inside
+double quotes a shell reads it as a history expansion and refuses the line.
+
 The message is copied to your clipboard and printed in a code block.
 
 ## Changelog fragments (default ON)
