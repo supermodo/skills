@@ -37,7 +37,7 @@ including `--triage` and `--repair`. Skipping that is a failed run.
 | --- | --- |
 | `next` | render the full board, then a shortlist of 3–5 things to do now |
 | `--suggest` | the suggestions only, no board |
-| `--triage [<identity>]` | run the intake questions for items with no stored priority — all of them, or just the named one |
+| `--triage [<identity>]` | run the intake questions for items no human has ranked — no valid priority, or one marked `Priority-source: derived` — all of them, or just the named one |
 | `--repair` | report convention debt; offer to hand it to `librarian` |
 
 ## Rendering (`next`, `--suggest`)
@@ -52,12 +52,17 @@ including `--triage` and `--repair`. Skipping that is a failed run.
    alone — but the board and shortlist behind it do.
 4. Compute the provisional board and shortlist in full — then **apply the
    triage gate** (the master's "The triage gate") before showing either.
-   Untriaged = no VALID priority line, missing or malformed.
+   Untriaged = nobody chose the value: **unset** (no valid priority line,
+   missing or malformed) or **derived** (valid, but marked
+   `Priority-source: derived`).
 
-   **An untriaged priority is unknown, not P2.** Gate when **any ACTIVE item
-   is untriaged** — unknown spans P0–P3, so any one of them could be the true
-   lead — or when untriaged items are half or more of a board of four or
-   more. Two traps to avoid:
+   **An unset priority is unknown, not P2.** Gate when **any ACTIVE item is
+   UNSET** — unknown spans P0–P3, so any one of them could be the true lead —
+   or when untriaged items, unset and derived together, are half or more of a
+   board of four or more. A derived value is an evidence-backed estimate, not
+   a blank, so it cannot fire the single-item test on its own; what it does is
+   render with a `derived` pill and come back through `--triage`. Two traps to
+   avoid:
 
    - Never test whether an untriaged item reached the *provisional* shortlist:
      that assumes the P2 default it is supposed to be questioning, so a hidden
@@ -88,10 +93,17 @@ including `--triage` and `--repair`. Skipping that is a failed run.
 
 ## `--triage`
 
-For each item lacking a valid `Priority:` line, ask the master's ≤3 closed
-intake questions (closed-menu kind per the questions protocol), pre-filling
-exposure from the configured main branch's local ref and stating it as an
-assumption to confirm. Batch the items; one item per message.
+For each item no human has ranked — no valid `Priority:` line, **or** one
+marked `Priority-source: derived` — ask the master's ≤3 closed intake
+questions (closed-menu kind per the questions protocol), pre-filling exposure
+from the configured main branch's local ref and stating it as an assumption to
+confirm. Batch the items; one item per message.
+
+A derived item is not asked cold: it already has a value and a recorded
+assumption, so show both and pre-select the answers that produced it. The user
+is auditing a proposal, which takes seconds, rather than reconstructing a
+finding they never read. Send it to `--priorities` even when they confirm it
+unchanged — the write that matters is deleting the marker.
 
 Then **store the answers before the run ends** — the master's "Answers are
 stored, or they were not collected". This skill writes no DOCUMENTATION, so
@@ -140,6 +152,11 @@ List the convention debt the master defines (missing `Priority:`, missing
 line for each, then offer to invoke `librarian` to fix it. Changes nothing in
 `docs/`, and still persists and publishes its own run (see Report).
 
+A `Priority-source: derived` item belongs on this list too, under its own
+handoff: `/supermodo:next --triage <slug>`, not librarian. The file is
+well-formed — what is owed is an answer, and librarian has nothing to repair
+until someone gives it one. Same for an item with no priority at all.
+
 ## Report
 
 Concise per `output.verbosity` (default concise). The board and the
@@ -157,9 +174,10 @@ progress and task list with per-task state.
 
 **Set `caveat` by re-evaluating the gate, not by remembering how the run
 went.** Immediately before rendering, test the gate condition against the
-board you are about to write: any untriaged ACTIVE item, or untriaged items at
-half or more of four-plus. Still true → set `caveat`. Do not ask again — the
-gate asks once — and do not reason from which branch the user took.
+board you are about to write: any UNSET active item, or untriaged items
+(unset + derived) at half or more of four-plus. Still true → set `caveat`. Do
+not ask again — the gate asks once — and do not reason from which branch the
+user took.
 
 That matters because the gate can be answered and still leave the order
 unknown: the user triages but defers three items, or answers everything and
@@ -177,6 +195,20 @@ banner on every board is a banner nobody reads.
 about what they are looking at, and is what `flow --job` needs anyway.
 
 **`unblocks` names the items** it unblocks, never a count.
+
+**Carry `derived`** when the item's `spec.md` marks its priority
+`Priority-source: derived` — a tool computed that value and no human confirmed
+it. Set the field, draw the pill, list the item under repairs, and offer
+`/supermodo:next --triage <slug>` as its command. Unlike `mixed`, this IS
+owed work: `mixed` records a decision the user made, `derived` records one
+they never saw.
+
+**Carry `mixed`** when the item declares a `Mixed:` line — the other
+priorities inside it, as an array of `P<0-3>` strings, drawn as a pill. Read
+the line; never infer one from the tasks. It is not a repair and never sets
+`triage` or `caveat`: either the split was proposed and declined, or cohesion
+made it impossible, and re-raising that every board is arguing with a settled
+decision — or with arithmetic (`worklist.md`).
 
 **Every item carries its own `command`** — the next action for THAT item, so
 the board answers "how do I start this" for all 34 rows, not just the

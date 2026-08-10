@@ -44,6 +44,9 @@ The question it answers: **would these tests fail if the code were wrong?**
 
 The verified report ranks findings by severity; you choose which buckets to
 implement (missing tests first — most protection — then weak assertions).
+What you don't implement now stays in the report — nothing is filed to your
+backlog automatically. Put any of it on the board when you want it there:
+`/supermodo:librarian --promote <report> [ids…]`.
 
 ## Coverage mode
 

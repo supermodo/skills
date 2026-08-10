@@ -55,6 +55,44 @@ You confirm the proposal, it is written into the work's `spec.md`
 recalculated behind your back. Work with no priority set shows as
 `P2 — unset` and the board keeps working.
 
+## Who ranked it
+
+A stored priority and a priority you chose are not the same thing, so the
+board draws three states rather than two. What you confirmed renders plain.
+What has no priority at all renders `P2 — unset`. In between sits work a tool
+ranked because nobody was reachable to ask — a promotion inside an unattended
+`flow` run, an `--absorb` sweep with no one at the keyboard — and that renders
+with a `derived` pill beside its priority.
+
+Both ways of hiding that middle case are lies. Write nothing and a genuine P0
+sits unranked at the bottom of your board; write it plain and the board claims
+a judgement nobody made. So the value is written, along with a note saying it
+is the tool's and what it assumed:
+
+```
+Priority: P0 — released-catastrophic: a captured signed request replays forever
+Priority-source: derived — exposure assumed released because src/api/sign.ts
+  is on the local main ref 2026-08-04
+```
+
+A derived priority is a real value, not a placeholder: it ranks, it is
+inherited through, and the work can start today — an unconfirmed ranking
+blocks nothing. What the pill changes is that the item counts as **untriaged**:
+it is listed under repairs, `--triage` comes back for it with the stored value
+already filled in, and confirming it removes the marker. Confirming the same
+value you were shown still counts — what changed is who owns it.
+
+Nothing written before this exists reads as derived. No marker means you
+ranked it, which is what keeps every priority already on your board correct.
+
+One item carries one priority, because an item is what the board ranks and
+what the archive closes — work that does not share a priority is created as
+more than one item. Sometimes it cannot be: things that only ship together
+stay together, and then the item takes the highest priority in it. There, and
+where you chose to keep mixed work together anyway, the row carries a `mixed`
+pill naming what else is inside it. That is a note, not a complaint: it is
+never counted as a repair and never re-asks the question.
+
 Something that blocks a P0 inherits P0 while it blocks it — shown as
 `P3 → P0`, never written to disk.
 
@@ -86,8 +124,14 @@ can change which *workable* item you should do first, without ever appearing
 near the top itself. Only paused and abandoned work is safely left unranked:
 it lifts nothing.
 
+A derived priority does not stop the board on its own, because it is an
+estimate made from evidence: it can be a band out, not anywhere between P0 and
+P3. It still counts toward the volume test, though — a board mostly ranked by
+a tool is not a board you have read.
+
 So `next` stops first, and offers three choices, when any live item has no
-priority, or when unranked items are half or more of the list:
+priority at all, or when untriaged items — unset and derived together — are
+half or more of the list:
 
 1. **triage now** — every untriaged item, at most three questions each
 2. **triage what could change the answer** — everything still live, blocked
@@ -100,8 +144,9 @@ the board renders under a warning, on the page and in chat.
 
 The one place skip is not offered is `flow --job next`, where the board's pick
 becomes an eight-stage pipeline instead of a suggestion you can ignore. There,
-an unranked live item is either triaged or the pick is confirmed with you
-before anything runs.
+a live item that is unset **or** derived is either triaged or the pick is
+confirmed with you before anything runs — the board is a page you can read and
+disagree with, but this starts editing your code.
 
 **Answers you give are stored before the run ends.** The confirmed priorities
 go straight to `librarian`, which writes them into the files, and `next`

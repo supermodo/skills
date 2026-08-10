@@ -1,15 +1,8 @@
 ---
 name: flow
 description: >
-  Orchestrates the full supermodo development pipeline end-to-end for one task,
-  running each stage in its own subagent so the main context stays small. Eight
-  stages: librarian task intake (grilled), work implementation, optional hunt bug
-  audit, tdd fixes for any bugs found, a mandatory tests gate (suite green +
-  coverage target), refactor, a mandatory post-refactor verify gate, a final
-  librarian docs pass, and commit. Supports entering at a later stage
-  (--from work|hunt|tests|refactor|librarian|commit) and three job sources:
-  an existing docs/work triad, a backlog entry, or a completely new task —
-  with a context-aware "next job" suggestion when none is named. Use when
+  Runs the whole supermodo development pipeline for one task, each stage in its
+  own subagent so the main context stays small. Use when
   the user wants to run the whole pipeline, "take this task from spec to
   commit", orchestrate a feature end-to-end, run the full flow (or the flow
   from a given stage), or drive a task through the complete dev-to-commit

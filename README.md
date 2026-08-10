@@ -51,7 +51,7 @@ flags, behavior).
 | [`flow`](docs/flow.md) | Thin orchestrator: runs the 8-stage pipeline in full or `--from` any stage, with a context-aware next-job suggestion |
 | [`next`](docs/next.md) | The worklist board: everything open by priority, with effort, status, blockers — plus a shortlist of 3-5 things to do now |
 | [`grill`](docs/grill.md) | Twin-agent adversarial interview (Claude + Codex plan independently, disprove each other, you answer only real conflicts) |
-| [`librarian`](docs/librarian.md) | Sole owner of documentation: lifecycle pass, backlog ops, task intake, `--absorb` onboarding |
+| [`librarian`](docs/librarian.md) | Sole owner of documentation: lifecycle pass, backlog ops, task intake, `--promote` of findings into work, `--absorb` onboarding |
 | [`work`](docs/work.md) | Lead implementer: docs router → context chain → team or solo → implement → cross-provider verify |
 | [`tests`](docs/tests.md) | Fix failing tests, audit suite quality with a specialist fleet + two-model verification, push coverage |
 | [`hunt`](docs/hunt.md) | Systematic bug hunt with adversarially verified findings |

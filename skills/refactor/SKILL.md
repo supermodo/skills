@@ -140,7 +140,7 @@ not two.
 | | standalone | inside `flow` (stage 6) |
 | --- | --- | --- |
 | write the plan to | `.skills/supermodo/refactor/<YYYYMMDD-HHMMSS>.md` | `.skills/supermodo/runs/<run-id>/06-refactor.md` |
-| render it | yes — `node <skills>/reports/scripts/render.ts --report <that path>`, and NAME the page in the question | **no** — the orchestrator renders the one run page |
+| render it | yes — `node <skills>/reports/scripts/render.ts --root <project-root> --report <that path>`, and NAME the page in the question | **no** — the orchestrator renders the one run page |
 | ask the user | directly, under the named page | **no** — return `status: needs-input` with the question and stop; the orchestrator routes it and continues this subagent with the answer |
 
 A flow stage runs as a subagent and **cannot talk to the user at all**, so
@@ -408,7 +408,7 @@ An approved plan that quietly changed shape during execution is the one thing
 this report exists to make impossible.
 
 **Then publish it** per `../protocols/references/reports.md`: invoke
-`node <skills>/reports/scripts/render.ts --report <that path>` and NAME the
+`node <skills>/reports/scripts/render.ts --root <project-root> --report <that path>` and NAME the
 page in your final message. Standalone runs only — inside a `flow` run the
 orchestrator renders the run page and stages render nothing.
 

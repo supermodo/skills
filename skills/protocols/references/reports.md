@@ -54,6 +54,60 @@ Target project: `.skills/supermodo/` (gitignored by `config`).
   — same collision rule: target exists → append `-2`, `-3`, … (never
   overwrite an existing report).
 
+**Allocation is a RESERVATION, not a look-then-leap.** "Check whether it
+exists, then take it" is a race: two runs starting in the same second both see
+the base stem free and both claim it. Claim the stem with an operation the
+filesystem makes atomic and let failure drive the suffix —
+
+- a flow run reserves by CREATING its run directory (`mkdir` succeeds for
+  exactly one caller);
+- a standalone run reserves by creating its report file exclusively (an
+  open that fails when the path exists), then fills it in place.
+
+On failure, move to the next suffix and try again; the first success is the
+allocation. Everything derived from the stem — the shard directory, the finding
+ids that embed the stamp — is minted only AFTER the reservation succeeds, so a
+run can never mint ids for a stem another run owns.
+
+### Machine-readable findings
+
+A skill that ships findings as data beside its prose report (`hunt`'s JSONL
+shards, `tests audit`'s) writes them under a **run-scoped directory named from
+the report's own stem** — `<skill>/<report-stem>/findings/…` beside
+`<skill>/<report-stem>.md` — and allocates the two TOGETHER, so the collision
+rule above lands them on the same suffix and they can never drift apart.
+
+A `findings/` folder shared by every run of a skill looks correct and is not:
+standalone reports are siblings in one directory, so the next audit of the
+same project overwrites the record its predecessor's report still points at.
+Nothing errors. The stale report simply starts answering with someone else's
+findings — and a promotion reading it copies the wrong evidence into tracked
+work under the old report's ids.
+
+Finding ids are minted as `<PREFIX>-<run-stamp>-<seq>` and are unique **within
+one run** — not globally. A run stamp is a clock reading, and the collision
+rule above exists precisely because two runs can share one: they get distinct
+report paths and identical stamps, so their finding ids collide exactly.
+
+**The run identity is the allocated report stem** — the path itself, suffix
+and all — because allocation never reuses one. A consumer that needs a unique
+handle on a finding uses the PAIR, run identity plus finding id, never the id
+alone. Deduplicating on a bare id makes two same-second runs look like one,
+which reads as "already promoted" and drops the second run's work with no
+error anywhere.
+
+The report declares its shard directory and the stamp its ids embed in
+frontmatter (`findings`, `run_stamp` below), so a consumer can check that the
+findings it is reading belong to the report it was pointed at rather than
+trusting the path it arrived by — a report's own name need not contain that
+stamp, and for `hunt` it does not.
+
+State the limit rather than overclaiming it: the stamp check catches a wrong
+directory, not two runs of the same second, whose stamps are equal by
+construction. What makes storage safe there is the pair — a promoted finding
+is recorded as (run identity, id) — and the shard directory being read from
+this report's own frontmatter.
+
 ## Containment — package-wide rule
 
 Before EVERY read/write under `.skills/supermodo/`, resolve real paths
@@ -97,6 +151,7 @@ decoration: each one drives something the reader sees.
 | `status` | every report | the page's status colour, and whether the run counts as clean. See the vocabulary below. |
 | `questions` | **any run, not only flow** | the "needs you" surface of the archive index. A standalone run that ends owing the user a decision and leaves this empty has hidden that decision. |
 | `task` | any run scoped to a work item | links the report to its triad in the index. Set it to the triad slug (`csv-export`, `auth/02-refresh-flow`) whenever the run was about one — from `--job`, from the run id, from the file paths touched. Absent means unlinked; it is never inferred for you. |
+| `findings` `run_stamp` | any run shipping machine-readable findings | `findings` is the run-scoped shard directory; `run_stamp` is the stamp this run's finding ids embed. A consumer that has to guess which shards belong to a report will eventually guess wrong, silently, and promote another run's evidence under this one's ids. The run's IDENTITY is its allocated report stem, which is the path a consumer already holds. |
 | `drift_notes` `decisions` | flow stages | the stage-7 librarian pass |
 
 **`status` vocabulary**, the same four values everywhere:
@@ -105,7 +160,7 @@ decoration: each one drives something the reader sees.
 | --- | --- |
 | `ok` | the run did what it set out to do — including "audited and found nothing" |
 | `failed` | it could not: a gate went red, a command errored, the work is not done |
-| `needs-input` | **still waiting** on a decision only the user can make; `questions` says which |
+| `needs-input` | **still waiting** on a decision only the user can make; `questions` says which. A run that finished its work AND owes a decision is `needs-input`, not `ok` — the artifact exists but the user has to act, and `ok` would hide that in the archive. |
 | `skipped` | deliberately not run, with the reason in `summary` — an answered decline, an optional stage passed over |
 
 **The one invariant: `needs-input` means the answer has not arrived yet.** It
@@ -198,7 +253,7 @@ HTML is a **projection**, regenerable and never load-bearing.
   your final message.** A page nobody is pointed at is a page nobody opens.
 
   ```
-  node <skills>/reports/scripts/render.ts --report <path.md>
+  node <skills>/reports/scripts/render.ts --root <project-root> --report <path.md>
   ```
 
   That is the whole duty — no skill generates HTML, formats a page, or decides
@@ -304,6 +359,7 @@ entirely. Emit exactly this shape — every key except `item` is optional, and
        "note": "released · workflow-breaking", "created": "YYYY-MM-DD",
        "description": "what this work is and why it matters, one paragraph",
        "blocked": ["<slug>"], "unblocks": ["<slug>"], "triage": true,
+       "mixed": ["P2", "P3"],
        "progress": {"done": 3, "total": 5},
        "command": "/supermodo:flow --job work:<slug>",
        "modified": "2026-07-30",
@@ -348,6 +404,18 @@ lost.
   order inside a group.
 - `command` is what the reader copies to act on that item: start a backlog
   entry, continue a triad, triage an untriaged one. Every item carries one.
+- `mixed` is the other priorities inside the item, read from its `Mixed:`
+  line — an ARRAY of `P<0-3>` strings, drawn as a `mixed` pill beside the
+  priority. Omit it when the line is absent; never synthesise one by reading
+  the tasks. It is not a repair and not a triage prompt (`worklist.md`),
+  so it never sets `triage` or `caveat`.
+- `derived` is `true` when the item's priority carries a
+  `Priority-source: derived` line — a tool computed the value and no human
+  confirmed it. Drawn as a `derived` pill beside the priority. Omit when
+  absent; absence means confirmed, so never default it to `true` for an item
+  you did not inspect. It counts toward the triage gate's volume test and is
+  listed under repairs (`worklist.md`). Do not also set `triage` on it: that
+  flag means no value at all, and the renderer drops it beside `derived`.
 - `caveat` is set when the board's own order is untrustworthy. The rule is a
   PREDICATE, not a list of situations: **re-evaluate the triage gate condition
   (`worklist.md`) against the board about to be rendered — if it still holds,

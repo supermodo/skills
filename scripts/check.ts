@@ -66,6 +66,13 @@ const checkSkill = (skillsDir: string) => (slug: string): Result => {
   if (fm === undefined) return fail(`skills/${slug}/SKILL.md: no frontmatter`);
   const name = fm.match(/^name:\s*"?([a-z0-9-]+)"?\s*$/m)?.[1];
   const kb = statSync(sk).size / 1024;
+  // The Agent Skills spec caps `description` at 1024 characters, and it is the
+  // one field always resident in the system prompt. Folded YAML hides the
+  // length, so measure the unfolded value. Body length is the other budget:
+  // Anthropic's authoring guidance puts SKILL.md under 500 lines.
+  const desc = fm.match(/^description:\s*>?\s*([\s\S]*?)(?=\n[a-z-]+:\s|\n*$)/m)?.[1]
+    ?.replace(/\s+/g, " ").trim().replace(/^["']|["']$/g, "") ?? "";
+  const lines = text.split("\n").length;
   return merge(
     name === undefined
       ? fail(`skills/${slug}/SKILL.md: missing/invalid name (must match ^[a-z0-9-]+$)`)
@@ -73,6 +80,12 @@ const checkSkill = (skillsDir: string) => (slug: string): Result => {
         ? fail(`skills/${slug}/SKILL.md: name "${name}" != folder "${slug}"`)
         : merge(),
     /^description:/m.test(fm) ? merge() : fail(`skills/${slug}/SKILL.md: missing description`),
+    desc.length > 1024
+      ? fail(`skills/${slug}/SKILL.md: description is ${desc.length} chars (spec max 1024) — cut the workflow summary, keep the triggers`)
+      : merge(),
+    lines > 500
+      ? fail(`skills/${slug}/SKILL.md: ${lines} lines (>500) — move detail into references/ and point at it`)
+      : merge(),
     kb > 40 ? fail(`skills/${slug}/SKILL.md: ${kb.toFixed(0)} KB (>40 KB)`) : merge(),
     ok(`skills/${slug}`),
   );
@@ -259,6 +272,19 @@ const checkRenderer = (root: string, skillsDir: string): Result => {
       caveatAbsent === undefined
         ? ok("a board with no caveat renders no warning (the check can fail)")
         : fail(caveatAbsent),
+      // The `mixed` pill. Exactly ONE fixture item declares `Mixed:`, so the
+      // count is its own negative control: a renderer that draws the pill
+      // unconditionally scores one per board row, not one per declaring item.
+      (html.match(/>mixed P3</g) ?? []).length === 1
+        ? ok("a board item declaring `mixed` renders one pill (the check can fail)")
+        : fail("the `mixed` pill is missing or drawn on items that never declared one"),
+      // Same shape for `derived` — one fixture item sets it, so the count is
+      // its own negative control. This pill is the whole visible half of the
+      // three-state model: without it the board shows a rank a tool computed
+      // exactly as it shows one the user chose.
+      (html.match(/>derived</g) ?? []).length === 1
+        ? ok("a board item whose priority is derived renders one pill (the check can fail)")
+        : fail("the `derived` pill is missing or drawn on items nobody marked — an unconfirmed rank then reads as a chosen one"),
       // Assert the ELEMENT, not the class: `.bstale` is in every stylesheet.
       staleHtml.includes(`<p class="bstale">`)
         ? ok("the Board tab warns when the work docs changed after the board was computed")
@@ -278,6 +304,223 @@ const checkRenderer = (root: string, skillsDir: string): Result => {
       (first[0].match(/class="chip unreadable"/g) ?? []).length === 3
         ? ok("every report missing a required field renders as unreadable")
         : fail("a report with an empty `summary` or a bad `status` was accepted as healthy"),
+    );
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+};
+
+// docs-check over a real docs tree. The fixture's triad was promoted, so it
+// carries provenance + findings.md; deleting the evidence in a COPY is the
+// negative control — without it the positive assertion would stay green if
+// the promotion check were deleted.
+const checkDocsTree = (root: string, skillsDir: string): Result => {
+  const script = join(skillsDir, "librarian/scripts/docs-check.ts");
+  const fixture = join(root, "scripts/fixtures/docs-tree");
+  if (!existsSync(script) || !existsSync(fixture)) return fail("docs-check or its fixture tree is missing");
+  const run = (r: string): boolean => {
+    try {
+      execFileSync("node", [script, r, "docs/README.md"], { stdio: "pipe" });
+      return true;
+    } catch { return false; }
+  };
+  // `--item` is the mode `--promote` calls on a staged item BEFORE renaming it
+  // into docs/, so it is the last point anything can be caught while the tree
+  // is still clean. Untested, the atomic-creation step validates nothing.
+  const runItem = (d: string): boolean => {
+    try {
+      execFileSync("node", [script, "--item", d], { stdio: "pipe" });
+      return true;
+    } catch { return false; }
+  };
+  const tmp = mkdtempSync(join(tmpdir(), "supermodo-docs-"));
+  // Each mutation is applied to its own copy of the clean tree, so every
+  // assertion below fails on exactly one defect.
+  const mutate = (name: string, file: string, edit: (s: string) => string): string => {
+    const dir = join(tmp, name);
+    cpSync(fixture, dir, { recursive: true });
+    const p = join(dir, "docs/work/hunt-api-p1", file);
+    writeFileSync(p, edit(readFileSync(p, "utf8")), "utf8");
+    return dir;
+  };
+  try {
+    const stripped = join(tmp, "no-evidence");
+    cpSync(fixture, stripped, { recursive: true });
+    rmSync(join(stripped, "docs/work/hunt-api-p1/findings.md"));
+    // "…-011" CONTAINS "…-01": a substring check calls this present.
+    const prefix = mutate("prefix", "spec.md", (s) =>
+      s.replace(/HNT-20260803141500-011(?=[^\d])/, "HNT-20260803141500-01"));
+    // The id appears in tasks.md as prose, but no checklist line carries it.
+    const prose = mutate("prose", "tasks.md", (s) =>
+      s.replace(/- \[ \].*<!-- task:hnt-20260803141500-011 -->/, "Also see HNT-20260803141500-011."));
+    // The MARKER survives, but on a prose line — no checklist task exists, so
+    // nobody can do the work. Scanning the file instead of its checklist lines
+    // calls this present.
+    const orphanMarker = mutate("orphan-marker", "tasks.md", (s) =>
+      s.replace(/- \[ \].*(<!-- task:hnt-20260803141500-011 -->)/, "Context only $1"));
+    // Evidence written, provenance not — exactly what an interrupted extension
+    // leaves behind, and it looks clean without the reverse comparison.
+    const orphanEvidence = mutate("orphan-evidence", "findings.md", (s) =>
+      `${s}\n## HNT-20260803141500-099 — added by an extension that never finished\n\n- severity: low · kind: improvement · \`src/api/sign.ts:200\`\n`);
+    const dupId = mutate("dup-id", "spec.md", (s) =>
+      s.replace(/^Promoted-ids: .*$/m, "Promoted-ids: HNT-20260803141500-004, HNT-20260803141500-004, HNT-20260803141500-011"));
+    // Headings only. Every set comparison still agrees, and the item carries
+    // nothing anyone can act on — the shard it came from is gitignored.
+    const hollow = mutate("hollow", "findings.md", () =>
+      "# Findings\n\n## HNT-20260803141500-004 — nonce is never checked\n\n## HNT-20260803141500-011 — expiry compared with `<`\n");
+    const noTitle = mutate("no-title", "findings.md", (s) =>
+      s.replace(/^## HNT-20260803141500-011 — .*$/m, "## HNT-20260803141500-011"));
+    // BOTH keys near-missed, so no exact line matches at all. Bailing out on
+    // that skips every check below while findings.md sits there unvalidated.
+    const nearMiss = mutate("near-miss", "spec.md", (s) =>
+      s.replace(/^Promoted-from:/m, "promoted-from :").replace(/^Promoted-ids:/m, "promoted-ids :"));
+    // Evidence with no provenance at all — the anchored scan a retry uses
+    // cannot see this item, so its findings get promoted a second time.
+    const noProvenance = mutate("no-provenance", "spec.md", (s) =>
+      s.replace(/^Promoted-(from|ids):.*$/gm, "").trim());
+    const dupProvenance = mutate("dup-provenance", "spec.md", (s) =>
+      s.replace(/^(Promoted-from:.*)$/m, "$1\n$1"));
+    // Names the same run, compares equal to nothing — the duplicate scan below
+    // matches identities literally.
+    const aliasFrom = mutate("alias-from", "spec.md", (s) =>
+      s.replace(/^Promoted-from: (.*)$/m, "Promoted-from: $1.md"));
+    // A second item claiming the same finding: two racing promotions, or one
+    // retried after the grouping changed. Each item is self-consistent, so
+    // only a cross-item scan sees it.
+    const twice = join(tmp, "twice");
+    cpSync(fixture, twice, { recursive: true });
+    cpSync(join(fixture, "docs/work/hunt-api-p1"), join(twice, "docs/work/hunt-api-p1-again"), { recursive: true });
+    // An empty path segment names the same report and normalises away.
+    const emptySeg = mutate("empty-seg", "spec.md", (s) =>
+      s.replace(/^Promoted-from: \.skills\/supermodo\/hunt\//m, "Promoted-from: .skills/supermodo/hunt//"));
+    // Lower-cased ids name the same findings. Lower-case the EVIDENCE
+    // headings too, so every set still agrees internally and only the id
+    // format check can catch it — otherwise this passes for the wrong reason.
+    const lowerIds = mutate("lower-ids", "spec.md", (s) =>
+      s.replace(/^Promoted-ids: .*$/m, (m) => m.toLowerCase().replace("promoted-ids:", "Promoted-ids:")));
+    writeFileSync(
+      join(lowerIds, "docs/work/hunt-api-p1/findings.md"),
+      readFileSync(join(lowerIds, "docs/work/hunt-api-p1/findings.md"), "utf8")
+        .replace(/^## HNT-(\S+)/gm, (_m, rest) => `## hnt-${rest}`),
+      "utf8",
+    );
+    // A derived priority is a stored, valid value that no human confirmed. It
+    // must be WRITABLE — refusing it would leave unattended runs choosing
+    // between an unranked P0 and a fake judgement (worklist.md).
+    const derivedOk = mutate("derived-ok", "spec.md", (s) =>
+      s.replace(/^(Priority: .*)$/m, "$1\nPriority-source: derived — exposure assumed from local main 2026-08-03"));
+    // The marker signs a value that is not there.
+    const derivedNoPriority = mutate("derived-no-priority", "spec.md", (s) =>
+      s.replace(/^Priority: .*$/m, "Priority-source: derived — exposure assumed from local main 2026-08-03"));
+    // …or one no reader can parse, which renders as `P2 — unset` while the
+    // marker claims a tool ranked it. Two different stories about one item.
+    const derivedBadPriority = mutate("derived-bad-priority", "spec.md", (s) =>
+      s.replace(/^Priority: .*$/m, "Priority: P1 released-workflow-breaking signed requests can be replayed\nPriority-source: derived — exposure assumed 2026-08-03"));
+    // The whole point of the marker is naming what was assumed, so the user
+    // confirming it knows what they are confirming.
+    const derivedNoReason = mutate("derived-no-reason", "spec.md", (s) =>
+      s.replace(/^(Priority: .*)$/m, "$1\nPriority-source: derived"));
+    // Absence means confirmed, so an unparseable value must not be treated as
+    // absence — that would let a typo launder a derived rank into a chosen one.
+    const derivedUnknownValue = mutate("derived-unknown-value", "spec.md", (s) =>
+      s.replace(/^(Priority: .*)$/m, "$1\nPriority-source: confirmed — asked at intake 2026-08-03"));
+    const twoPriorities = mutate("two-priorities", "spec.md", (s) =>
+      s.replace(/^(Priority: .*)$/m, "$1\nPriority: P3 — improvement: also worth tidying the client"));
+    const twoSources = mutate("two-sources", "spec.md", (s) =>
+      s.replace(/^(Priority: .*)$/m, "$1\nPriority-source: derived — exposure assumed 2026-08-03\nPriority-source: derived — severity read from the shard 2026-08-03"));
+    // Same report, different case. On a case-insensitive filesystem these are
+    // one directory, so keying the duplicate scan on the raw string misses it.
+    const caseTwice = join(tmp, "case-twice");
+    cpSync(fixture, caseTwice, { recursive: true });
+    const second = join(caseTwice, "docs/work/hunt-api-p1-again");
+    cpSync(join(fixture, "docs/work/hunt-api-p1"), second, { recursive: true });
+    writeFileSync(
+      join(second, "spec.md"),
+      readFileSync(join(second, "spec.md"), "utf8")
+        .replace("supermodo/hunt/", "supermodo/HUNT/"),
+      "utf8",
+    );
+    const itemGood = join(fixture, "docs/work/hunt-api-p1");
+    const itemBad = join(derivedNoReason, "docs/work/hunt-api-p1");
+    return merge(
+      run(fixture)
+        ? ok("docs-check accepts a valid promoted triad")
+        : fail("docs-check rejected scripts/fixtures/docs-tree, which is meant to be clean"),
+      runItem(itemGood)
+        ? ok("docs-check --item accepts a valid staged item")
+        : fail("docs-check --item rejected a clean item — the promotion path validates every item through this mode"),
+      runItem(itemBad)
+        ? fail("docs-check --item ACCEPTED a malformed item — the promotion path stages and validates through this mode, so nothing would be caught before the rename")
+        : ok("docs-check --item rejects a malformed staged item (the check can fail)"),
+      run(stripped)
+        ? fail("docs-check ACCEPTED a promoted triad with no findings.md — its evidence is gitignored and now lost")
+        : ok("docs-check rejects a promoted triad whose evidence is missing (the check can fail)"),
+      run(prefix)
+        ? fail("docs-check ACCEPTED a promoted id matched only as a PREFIX of another — substring, not identity")
+        : ok("docs-check matches promoted ids exactly, not by substring (the check can fail)"),
+      run(prose)
+        ? fail("docs-check ACCEPTED a promoted id mentioned in prose with no task carrying it")
+        : ok("docs-check requires a real task marker, not a prose mention (the check can fail)"),
+      run(orphanMarker)
+        ? fail("docs-check ACCEPTED a task marker on a prose line — there is no checklist task to do")
+        : ok("docs-check reads task ids from checklist lines only (the check can fail)"),
+      run(orphanEvidence)
+        ? fail("docs-check ACCEPTED evidence with no Promoted-ids entry — an interrupted extension reads as clean")
+        : ok("docs-check compares evidence against Promoted-ids in BOTH directions (the check can fail)"),
+      run(dupId)
+        ? fail("docs-check ACCEPTED a duplicated id in Promoted-ids")
+        : ok("docs-check rejects a duplicated Promoted-ids entry (the check can fail)"),
+      run(hollow)
+        ? fail("docs-check ACCEPTED findings.md headings with empty bodies — a heading is not evidence")
+        : ok("docs-check requires each finding section to carry its evidence (the check can fail)"),
+      run(noTitle)
+        ? fail("docs-check ACCEPTED a finding heading with no title in the documented shape")
+        : ok("docs-check requires the documented finding heading shape (the check can fail)"),
+      run(nearMiss)
+        ? fail("docs-check SKIPPED every promotion check because a provenance key was misspelled")
+        : ok("docs-check catches a near-miss provenance key instead of bailing out (the check can fail)"),
+      run(noProvenance)
+        ? fail("docs-check ACCEPTED a findings.md with no provenance — a retry would promote it again")
+        : ok("docs-check requires provenance wherever findings.md exists (the check can fail)"),
+      run(dupProvenance)
+        ? fail("docs-check ACCEPTED two Promoted-from lines — only the first is ever read")
+        : ok("docs-check rejects duplicated provenance lines (the check can fail)"),
+      run(aliasFrom)
+        ? fail("docs-check ACCEPTED a non-canonical Promoted-from — the duplicate scan compares identities literally")
+        : ok("docs-check requires a canonical run identity in Promoted-from (the check can fail)"),
+      run(twice)
+        ? fail("docs-check ACCEPTED the same finding promoted into two items — one bug, fixed twice")
+        : ok("docs-check rejects one finding promoted into two items (the check can fail)"),
+      run(emptySeg)
+        ? fail("docs-check ACCEPTED an unnormalised Promoted-from — it names the same run and compares as a different key")
+        : ok("docs-check requires a normalised run identity (the check can fail)"),
+      run(derivedOk)
+        ? ok("docs-check accepts a well-formed derived priority")
+        : fail("docs-check REJECTED a valid `Priority-source: derived` — an unattended run then has no honest way to rank"),
+      run(derivedNoPriority)
+        ? fail("docs-check ACCEPTED Priority-source with no Priority — the marker signs a value that is not there")
+        : ok("docs-check requires a derived marker to sit beside a priority (the check can fail)"),
+      run(derivedBadPriority)
+        ? fail("docs-check ACCEPTED a derived marker on a malformed Priority — it renders `P2 — unset` while claiming to be ranked")
+        : ok("docs-check requires the priority a derived marker signs to be valid (the check can fail)"),
+      run(derivedNoReason)
+        ? fail("docs-check ACCEPTED a derived marker naming no assumption — nothing for the user to confirm")
+        : ok("docs-check requires a derived marker to name its assumption (the check can fail)"),
+      run(derivedUnknownValue)
+        ? fail("docs-check ACCEPTED an unrecognised Priority-source value — absence means confirmed, so a typo launders a derived rank into a chosen one")
+        : ok("docs-check rejects an unrecognised Priority-source value (the check can fail)"),
+      run(twoPriorities)
+        ? fail("docs-check ACCEPTED two Priority fields — every reader disagrees about the real value")
+        : ok("docs-check rejects two priority fields in one item (the check can fail)"),
+      run(twoSources)
+        ? fail("docs-check ACCEPTED two Priority-source lines")
+        : ok("docs-check rejects duplicated Priority-source lines (the check can fail)"),
+      run(caseTwice)
+        ? fail("docs-check ACCEPTED one finding claimed twice under case-variant paths of the same report")
+        : ok("docs-check compares run identities case-insensitively (the check can fail)"),
+      run(lowerIds)
+        ? fail("docs-check ACCEPTED lower-cased Promoted-ids — a retry in the shard's own casing claims them again")
+        : ok("docs-check requires canonical finding ids in Promoted-ids (the check can fail)"),
     );
   } finally {
     rmSync(tmp, { recursive: true, force: true });
@@ -312,6 +555,7 @@ const main = (): number => {
     checkQuestionTransport(root, skillsDir, found),
     checkVersion(root),
     checkFixtures(root, skillsDir),
+    checkDocsTree(root, skillsDir),
     checkRenderer(root, skillsDir),
   );
 

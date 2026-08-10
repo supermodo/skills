@@ -24,6 +24,7 @@ All live in `skills/protocols/references/`:
 | `config.md` | The `skills.config.json` contract: versioning, validation, argv commands, env-var namespacing, defaults |
 | `docs-convention.md` | The strict docs layout: router, work triads, immutable task IDs, ADRs, generated navigation, single doc owner |
 | `worklist.md` | What to work on next: the priority scale and its intake questions, dependency inheritance, execution state, ordering, effort bands, the board, the suggestion rules |
+| `promotion.md` | How findings and pre-existing documents become work items: opt-in promotion, severity ownership, one item one priority, cohesion grouping, tracked evidence, idempotent retries |
 | `reports.md` | Where and how skills persist output: run dirs, stage report frontmatter, run-state hashes, containment, the HTML projection and its visual-block grammar |
 | `handoff.md` | Subagent stages: file-based handoff, needs-input escalation, liveness checks, failure protocol |
 | `cross-model.md` | Running the other provider as adversary: read-only sandboxes, preflight, batching, hung-detection, honest degradation |

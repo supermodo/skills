@@ -69,6 +69,14 @@ docs, or "this is intentional" context. Uncertain findings get
 `"question": true` — the verify phase answers them from docs, the finder
 never self-censors.
 
+### Kind — defect or improvement
+Every finding carries `kind`: **`defect`** when something behaves wrongly
+today, **`improvement`** when nothing is broken but the code is worse for it
+(missing tests, dead exports, structural risk, style). Severity does not imply
+kind — the anchors below rank consequence, and both kinds appear at `medium`
+and `low`. Consumers classify work from this field
+(`../protocols/references/promotion.md`) and may not infer it from the title.
+
 ### Severity — calibrated anchors
 Claiming a severity means naming the concrete consequence at that level. Can't
 name it → drop one level.
@@ -183,7 +191,8 @@ codex exec -s read-only --json -o "$D/codex-<layer>.json" "
 Hunt for <layer> bugs in these files: <file list>.
 Checklist: <paste the layer's reference file content>.
 Report ONLY a JSON array of findings:
-[{\"severity\": \"...\", \"category\": \"...\", \"file\": \"...\", \"line\": N,
+[{\"severity\": \"...\", \"kind\": \"defect|improvement\", \"category\": \"...\",
+  \"file\": \"...\", \"line\": N,
   \"title\": \"...\", \"evidence\": \"...\", \"impact\": \"...\", \"fix\": \"...\",
   \"question\": false}]
 Every finding needs file:line + evidence. No evidence = don't report it."
@@ -218,6 +227,7 @@ tools can't invoke skills — the table already accounts for this.
 ```json
 {
   "severity": "critical|high|medium|low",
+  "kind": "defect|improvement",
   "category": "Layer > Subcategory",
   "file": "path/to/file.ts",
   "line": 123,
@@ -298,24 +308,31 @@ skipping it ships the inflation to the user.
      finding-id scheme (e.g. `F-NN`), the per-finding disposition, and any size
      cap. Compact the report at birth — a bloated "full report" draft must
      never be committed anywhere, and never park hunt output in an `archive/`
-     folder (archives are for retired work, not fresh evidence). Ship the
-     machine-readable findings as JSONL shards beside the report in a
-     `findings/` folder, split by disposition so a fix agent loads only the
-     actionable set: `findings-confirmed-<severity>.jsonl` — one file per
-     severity (critical/high/medium/low, omit empty ones; id, F, severity,
-     category, file, line, title, evidence, impact, fix per line, severity
-     matching the file name; file:line must point at a real repo location —
-     runtime-only observations set locus: "runtime" instead of a fake
-     line 0), `findings-disputed.jsonl` (adds both models' verdicts
-     + evidence verbatim), `findings-other.jsonl` (adds verdict:
-     resolved|documented|doc-drift|refuted, + resolution citation). Keep
-     each shard ≤100KB (overflow → `findings-<shard>-2.jsonl`).
+     folder (archives are for retired work, not fresh evidence).
+   - **Ship the machine-readable findings** as JSONL shards under
+     `<report-stem>/findings/`, allocated with the report so both take the same
+     collision suffix (reports protocol, "Machine-readable findings") — a
+     shared `findings/` folder is overwritten by the next hunt. Split by
+     disposition so a fix agent loads only the actionable set:
+     - `findings-confirmed-<severity>.jsonl`, one per severity, omitting empty
+       ones. Per line: id, F, severity, kind, category, file, line, title,
+       evidence, impact, fix — severity matching the file name, `file:line` a
+       real repo location (runtime-only observations set `locus: "runtime"`,
+       never a fake line 0). An `OVERSTATED` finding is KEPT: it ships at its
+       DOWNGRADED severity with `overstated_from`, never as a fourth
+       disposition and never left in prose alone.
+     - `findings-disputed.jsonl` — adds both models' verdicts and evidence.
+     - `findings-other.jsonl` — adds `verdict:
+       resolved|documented|doc-drift|refuted` + resolution citation.
+
+     Each shard ≤100KB (overflow → `findings-<shard>-2.jsonl`).
    - Resolve the live location with the project's own docs tooling when it
      exists (a `docs:find`/`docs:check` command in config, or grep for prior
      `audit-*.md` / "Hunt Report"). Mirror the most recent existing hunt
      report's structure.
-   - Hunt ALWAYS writes its report + shards under
-     `.skills/supermodo/hunt/YYYY-MM-DD-<target-name>.md` (reports
+   - Hunt ALWAYS writes its report at
+     `.skills/supermodo/hunt/YYYY-MM-DD-<target-name>.md` with its shards in
+     `.skills/supermodo/hunt/YYYY-MM-DD-<target-name>/findings/` (reports
      protocol), then PUBLISHES it — `node <skills>/reports/scripts/render.ts
      --report <that path>`, naming the page in the final message (standalone
      runs only; inside `flow` the orchestrator renders the run page) — never directly into `docs/`, never a new `docs/audits/`
@@ -333,9 +350,19 @@ skipping it ships the inflation to the user.
    `dimension` = category, `blast_radius` = impact, `owner_hint` = the agent
    best placed to fix (from the project's `agents.dir` roster). Refuted /
    documented / disputed findings are never filed. Filing must be idempotent —
-   re-running never double-files (dedupe on the finding id). Projects without
-   such a ledger skip this step.
-3. Print one line: `Hunt complete: N confirmed (C crit, H high), N refuted, N documented, N disputed, N open questions. Report: <path>`
+   re-running never double-files. **Dedupe on the PAIR — this run's identity
+   (its report stem) plus the finding id, never the id alone**: ids are unique
+   within a run, not globally (`../protocols/references/reports.md`), so two
+   same-second hunts mint identical ones and an id-only ledger silently drops
+   the second run's criticals. Projects without such a ledger skip this step.
+3. **Findings are not work items.** The report and its shards are the record.
+   Never write to `BACKLOG.md` or create a triad; promotion into `docs/work/`
+   is `../protocols/references/promotion.md`, run by librarian when the user
+   asks. Severity and `kind` are settled here and consumed there unchanged, so
+   a finding missing either cannot be promoted at all.
+4. Print one line: `Hunt complete: N confirmed (C crit, H high), N refuted, N documented, N disputed, N open questions. Report: <path>`
+   Then, when anything was confirmed:
+   `To turn findings into work: /supermodo:librarian --promote <path> [finding-id…]`
 
 ## Phase 7: Teardown
 
@@ -416,8 +443,13 @@ Frontmatter: `skill: hunt`; `status` per the vocabulary in the reports
 protocol (`ok` even when the hunt found plenty — `ok` means the hunt did its
 job, `failed` means it could not); `summary` naming the counts a reader
 decides on ("3 confirmed (1 critical), 2 disputed, 14 refuted"); `task` set to
-the triad slug whenever the hunt was scoped to one; and every deferred open
-question repeated in `questions` — that is what surfaces it in the archive.
+the triad slug whenever the hunt was scoped to one; `findings` set to this
+run's shard directory and `run_stamp` to the `YYYYMMDDHHmmss` stamp its ids
+embed — the report's own name has no stamp in it, so without those two a
+consumer cannot tell which shards are this report's, and ids are unique within
+a run rather than globally (`../protocols/references/reports.md`); and every
+deferred open question repeated in `questions` — that is what surfaces it in
+the archive.
 
 ---
 
@@ -432,8 +464,11 @@ optional) running as a subagent with its own context:
   `summary` (compressed outcome + the confirmed-finding counts), `drift_notes`
   (docs that promise behavior the code doesn't match — DOC-DRIFT verdicts go
   here), `decisions`, and `questions` (only when `status: needs-input`). The
-  full report + JSONL shards ship to the RUN DIRECTORY (beside the stage
-  report) — in flow, nothing is written under `docs/` at stage 3; if the
+  full report + JSONL shards ship to the RUN DIRECTORY — shards under
+  `03-hunt/findings/`, beside the stage report, which the run id already makes
+  unique, and `findings` / `run_stamp` still go in the frontmatter so a
+  promotion can prove the association. In flow, nothing is written under
+  `docs/` at stage 3; if the
   project's docs contract wants the audit placed in `docs/`, queue that
   placement as a `decisions` entry for the stage-7 librarian pass.
 - **Never mutate documentation — in ANY mode.** Standalone: record answers

@@ -302,6 +302,13 @@ const boardItem = (it: Obj): string => {
   const command = asStr(it.command);
   const isBacklog = /^backlog:/.test(name);
   const modified = asStr(it.modified);
+  // Other priorities inside this item, from its declined-split `Mixed:` line.
+  // Informational, never a repair — see worklist.md, "the mixed pill".
+  const mixed = listOf(it.mixed);
+  // A stored, valid priority that a tool computed and no human confirmed.
+  // Rendered so the board never presents a derived rank as a chosen one —
+  // see worklist.md, "Confirmed, derived, unset".
+  const derived = it.derived === true;
   const subtitle = [
     note,
     effort.evidence === "" ? "" : `effort ${effort.band} — ${effort.evidence}`,
@@ -314,12 +321,16 @@ const boardItem = (it: Obj): string => {
     `<span class="dot ${attrClass(DOT[state] ?? "idle")}"></span>` +
     identity(name) +
     (SILENT_STATE.has(state) ? "" : `<span class="bstate">${esc(state)}</span>`) +
+    (derived ? bchip("derived") : "") +
+    (mixed.length > 0 ? bchip(`mixed ${mixed.join(" ")}`) : "") +
     (effort.band === "?" ? "" : bchip(`effort ${effort.band}`)) +
     (blocked.length > 0 ? bchip(`blocked by ${short(blocked)}`, "hard") : "") +
     (unblocksNames.length > 0
       ? bchip(`unblocks ${short(unblocksNames)}`)
       : unblocksCount > 0 ? bchip(`unblocks ${unblocksCount} item${unblocksCount === 1 ? "" : "s"} (unnamed)`) : "") +
-    (it.triage === true ? bchip("needs triage", "hard") : "") +
+    // `needs triage` means no value at all, so it is louder AND redundant
+    // beside `derived`, which says the same thing plus what the value is.
+    (it.triage === true && !derived ? bchip("needs triage", "hard") : "") +
     progressBar(it.progress) +
     `</summary><div class="bitem-body">` +
     detail.map((d) => `<p class="bdesc">${esc(d)}</p>`).join("") +

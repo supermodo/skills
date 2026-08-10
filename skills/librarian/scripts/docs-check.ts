@@ -9,7 +9,7 @@
 // Exit 0 = clean; exit 1 = issues (one per line on stdout, prefixed by class).
 
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
-import { join, dirname, basename, resolve, sep } from "node:path";
+import { join, dirname, basename, resolve, sep, posix } from "node:path";
 
 type Issue = { readonly cls: string; readonly msg: string };
 
@@ -116,10 +116,179 @@ const checkAdrNumbering = (docs: string): readonly Issue[] => {
 // program/initiative — nothing nests deeper.
 const INITIATIVE_RE = /^\d{2}-[a-z0-9-]+$/;
 
-const triadIssues = (dir: string, rel: string): readonly Issue[] =>
-  ["spec.md", "plan.md", "tasks.md"]
+// A promoted triad carries its own evidence: run artifacts are gitignored, so
+// a `Promoted-ids` entry with no findings.md line and no task is work that
+// survived only on the machine that promoted it. See promotion.md.
+const readIf = (p: string): string => (existsSync(p) ? readFileSync(p, "utf8") : "");
+
+// A run identity is compared literally by the duplicate scan, so its stored
+// form must be the ONE spelling of that path: normalised (no `//`, `.`, `..`,
+// no trailing slash), repo-relative under `.skills/supermodo/`, no `.md`.
+const isCanonicalFrom = (v: string): boolean =>
+  v.startsWith(".skills/supermodo/")
+  && v.length > ".skills/supermodo/".length
+  && !v.endsWith(".md")
+  && !v.includes("\\")
+  && posix.normalize(v) === v
+  && !v.endsWith("/");
+
+// Finding ids are minted `<PREFIX>-<run-stamp>-<seq>` (promotion.md). A
+// lowercased copy names the same finding and compares as a different claim,
+// so a retry using the shard's own casing promotes it a second time.
+const isCanonicalId = (v: string): boolean => /^[A-Z][A-Z0-9]*-\d+-\d+$/.test(v);
+
+// Both halves of the key are canonicalised. The path because a
+// case-insensitive filesystem resolves `hunt/run` and `HUNT/run` to one
+// report; the id for the same reason one level down. Two genuinely distinct
+// reports differing only in case cannot coexist there, so the worst this
+// costs on a case-sensitive filesystem is a repair prompt.
+const claimKey = (from: string, id: string): string =>
+  `${posix.normalize(from).toLowerCase()} ${id.toLowerCase()}`;
+
+// `Priority:` per worklist.md — `P<0-3> — <classification>: <justification>`.
+const PRIORITY_RE = /^Priority:[ \t]*P[0-3][ \t]*—[ \t]*[^\s:][^\n:]*:[ \t]*\S[^\n]*$/m;
+
+// Absent or malformed on its own is NOT reported: the protocol renders those
+// as provisional `P2 — unset` and lists them under repairs, and a project with
+// no priorities at all still draws a board. What IS reported is a state no
+// reader can resolve — two priority fields, which every reader would read
+// differently, or a `Priority-source:` marker signing a value that is not
+// there. The marker is the only thing separating a rank a human chose from one
+// a tool computed (worklist.md, "Confirmed, derived, unset"), so a marker that
+// does not parse must not be allowed to read as absence, which means confirmed.
+const priorityIssues = (dir: string, rel: string): readonly Issue[] => {
+  const spec = readIf(join(dir, "spec.md"));
+  if (spec === "") return [];
+  const fields = [...spec.matchAll(/^[ \t]*priority[ \t]*:.*$/gim)];
+  const sources = [...spec.matchAll(/^[ \t]*priority-source[ \t]*:[ \t]*(.*?)[ \t]*$/gim)];
+  return [
+    ...(fields.length > 1
+      ? [issue("priority", `${rel}spec.md: ${fields.length} priority fields — an item carries at most one, and two is not a range`)]
+      : []),
+    ...(sources.length > 1
+      ? [issue("priority", `${rel}spec.md: ${sources.length} Priority-source lines — one item, one provenance`)]
+      : []),
+    ...(sources.length === 1
+      ? [
+          ...(/^Priority-source:[ \t]*derived[ \t]*—[ \t]*\S/m.test(spec)
+            ? []
+            : [issue("priority", `${rel}spec.md: Priority-source must read "Priority-source: derived — <what was assumed> <date>" — the only defined value is "derived", and it has to name the assumption the user is being asked to confirm`)]),
+          ...(PRIORITY_RE.test(spec)
+            ? []
+            : [issue("priority", `${rel}spec.md: Priority-source: derived with no valid Priority: line — the marker says who chose a value that is not there`)]),
+        ]
+      : []),
+  ];
+};
+
+const promotionIssues = (dir: string, rel: string): readonly Issue[] => {
+  const spec = readIf(join(dir, "spec.md"));
+  // Decide whether this is a promotion BEFORE parsing it strictly. Returning
+  // early because the exact line did not match is how `Promoted-from :` or a
+  // lower-cased key skips every check below while findings.md sits there
+  // unvalidated. A near-miss key, or the presence of findings.md at all, means
+  // this item claims to be promoted and must prove it.
+  const loose = [...spec.matchAll(/^[ \t]*(?:promoted-from|promoted-ids)[ \t]*:.*$/gim)];
+  const hasFindings = existsSync(join(dir, "findings.md"));
+  if (loose.length === 0 && !hasFindings) return [];
+  const fromLines = [...spec.matchAll(/^Promoted-from:[ \t]*(\S+)[ \t]*$/gm)];
+  // The run identity must be CANONICAL, because the duplicate scan matches on
+  // it literally. `…/2026-08-03-api.md`, an absolute path or a `..` segment
+  // all name the same run and none of them compares equal, so the same
+  // findings get promoted again with nothing flagged.
+  const canonical = fromLines.flatMap(([, v]) =>
+    isCanonicalFrom(v)
+      ? []
+      : [issue("promotion", `${rel}spec.md: Promoted-from "${v}" is not a canonical run identity — a normalised repo-relative report stem under .skills/supermodo/, no .md, no empty/. /.. segments`)]);
+  const idLines = [...spec.matchAll(/^Promoted-ids:[ \t]*(.+?)[ \t]*$/gm)];
+  if (fromLines.length !== 1 || idLines.length !== 1) {
+    return [issue("promotion", `${rel}spec.md: a promoted item needs exactly one "Promoted-from:" and one "Promoted-ids:" in the documented form — found ${fromLines.length} and ${idLines.length}${hasFindings ? ", and findings.md is present" : ""}`)];
+  }
+  const stray = loose.length > 2
+    ? [issue("promotion", `${rel}spec.md: ${loose.length} provenance-key lines, expected exactly the two`)]
+    : [];
+  const idLine = idLines[0][1];
+  const ids = idLine.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+  const sorted = [...ids].sort();
+  const order = ids.every((id, i) => id === sorted[i])
+    ? []
+    : [issue("promotion", `${rel}spec.md: Promoted-ids must be ASCII-sorted so the line is a function of the set`)];
+  const idDupes = ids
+    .filter((id, i) => ids.indexOf(id) < i)
+    .map((id) => issue("promotion", `${rel}spec.md: Promoted-ids lists ${id} twice`));
+  const idShape = ids
+    .filter((id) => !isCanonicalId(id))
+    .map((id) => issue("promotion", `${rel}spec.md: Promoted-ids entry "${id}" is not a canonical finding id (<PREFIX>-<run-stamp>-<seq>, as minted)`));
+  const findings = readIf(join(dir, "findings.md"));
+  if (findings === "") {
+    return [...order, ...stray, ...canonical, ...idDupes, ...idShape, issue("promotion", `${rel} missing findings.md — promoted work carries its evidence, the run artifact is gitignored`)];
+  }
+  // EXACT sets, never substring: "…-01" is contained in "…-010". Evidence ids
+  // head their section (`## <ID> — title`); task ids come ONLY from checklist
+  // lines, since a marker sitting in prose is not work anyone can do.
+  const promoted = new Set(ids);
+  // A heading is a finding section when its first token looks like a finding
+  // id or is one this spec claims — so an ordinary `## Notes` heading is left
+  // alone, while a malformed finding heading is still caught below.
+  const sections = findings
+    .split(/^(?=##[ \t])/m)
+    .filter((s) => s.startsWith("##"))
+    .map((body) => ({ body, head: body.slice(0, body.indexOf("\n") + 1 || undefined) }))
+    .map(({ body, head }) => ({ body, head, tok: head.replace(/^##[ \t]+/, "").split(/\s/)[0] ?? "" }))
+    .filter(({ tok }) => /^[A-Z][A-Z0-9]*-\d+-\d+$/.test(tok) || promoted.has(tok));
+  const headings = sections.map((s) => s.tok);
+  const evidence = new Set(headings);
+  // The heading alone is not evidence. A section with the right id and an
+  // empty body passes every set comparison while carrying nothing anyone can
+  // act on — and the shard it was copied from is gitignored, so the loss is
+  // permanent and looks clean.
+  const REQUIRED = ["severity", "evidence", "impact", "fix"];
+  const shape = sections.flatMap(({ head, tok }) =>
+    /^##[ \t]+\S+[ \t]+—[ \t]+\S/.test(head)
+      ? []
+      : [issue("promotion", `${rel}findings.md: "${tok}" must head a "## ${tok} — <title>" section`)]);
+  const bodies = sections.flatMap(({ body, tok }) =>
+    REQUIRED
+      .filter((field) => !new RegExp(`(^|\\n)[-*\\s]*${field}:[ \\t]*\\S`, "i").test(body))
+      .map((field) => issue("promotion", `${rel}findings.md: ${tok} has no "${field}:" — a heading is not evidence`)));
+  const taskIds = new Set(
+    readIf(join(dir, "tasks.md"))
+      .split("\n")
+      .filter((line) => /^\s*- \[[ xX/^-]\]/.test(line))
+      .flatMap((line) => [...line.matchAll(/<!--\s*task:([a-z0-9-]+)\s*-->/g)].map((m) => m[1])),
+  );
+  return [
+    ...order,
+    ...stray,
+    ...canonical,
+    ...idDupes,
+    ...idShape,
+    ...shape,
+    ...bodies,
+    ...headings
+      .filter((h, i) => headings.indexOf(h) < i)
+      .map((h) => issue("promotion", `${rel}findings.md: ${h} heads two sections`)),
+    ...ids.filter((id) => !evidence.has(id))
+      .map((id) => issue("promotion", `${rel}: ${id} is in Promoted-ids but heads no "## ${id} — …" section in findings.md`)),
+    ...ids.filter((id) => !taskIds.has(id.toLowerCase()))
+      .map((id) => issue("promotion", `${rel}: ${id} is in Promoted-ids but no CHECKLIST task carries <!-- task:${id.toLowerCase()} -->`)),
+    // The reverse direction, for evidence only. findings.md belongs to the
+    // promotion, so a section with no provenance is the state an interrupted
+    // extension leaves (provenance is written last) — clean-looking, and the
+    // finding gets promoted a second time later. Tasks get no reverse check:
+    // a triad may legitimately carry tasks that are not findings.
+    ...headings.filter((h) => !promoted.has(h))
+      .map((h) => issue("promotion", `${rel}findings.md: ${h} has evidence but is absent from Promoted-ids — an extension that never recorded its provenance`)),
+  ];
+};
+
+const triadIssues = (dir: string, rel: string): readonly Issue[] => [
+  ...["spec.md", "plan.md", "tasks.md"]
     .filter((part) => !existsSync(join(dir, part)))
-    .map((part) => issue("triad", `${rel} missing ${part}`));
+    .map((part) => issue("triad", `${rel} missing ${part}`)),
+  ...promotionIssues(dir, rel),
+  ...priorityIssues(dir, rel),
+];
 
 const programIssues = (dir: string, rel: string): readonly Issue[] => {
   const entries = readdirSync(dir, { withFileTypes: true });
@@ -163,18 +332,57 @@ const programIssues = (dir: string, rel: string): readonly Issue[] => {
   ];
 };
 
+// Every triad under work/, flat or inside a program, as [dir, rel].
+const allTriads = (workDir: string): readonly (readonly [string, string])[] =>
+  readdirSync(workDir, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && !e.name.startsWith("."))
+    .flatMap((e) => {
+      const dir = join(workDir, e.name);
+      if (existsSync(join(dir, "tasks.md"))) return [[dir, `<docs>/work/${e.name}/`] as const];
+      return readdirSync(dir, { withFileTypes: true })
+        .filter((c) => c.isDirectory() && existsSync(join(dir, c.name, "tasks.md")))
+        .map((c) => [join(dir, c.name), `<docs>/work/${e.name}/${c.name}/`] as const);
+    });
+
+// One finding, one item. Per-item validation cannot see this: two promotions
+// racing, or one retried after a grouping change, each produce a self-
+// consistent item claiming the same finding. On the board it is one bug to fix
+// twice, and whichever item is archived first makes the other look stale.
+const duplicatePromotions = (workDir: string): readonly Issue[] => {
+  const claims = allTriads(workDir).flatMap(([dir, rel]) => {
+    const spec = readIf(join(dir, "spec.md"));
+    const from = spec.match(/^Promoted-from:[ \t]*(\S+)[ \t]*$/m)?.[1];
+    const idLine = spec.match(/^Promoted-ids:[ \t]*(.+?)[ \t]*$/m)?.[1];
+    if (from === undefined || idLine === undefined) return [];
+    return idLine.split(",").map((s) => s.trim()).filter((s) => s.length > 0)
+      .map((id) => ({ key: claimKey(from, id), id, from, rel }));
+  });
+  return claims
+    .filter((c, i) => claims.findIndex((o) => o.key === c.key) < i)
+    .map((c) => {
+      const first = claims.find((o) => o.key === c.key)?.rel ?? "?";
+      return issue("promotion", `${c.id} (from ${c.from}) is promoted twice — ${first} and ${c.rel}`);
+    });
+};
+
 const checkWork = (docs: string): readonly Issue[] => {
   const workDir = join(docs, "work");
   if (!existsSync(workDir)) return [];
-  return readdirSync(workDir, { withFileTypes: true })
-    .filter((e) => e.isDirectory())
-    .flatMap((e) => {
-      const dir = join(workDir, e.name);
-      const rel = `<docs>/work/${e.name}/`;
-      if (existsSync(join(dir, "tasks.md"))) return triadIssues(dir, rel);
-      if (existsSync(join(dir, "README.md"))) return programIssues(dir, rel);
-      return [issue("triad", `${rel} is neither a triad (no tasks.md) nor a program (no README.md + NN-<slug>/ initiatives)`)];
-    });
+  return [
+    // Dot dirs are skipped here exactly as `walkMd` skips them: a promotion
+    // stages its next item under `docs/work/.staging/` so the final move is a
+    // same-filesystem rename, and that half-built triad is not yet work.
+    ...readdirSync(workDir, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && !e.name.startsWith("."))
+      .flatMap((e) => {
+        const dir = join(workDir, e.name);
+        const rel = `<docs>/work/${e.name}/`;
+        if (existsSync(join(dir, "tasks.md"))) return triadIssues(dir, rel);
+        if (existsSync(join(dir, "README.md"))) return programIssues(dir, rel);
+        return [issue("triad", `${rel} is neither a triad (no tasks.md) nor a program (no README.md + NN-<slug>/ initiatives)`)];
+      }),
+    ...duplicatePromotions(workDir),
+  ];
 };
 
 const count = (text: string, needle: string): number =>
@@ -210,7 +418,28 @@ const checkFile = (rel: (p: string) => string, router: string) => (f: string): r
   ];
 };
 
+// `--item <dir>` validates ONE work directory in place — the mode a promotion
+// needs to check a staged triad before renaming it into docs/work/. Whole-tree
+// checks (structure, links, ADR numbering, cross-item duplicates) do not apply
+// to a directory that is not in the tree yet, so they are skipped.
+const checkItem = (dir: string): number => {
+  const d = resolve(dir);
+  if (!existsSync(d)) {
+    console.log(`[triad] ${dir} does not exist`);
+    return 1;
+  }
+  const rel = `${dir.replace(/\/+$/, "")}/`;
+  const issues = [
+    ...triadIssues(d, rel),
+    ...checkTaskIds(`${rel}tasks.md`, readIf(join(d, "tasks.md"))),
+  ];
+  issues.forEach(({ cls, msg }) => console.log(`[${cls}] ${msg}`));
+  console.log(issues.length > 0 ? `docs-check: ${issues.length} issue(s)` : "docs-check: item ok");
+  return issues.length > 0 ? 1 : 0;
+};
+
 const main = (): number => {
+  if (process.argv[2] === "--item") return checkItem(process.argv[3] ?? ".");
   const root = resolve(process.argv[2] ?? ".");
   const entryRel = process.argv[3] ?? "docs/README.md";
   const entry = resolve(root, entryRel);

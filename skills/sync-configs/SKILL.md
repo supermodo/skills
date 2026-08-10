@@ -276,7 +276,7 @@ answer parks a settled decision in the archive's "Needs you" tab. Then publish
 it:
 
 ```
-node <skills>/reports/scripts/render.ts --report <that path>
+node <skills>/reports/scripts/render.ts --root <project-root> --report <that path>
 ```
 
 and NAME the page in your final message. Inside a `flow` run this does not

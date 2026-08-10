@@ -161,7 +161,7 @@ Standalone runs write this report to
 the session. Then publish it:
 
 ```
-node <skills>/reports/scripts/render.ts --report <that path>
+node <skills>/reports/scripts/render.ts --root <project-root> --report <that path>
 ```
 
 and NAME the page in your final message. Inside a `flow` run this does not

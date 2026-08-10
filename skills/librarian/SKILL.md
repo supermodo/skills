@@ -1,6 +1,6 @@
 ---
 name: librarian
-description: "Sole owner of documentation mutations: run the lifecycle pass to close out completed work, reconcile docs and agent definitions with code, promote verified contracts, record ADRs, archive finished tasks, regenerate navigation, and repair links. Also manages the backlog, runs new-task intake, and (with --absorb) performs the one-time sweep that classifies and absorbs pre-existing documentation into the convention. Use for docs maintenance, task closeout, documentation or instruction drift, backlog operations, `--task` intake, `--absorb` onboarding of existing docs, or a flow stage-7 alignment pass."
+description: "Sole owner of documentation mutations: run the lifecycle pass to close out completed work, reconcile docs and agent definitions with code, promote verified contracts, record ADRs, archive finished tasks, regenerate navigation, and repair links. Also manages the backlog, runs new-task intake, promotes hunt or test-audit findings into work items (--promote), and (with --absorb) performs the one-time sweep that classifies and absorbs pre-existing documentation into the convention. Use for docs maintenance, task closeout, documentation or instruction drift, backlog operations, `--task` intake, `--promote` of findings into triads, `--absorb` onboarding of existing docs, or a flow stage-7 alignment pass."
 ---
 
 # librarian — the single documentation owner
@@ -14,7 +14,8 @@ run starts at the docs router (`docs.entry` from config, default
 
 Read `../protocols/references/docs-convention.md` (the layout + rules you enforce),
 `../protocols/references/reports.md` (drift/decision inputs), `../protocols/references/questions.md`,
-and `../protocols/references/grilling.md` (for `--task` intake). Validate config FIRST
+`../protocols/references/grilling.md` (for `--task` intake), and
+`../protocols/references/promotion.md` (for `--promote` and `--absorb`). Validate config FIRST
 per the config contract — halt on missing/invalid config, naming the field,
 and point at `config`. Never mutate git (no add/commit/merge/rebase/push).
 
@@ -44,11 +45,13 @@ and point at `config`. Never mutate git (no add/commit/merge/rebase/push).
   triad.
 - **`--priorities`** — write confirmed triage answers into the items they
   belong to (below). Nothing else.
+- **`--promote <report-path> [finding-id…]`** — turn named findings from a
+  run artifact into work items (below). User-invoked only.
 - **`--absorb`** — one-time, explicit-only sweep of pre-existing
   documentation outside the convention (below). Never runs implicitly.
 
-Never combine a backlog op, `--task`, `--priorities`, or `--absorb` with the
-full lifecycle pass implicitly.
+Never combine a backlog op, `--task`, `--priorities`, `--promote`, or
+`--absorb` with the full lifecycle pass implicitly.
 
 ## `--task` intake
 
@@ -80,7 +83,9 @@ Three sources feed it:
      (`../protocols/references/worklist.md` — ask them here, they are part
      of intake), and a `## Open questions` checklist with immutable
      `<!-- question:slug -->` IDs for anything the grill left owed by the
-     user.
+     user. **One priority per triad** — if the grill settled on work that
+     does not share one, that is more than one item
+     (`../protocols/references/promotion.md`).
    - `plan.md` — approach, steps, risks, alternatives considered.
    - `tasks.md` — checklist with **immutable inline task IDs**
      (`- [ ] Do X <!-- task:do-x -->`), kebab-case, unique, never reused.
@@ -100,6 +105,12 @@ Three sources feed it:
    The backlog entry is being replaced by a pointer in this same step, so the
    confirmed P0 is then gone from both files. Take everything after the colon
    and write `Priority: <that value>`.
+
+   **A `priority-source: derived` marker on the entry carries across too**, as
+   `Priority-source:` on the triad. Dropping it graduates an unconfirmed rank
+   into a confirmed-looking one — the same silent loss as above, running the
+   other way, and worse because it destroys the only record that nobody chose
+   the value.
 5. Run docs-generate, then docs-check. Report.
 
 Do not implement the plan, edit production code, or start `work`.
@@ -166,13 +177,17 @@ say so and write nothing rather than going looking for answers elsewhere.
    mean "no priority line" — appending to a file that already has a broken one
    leaves two, which the grammar forbids and which makes every later reader
    disagree about the real value. Scan the destination for any existing
-   priority field first, case-insensitively, and act on what is there:
+   priority field first, case-insensitively — `Priority-source:` is a
+   different field and never counts as one, or confirming a derived item
+   would read as "two priority fields" and refuse the one write it exists
+   for — and act on what is there:
 
    | found in the destination | do |
    | --- | --- |
    | nothing | add the field: `Priority:` on its own line in `spec.md`, `  priority:` indented under the entry in `BACKLOG.md` |
    | one MALFORMED field | replace that line in place — same position, correct grammar. This is the repair triage was run for. |
-   | one VALID field | write nothing, report the conflict, leave the stored value alone. Priorities are user-owned and frozen at intake; this mode fills blanks and repairs breakage, it never re-triages. |
+   | one VALID field marked `Priority-source: derived` | replace the value in place and **delete the marker line**. This is the normal path, not an override: the item was ranked by a tool, the interview is the human confirming it, and an answer that leaves the marker behind means `--triage` will ask again next week. Delete the marker even when the confirmed value equals the derived one — what changed is who owns it. |
+   | one VALID field, unmarked | write nothing, report the conflict, leave the stored value alone — UNLESS the user directed this change themselves, naming the item and the new value. The refusal exists to stop silent re-triage, not to stop the owner correcting a value. Report every replacement, with the old value. |
    | two or more priority fields | write nothing, report it for explicit repair. Which one the user meant is not knowable, and picking one silently discards the other. |
 
    Never append a second field on any path. `docs-check` runs at step 5, after
@@ -186,6 +201,48 @@ say so and write nothing rather than going looking for answers elsewhere.
 
 Report the outcome per item so the caller can tell the user exactly which
 answers are now stored and which are not.
+
+## `--promote` — turn findings into items
+
+Receives run artifacts: a `hunt` report, a `tests audit`, their shards.
+**`../protocols/references/promotion.md` owns the semantics — read it and
+follow it literally.** Nothing here restates it.
+
+```
+/supermodo:librarian --promote <report-path> [finding-id…]
+```
+
+User-invoked only. No finding ids given → ask which to promote, default none.
+**No grill:** a confirmed finding already survived a finder and a skeptic.
+
+**With nobody to ask** (a subagent or `flow` run), selection still blocks —
+no ids, no promotion — but grouping and priority proceed on their derived
+values. Each such item gets a `Priority-source: derived — <assumption> <date>`
+line naming what was assumed, and the same question goes in the report's
+`questions`. Report `status: needs-input`: the work is startable, the ranking
+is the tool's until someone confirms it.
+
+1. Resolve the report path (containment per the reports protocol). Read the
+   findings from the machine-readable record, never the prose; no record →
+   refuse, naming the skill that owes one.
+2. Derive the shard directory, require the report's `findings` frontmatter to
+   agree, and check every id carries its `run_stamp`. Track findings by the
+   pair (run identity + id) throughout.
+3. Keep only promotable verdicts. Name every refusal and why.
+4. Never assign, adjust or infer a severity. Missing → hand it back.
+5. **Preflight, unlocked** (it informs step 6, which waits on a person): scan
+   `Promoted-from` / `Promoted-ids` across live and archived triads. Report
+   what is already promoted and where. Never delete or replace anything.
+6. Group, then settle each group's priority — mechanical for hunt defects,
+   asked once per group otherwise. Show the grouping before writing.
+7. **Take the report lock**, re-run the preflight inside it, create what was
+   confirmed one item at a time and atomically — assemble each in a temp
+   directory, check it with `node <skill-dir>/scripts/docs-check.ts --item
+   <that directory>`, then rename it into `docs/work/` — extend rather than
+   duplicate a live match, and release the lock on every exit.
+8. Touch `BACKLOG.md` only when the user asked for an entry by name.
+9. Run docs-generate, then docs-check. Report per finding: which item it
+   became, or why it did not.
 
 ## `--absorb` — sweep pre-existing documentation (explicit flag only)
 
@@ -222,6 +279,13 @@ scaffolding when its scan saw docs outside the target paths.
    to get out of. Batch them with the file's disposition questions rather than
    as a second pass — one interruption per file, not two. A decline leaves
    that item provisional, which is fine; not asking is not.
+
+   **One file is not one item.** A `TODO.md` listing thirty unrelated things
+   of different urgency absorbs as several items, by the cohesion test in
+   `../protocols/references/promotion.md` — never as one triad whose priority
+   is whichever line the reader noticed first. Absorb is usually the first
+   supermodo run in a repository with years of work in it, so this is where a
+   single mis-sized item does the most damage.
 3. **Disposition plan — approval-gated, two questions per file** (questions
    protocol; files may be grouped by proposed disposition, but every file
    is listed individually).
@@ -312,9 +376,12 @@ read (containment rule).
 
 - Single documentation owner: never delegate doc mutation to a second owner;
   other skills report drift, librarian resolves it once.
-- Librarian is the ONLY writer of `Priority:`, `Created:` and
-  `## Open questions`. The `next` skill and every other reader hands its
-  proposed lines here; they never write docs themselves.
+- Librarian is the ONLY writer of `Priority:`, `Priority-source:`, `Mixed:`,
+  `Created:` and `## Open questions`. The `next` skill and every other reader
+  hands its proposed lines here; they never write docs themselves.
+- Librarian never invents or revises a finding's severity — that judgment
+  belongs to the subagents that produced it
+  (`../protocols/references/promotion.md`).
 - Never hand-edit generated files or nav sections.
 - Never read archive prose by default — only for a specifically identified
   provenance need.
@@ -340,6 +407,7 @@ produced reasoning that exists nowhere else:
 | --- | --- |
 | lifecycle pass (no args) | **yes** — the docs-check delta, what was promoted, archived and split, and the decisions still owed live only here |
 | `--task` | **yes** — the grill transcript and the resolved intake answers exist nowhere but this file |
+| `--promote` | **yes** — which findings became which items, the bands confirmed, and every finding deliberately left in the report live only here; without it the user cannot audit the promotion and will redo it by hand |
 | `--absorb` | **yes** — the per-file dispositions, including every file deliberately left untouched |
 | `--backlog add/edit/drop/reap/list` | **no** — write nothing, render nothing |
 | `--backlog next` | **not librarian's** — this is an alias; the `next` skill runs and writes its own report exactly as it always does. Librarian adds nothing and suppresses nothing. |
@@ -357,7 +425,7 @@ For the modes that DO earn one: write it to
 was about one work item (`--task` always is), then publish it:
 
 ```
-node <skills>/reports/scripts/render.ts --report <that path>
+node <skills>/reports/scripts/render.ts --root <project-root> --report <that path>
 ```
 
 and NAME the page in your final message. Sections, in this order: **What

@@ -231,7 +231,7 @@ NOT yet merged is listed as "still open — not cleaned up", never force-removed
   the user declined the gate — a decline is the system working, never a
   failure — and `needs-input` for the two preflight interrupts, with the
   question in `questions`. Then publish it per the reports protocol — render
-  it with `node <skills>/reports/scripts/render.ts --report <that path>` and
+  it with `node <skills>/reports/scripts/render.ts --root <project-root> --report <that path>` and
   name the page in your final message (standalone runs only; inside `flow`
   the orchestrator renders the run page).
 
