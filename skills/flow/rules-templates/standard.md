@@ -1,6 +1,7 @@
 ---
 rule: flow
 description: Eight stages, grill through commit, with hunt and tdd optional
+default: true
 template: standard
 summary: >
   Eight stages: intake, work, hunt (optional), tdd fixes, the tests gate,

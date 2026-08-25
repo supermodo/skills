@@ -1,6 +1,7 @@
 ---
 rule: commit
 description: Conventional Commits, one line, no issue key
+default: true
 template: conventional
 summary: >
   Message: Conventional Commits, one line — `type(scope)!: description`.
@@ -29,3 +30,22 @@ carried by `!`, not prose.
 
 Derived from the diff: a change confined to one package or app takes that
 package's short name; a change spanning several omits the scope entirely.
+
+## Never in the message
+
+- "This commit…", "I", "we", "now", "currently" — the diff already says what
+- AI attribution ("Generated with Claude…") unless this repo's rules require a
+  trailer
+- emoji, unless the existing log shows that convention
+- file names the scope already implies
+
+## Body
+
+None. A breaking change is carried by the marker. The single exception is a
+breaking, security or migration case where one line cannot hold the essential
+warning: then at most ONE body line, blank-line separated.
+
+## Split suggestions
+
+Offered whenever the diff holds genuinely unrelated changes, as ready-to-run
+`git add` + `git commit` pairs. Never manufactured for a single-concern diff.

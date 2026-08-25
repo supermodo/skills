@@ -19,7 +19,15 @@ not a set of hints merged with a default. Materialized once, then read as-is.
 **One file, one read, nothing to reconcile.** A skill never combines a rules
 file with a built-in default, because anything a model must reconcile at run
 time is somewhere it can drift. Present → the file is the process. Absent →
-the skill's built-in default is the process.
+the skill's **default shipped template** is the process, read from
+`rules-templates/` (the variant whose frontmatter carries `default: true`).
+
+**A sequence exists in exactly ONE place.** SKILL.md holds capabilities and
+invariants; it never carries a second copy of the skill's own sequence "as the
+default". A default that is written twice is two defaults, and the first time
+one is edited the skill and its template disagree with nobody told. Behaviour
+is always skill + rules: the skeleton from SKILL.md, the process from the
+rules file or the template it came from.
 
 ## The split — capabilities, invariants, sequence
 
@@ -191,6 +199,12 @@ A skill ships its starting points at `skills/<skill>/rules-templates/<variant>.m
 is a starting point, not a mode: once materialized the file is the project's,
 and the variant name survives only so drift can diff against the right shipped
 file.
+
+Exactly one variant per skill carries `default: true`. That is the file a skill
+reads when no rules file exists, so "which process runs by default" has one
+machine-checkable answer instead of living in prose. `scripts/check.ts`
+enforces the one-and-only-one rule; a cross-cutting template has no owning
+skill and therefore no default.
 
 A **cross-cutting** template has no owning skill, so its destination comes from
 its own `rule:` field and never from the folder it ships in.

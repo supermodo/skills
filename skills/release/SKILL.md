@@ -29,8 +29,11 @@ version lives — `package.json:version`, `.claude-plugin/plugin.json:version`,
 ## The project's process (read FIRST)
 
 Read `.supermodo/rules/release.md` if it exists. It IS the release process for
-this project and it replaces the light/full sequences below entirely — those
-become two bundled examples, not the two options. Then read
+this project. Absent, the process is the shipped default template
+(`rules-templates/light.md`) — never a sequence remembered from this file. What
+follows below is HOW to execute each step correctly: the exact commands, the
+gates, the failure reporting. The rules file says WHICH steps, in what order,
+on which branches. Then read
 `.supermodo/rules/INDEX.md` if present and load only the cross-cutting files
 naming `release` (typically `vcs.md`). Contract:
 `../protocols/references/rules.md`.

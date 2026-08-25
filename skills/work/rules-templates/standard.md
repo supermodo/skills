@@ -1,6 +1,7 @@
 ---
 rule: work
 description: Docs-routed implementation with a teammate roster and cross-provider verify
+default: true
 template: standard
 summary: >
   Start at the docs router, load the task's context chain, interview on what is

@@ -1,6 +1,7 @@
 ---
 rule: release
 description: dev to main by squash, tag, push, GitHub release
+default: true
 template: light
 summary: >
   Cut from dev into main by squash merge, tag, push, publish the GitHub release,

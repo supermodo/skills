@@ -1,6 +1,7 @@
 ---
 rule: bug-council
 description: Full council — several seats, falsification rounds, independent verify
+default: true
 template: deep
 summary: >
   THIS IS THE MOST EXPENSIVE THING IN THE PACKAGE. Several independent agent

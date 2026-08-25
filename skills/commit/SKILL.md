@@ -124,19 +124,13 @@ Choosing among them is the judgement this skill contributes:
   the log — package names, task IDs (MC-1, RA-14), domain terms
   (materialize, watermark). The message should read like the team wrote it.
 
-## One line — hard rule
+## Message shape is the project's
 
-No body. A breaking change is carried by `!`, not prose. Only exception:
-breaking/security/migration cases where one line cannot hold the essential
-warning — then at most ONE body line, blank-line separated (spec format):
-
-```
-feat(api)!: rename /v1/orders to /v1/checkout
-
-BREAKING CHANGE: /v1/orders returns 410 after 2026-06-01
-```
-
-Never more than that.
+Whether a message is one line or carries a body, and what may never appear in
+it, come from `.supermodo/rules/commit.md` — from `rules-templates/` when the
+project has not written one. Both shipped variants are one-line: a breaking
+change is carried by the marker, not by prose. Do not add a body unless the
+project's rules file says to.
 
 ## Quoting — single quotes, always
 
@@ -195,14 +189,6 @@ When the diff contains genuinely unrelated changes, produce two outputs:
 
    Every changed file appears in exactly one suggested commit. Skip this
    section entirely for single-concern diffs — don't manufacture splits.
-
-## Never in the message
-
-- "This commit...", "I", "we", "now", "currently" — the diff already says what
-- AI attribution ("Generated with Claude...") — unless the repo's own rules
-  require a trailer
-- Emoji (unless the repo's log shows that convention)
-- File names the scope already implies
 
 ## Deliver
 

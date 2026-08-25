@@ -13,7 +13,9 @@ description: "Sole owner of documentation mutations: run the lifecycle pass to c
 > `.supermodo/rules/INDEX.md` rows naming `librarian` — that file IS this project's
 > librarian process and replaces the defaults below wherever they overlap. Contract:
 > `../protocols/references/rules.md`. Never in that file, so never switchable off:
-> sole ownership of `docs/`, never inventing technical content, never hand-editing generated files, never mutating git.
+> sole ownership of `docs/`, never inventing technical content, never hand-editing
+> generated files, never mutating git, and every guarantee under "Lifecycle pass"
+> below. Starting point: `rules-templates/standard.md`.
 
 Sole owner of documentation mutations. Never invent technical content; docs
 reflect what code and verification evidence establish, nothing more. Every
@@ -343,32 +345,30 @@ scaffolding when its scan saw docs outside the target paths.
 
 ## Lifecycle pass (no args)
 
-1. Run docs-check; retain the complete issue list as the worklist.
-2. Split live docs above 40 KB at responsibility boundaries; leave a short
-   landing doc at the stable path and repair links.
-3. For completed work: verify behavior against code + evidence, promote
-   current contracts to `docs/reference/` and durable choices to new ADRs,
-   then move the whole work folder to the archive per the convention's
-   flattened naming (`YYYY-MM-<task-slug>`, initiatives
-   `YYYY-MM-<program>-<NN-slug>`; a program whose last initiative archives
-   sends its README to `YYYY-MM-<program>/` and the empty dir is removed)
-   verbatim.
-4. Validate ADR supersession metadata. Bodies and original decision metadata
-   are immutable after acceptance; only lifecycle fields
-   (`proposed | accepted | superseded-by: ADR-NNNN | rejected`) update, and
-   only mechanically.
-5. Promote verified assumptions only when evidence, verification date, and
-   revalidation trigger are recorded. Specs and plans are never evidence;
-   `reference/` holds only verified contracts.
-6. Run docs-generate, then docs-check. Never hand-edit any file carrying the
-   `<!-- supermodo:generated -->` marker or inside the
-   `<!-- supermodo:nav:start/end -->` delimiters.
-7. Review reference docs whose governed code changed: fix mechanical drift;
-   stop and ask the user about substantive conflicts (questions protocol).
-8. Reconcile `CLAUDE.md` / `AGENTS.md` and the agent roster (config
-   `agents.dir`, e.g. `.claude/agents/` or `.codex/agents/`) with current
-   contracts. Treat a misrouted or weak agent definition like a failing
-   test: correct its description/behavior in the same pass.
+**The sequence is the project's.** It lives in `.supermodo/rules/librarian.md`
+— materialized from `rules-templates/standard.md` when the project has not
+written its own — and that file says which steps run, in what order, and when
+a pass is triggered. What follows is what a pass must GUARANTEE whatever order
+it runs in; none of it is in the rules file, so none of it can be switched off:
+
+- The docs checker runs, and its complete issue list is the pass's worklist. A
+  pass never ends with the checker unrun or its output unread.
+- Completed work is verified against CODE AND EVIDENCE before anything is
+  promoted or archived. A spec or plan is never evidence.
+- The reference tree holds only verified contracts. An assumption is promoted
+  only when evidence, verification date and revalidation trigger are all
+  recorded.
+- ADR bodies and original decision metadata are immutable after acceptance;
+  only lifecycle fields update, and only mechanically.
+- Archiving moves the whole work folder VERBATIM, under the convention's
+  flattened naming (`YYYY-MM-<task-slug>`, initiatives
+  `YYYY-MM-<program>-<NN-slug>`; a program whose last initiative archives sends
+  its README to `YYYY-MM-<program>/` and the empty dir is removed).
+- Generated files and nav sections are never hand-edited. Navigation is
+  regenerated and the checker re-run before the pass is called done.
+- Mechanical drift in a reference doc whose code changed is repaired;
+  a SUBSTANTIVE conflict stops and goes to the user (questions protocol).
+  Nothing is written that current code and evidence do not establish.
 
 ## Flow integration (stage 7)
 

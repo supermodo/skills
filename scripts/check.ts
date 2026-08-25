@@ -1001,6 +1001,32 @@ const checkPathResolution = (skillsDir: string): Result => {
     : fail(`${missing.join(", ")}: builds docs paths but never says to resolve them from docs.layout — it will write to the default names in a project that renamed them`);
 };
 
+// "Absent rules file -> the shipped default runs" only means something if
+// exactly one variant claims to be the default. Zero and the skill has no
+// process to fall back on; two and which one runs is whichever the model read
+// first. Cross-cutting templates have no owning skill and so no default.
+const checkTemplateDefaults = (skillsDir: string, found: readonly string[]): Result => {
+  const results = found.flatMap((name) => {
+    const dir = join(skillsDir, name, "rules-templates");
+    if (!existsSync(dir)) return [];
+    const files = readdirSync(dir).filter((f) => f.endsWith(".md"));
+    const own = files.filter((f) => {
+      const fm = readFileSync(join(dir, f), "utf8");
+      // A cross-cutting template's `rule:` is not this skill's name.
+      return new RegExp(`^rule:[ \\t]*${name}[ \\t]*$`, "m").test(fm);
+    });
+    if (own.length === 0) return [];
+    const defaults = own.filter((f) =>
+      /^default:[ \t]*true[ \t]*$/m.test(readFileSync(join(dir, f), "utf8")));
+    return defaults.length === 1
+      ? [ok(`${name}: one default rules template (${defaults[0]})`)]
+      : [fail(`${name}/rules-templates: ${defaults.length} variants marked \`default: true\` (expected exactly 1) — with none there is no process when a project has no rules file, with two the process is whichever one gets read first`)];
+  });
+  return results.length === 0
+    ? fail("no skill ships a rules template — the default-process rule has nothing to check")
+    : merge(...results);
+};
+
 const main = (): number => {
   const root = process.cwd();
   const skillsDir = join(root, "skills");
@@ -1019,6 +1045,7 @@ const main = (): number => {
     checkRulesMaster(skillsDir, found),
     checkRulesTree(root, skillsDir),
     checkRulesTemplates(skillsDir, found),
+    checkTemplateDefaults(skillsDir, found),
     checkFixtures(root, skillsDir),
     checkGrammarFixtures(root, skillsDir),
     checkDocsTree(root, skillsDir),

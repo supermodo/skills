@@ -32,3 +32,12 @@ description; the same applies to the key.
 
 None by default. A project that requires `Refs:` or `Signed-off-by:` adds it
 here, one trailer per line, and the skill appends them to every commit.
+
+## Body
+
+None. A breaking change is carried by the marker in the subject.
+
+## Split suggestions
+
+Offered when the diff holds unrelated changes; each suggested commit repeats
+the issue key.
