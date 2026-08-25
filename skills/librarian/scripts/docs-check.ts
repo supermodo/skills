@@ -10,6 +10,7 @@
 
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, dirname, basename, resolve, sep, posix } from "node:path";
+import { buildGrammar, esc } from "../../config/scripts/grammar-load.ts";
 
 type Issue = { readonly cls: string; readonly msg: string };
 
@@ -17,31 +18,35 @@ const issue = (cls: string, msg: string): Issue => ({ cls, msg });
 const relTo = (root: string) => (p: string): string =>
   p.slice(root.length + 1).split(sep).join("/");
 
+const G = process.argv[2] === "--item"
+  ? buildGrammar(process.argv[3] ?? ".", true)
+  : buildGrammar(process.argv[2] ?? ".", false);
+
 const walkMd = (dir: string): readonly string[] =>
   readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
     const p = join(dir, e.name);
     if (e.isDirectory()) {
-      return e.name === "archive" || e.name.startsWith(".") ? [] : walkMd(p);
+      return e.name === G.archive || e.name.startsWith(".") ? [] : walkMd(p);
     }
     return e.name.endsWith(".md") ? [p] : [];
   });
 
 const checkStructure = (docs: string, entryName: string, conventions: string): readonly Issue[] => [
-  ...[entryName, "work/BACKLOG.md"]
+  ...[entryName, G.backlog]
     .filter((req) => !existsSync(join(docs, req)))
     .map((req) => issue("structure", `<docs>/${req} missing`)),
   ...(existsSync(conventions)
     ? []
     : [issue("structure", `conventions file missing (${basename(conventions)} — configured via docs.conventions)`)]),
-  ...["work", "decisions", "reference", "archive"]
+  ...[G.work, G.decisions, G.reference, G.archive]
     .filter((dir) => !existsSync(join(docs, dir)))
     .map((dir) => issue("structure", `<docs>/${dir}/ missing`)),
 ];
 
 const checkSize = (f: string, r: string): readonly Issue[] => {
   const kb = statSync(f).size / 1024;
-  return kb > 40
-    ? [issue("size", `${r} is ${kb.toFixed(0)} KB (>40 KB) — split at responsibility boundaries`)]
+  return kb > G.splitKb
+    ? [issue("size", `${r} is ${kb.toFixed(0)} KB (>${G.splitKb} KB) — split at responsibility boundaries`)]
     : [];
 };
 
@@ -60,18 +65,18 @@ const checkLinks = (f: string, r: string, text: string): readonly Issue[] =>
     .map((target) => issue("link", `${r}: broken link → ${target}`));
 
 const checkTaskIds = (r: string, text: string): readonly Issue[] => {
-  if (!r.endsWith("/tasks.md")) return [];
+  if (!r.endsWith(`/${G.tasks}`)) return [];
   const checklistLines = text
     .split("\n")
     .map((line, i) => ({ line, n: i + 1 }))
-    .filter(({ line }) => /^\s*- \[[ xX/^-]\]/.test(line));
+    .filter(({ line }) => G.checklistRe.test(line));
   const ids = checklistLines.map(({ line, n }) => ({
     n,
-    id: line.match(/<!--\s*task:([a-z0-9-]+)\s*-->/)?.[1],
+    id: line.match(G.taskMarkerRe)?.[1],
   }));
   const missing = ids
     .filter(({ id }) => id === undefined)
-    .map(({ n }) => issue("task-id", `${r}:${n}: checklist line missing <!-- task:<slug> --> ID`));
+    .map(({ n }) => issue("task-id", `${r}:${n}: checklist line missing <!-- ${G.taskPrefix}:<slug> --> ID`));
   const dupes = ids
     .filter(({ id }, i) => id !== undefined && ids.findIndex((o) => o.id === id) < i)
     .map(({ n, id }) => issue("task-id", `${r}:${n}: duplicate task ID "${id}"`));
@@ -79,26 +84,26 @@ const checkTaskIds = (r: string, text: string): readonly Issue[] => {
 };
 
 const checkAdrFile = (r: string, text: string): readonly Issue[] => {
-  if (!/(^|\/)decisions\/[^/]+\.md$/.test(r) || r.endsWith("README.md")) return [];
-  if (!/(^|\/)decisions\/ADR-\d{4}-[a-z0-9-]+\.md$/.test(r)) {
-    return [issue("adr", `${r}: name must match ADR-NNNN-<slug>.md`)];
+  if (!G.adrDirRe.test(r) || r.endsWith(G.programReadme)) return [];
+  if (!G.adrFileRe.test(r)) {
+    return [issue("adr", `${r}: name must match ${G.adrShape}`)];
   }
   const status = text.match(/^[Ss]tatus:\s*(.+)$/m);
   if (status === null) return [issue("adr", `${r}: missing "Status:" line`)];
-  return /^(proposed|accepted|rejected|superseded-by: ADR-\d{4})$/.test(status[1].trim())
+  return G.adrStatusRe.test(status[1].trim())
     ? []
     : [issue("adr", `${r}: invalid status "${status[1].trim()}"`)];
 };
 
 const checkAdrNumbering = (docs: string): readonly Issue[] => {
-  const dir = join(docs, "decisions");
+  const dir = join(docs, G.decisions);
   if (!existsSync(dir)) return [];
   const nums = readdirSync(dir)
-    .map((n) => n.match(/^ADR-(\d{4})-/)?.[1])
+    .map((n) => n.match(G.adrNameRe)?.[1])
     .filter((n): n is string => n !== undefined)
     .map(Number)
     .sort((a, b) => a - b);
-  const pad = (n: number): string => String(n).padStart(4, "0");
+  const pad = (n: number): string => String(n).padStart(G.adrDigits, "0");
   const dupes = nums
     .filter((n, i) => i > 0 && n === nums[i - 1])
     .map((n) => issue("adr", `duplicate ADR number ${pad(n)}`));
@@ -106,7 +111,7 @@ const checkAdrNumbering = (docs: string): readonly Issue[] => {
     .filter((n, i) => i > 0 && n > nums[i - 1] + 1)
     .map((n, _, __) => issue("adr", `ADR numbering gap before ${pad(n)} — numbering must be sequential`));
   const start = nums.length > 0 && nums[0] > 1
-    ? [issue("adr", `ADR numbering starts at ${pad(nums[0])} — expected 0001`)]
+    ? [issue("adr", `ADR numbering starts at ${pad(nums[0])} — expected ${pad(1)}`)]
     : [];
   return [...dupes, ...gaps, ...start];
 };
@@ -114,7 +119,7 @@ const checkAdrNumbering = (docs: string): readonly Issue[] => {
 // work/ holds two kinds of dir: a TRIAD (has tasks.md) or a PROGRAM
 // (has README.md + NN-<slug>/ initiative triads). Depth is capped at
 // program/initiative — nothing nests deeper.
-const INITIATIVE_RE = /^\d{2}-[a-z0-9-]+$/;
+
 
 // A promoted triad carries its own evidence: run artifacts are gitignored, so
 // a `Promoted-ids` entry with no findings.md line and no task is work that
@@ -146,7 +151,7 @@ const claimKey = (from: string, id: string): string =>
   `${posix.normalize(from).toLowerCase()} ${id.toLowerCase()}`;
 
 // `Priority:` per worklist.md — `P<0-3> — <classification>: <justification>`.
-const PRIORITY_RE = /^Priority:[ \t]*P[0-3][ \t]*—[ \t]*[^\s:][^\n:]*:[ \t]*\S[^\n]*$/m;
+
 
 // Absent or malformed on its own is NOT reported: the protocol renders those
 // as provisional `P2 — unset` and lists them under repairs, and a project with
@@ -157,41 +162,41 @@ const PRIORITY_RE = /^Priority:[ \t]*P[0-3][ \t]*—[ \t]*[^\s:][^\n:]*:[ \t]*\S
 // a tool computed (worklist.md, "Confirmed, derived, unset"), so a marker that
 // does not parse must not be allowed to read as absence, which means confirmed.
 const priorityIssues = (dir: string, rel: string): readonly Issue[] => {
-  const spec = readIf(join(dir, "spec.md"));
+  const spec = readIf(join(dir, G.spec));
   if (spec === "") return [];
-  const fields = [...spec.matchAll(/^[ \t]*priority[ \t]*:.*$/gim)];
-  const sources = [...spec.matchAll(/^[ \t]*priority-source[ \t]*:[ \t]*(.*?)[ \t]*$/gim)];
+  const fields = [...spec.matchAll(G.priorityLooseReG())];
+  const sources = [...spec.matchAll(G.sourceLooseReG())];
   return [
     ...(fields.length > 1
-      ? [issue("priority", `${rel}spec.md: ${fields.length} priority fields — an item carries at most one, and two is not a range`)]
+      ? [issue("priority", `${rel}${G.spec}: ${fields.length} priority fields — an item carries at most one, and two is not a range`)]
       : []),
     ...(sources.length > 1
-      ? [issue("priority", `${rel}spec.md: ${sources.length} Priority-source lines — one item, one provenance`)]
+      ? [issue("priority", `${rel}${G.spec}: ${sources.length} ${G.sourceLabel} lines — one item, one provenance`)]
       : []),
     ...(sources.length === 1
       ? [
-          ...(/^Priority-source:[ \t]*derived[ \t]*—[ \t]*\S/m.test(spec)
+          ...(G.sourceDerivedRe.test(spec)
             ? []
-            : [issue("priority", `${rel}spec.md: Priority-source must read "Priority-source: derived — <what was assumed> <date>" — the only defined value is "derived", and it has to name the assumption the user is being asked to confirm`)]),
-          ...(PRIORITY_RE.test(spec)
+            : [issue("priority", `${rel}${G.spec}: ${G.sourceLabel} must read "${G.sourceShape}" — the only defined value is "${G.derivedValue}", and it has to name the assumption the user is being asked to confirm`)]),
+          ...(G.priorityRe.test(spec)
             ? []
-            : [issue("priority", `${rel}spec.md: Priority-source: derived with no valid Priority: line — the marker says who chose a value that is not there`)]),
+            : [issue("priority", `${rel}${G.spec}: ${G.sourceLabel}: ${G.derivedValue} with no valid ${G.priorityLabel}: line — the marker says who chose a value that is not there`)]),
         ]
       : []),
   ];
 };
 
 const promotionIssues = (dir: string, rel: string): readonly Issue[] => {
-  const spec = readIf(join(dir, "spec.md"));
+  const spec = readIf(join(dir, G.spec));
   // Decide whether this is a promotion BEFORE parsing it strictly. Returning
   // early because the exact line did not match is how `Promoted-from :` or a
   // lower-cased key skips every check below while findings.md sits there
   // unvalidated. A near-miss key, or the presence of findings.md at all, means
   // this item claims to be promoted and must prove it.
-  const loose = [...spec.matchAll(/^[ \t]*(?:promoted-from|promoted-ids)[ \t]*:.*$/gim)];
-  const hasFindings = existsSync(join(dir, "findings.md"));
+  const loose = [...spec.matchAll(G.provenanceLooseReG())];
+  const hasFindings = existsSync(join(dir, G.findings));
   if (loose.length === 0 && !hasFindings) return [];
-  const fromLines = [...spec.matchAll(/^Promoted-from:[ \t]*(\S+)[ \t]*$/gm)];
+  const fromLines = [...spec.matchAll(G.fromReG())];
   // The run identity must be CANONICAL, because the duplicate scan matches on
   // it literally. `…/2026-08-03-api.md`, an absolute path or a `..` segment
   // all name the same run and none of them compares equal, so the same
@@ -199,29 +204,29 @@ const promotionIssues = (dir: string, rel: string): readonly Issue[] => {
   const canonical = fromLines.flatMap(([, v]) =>
     isCanonicalFrom(v)
       ? []
-      : [issue("promotion", `${rel}spec.md: Promoted-from "${v}" is not a canonical run identity — a normalised repo-relative report stem under .skills/supermodo/, no .md, no empty/. /.. segments`)]);
-  const idLines = [...spec.matchAll(/^Promoted-ids:[ \t]*(.+?)[ \t]*$/gm)];
+      : [issue("promotion", `${rel}${G.spec}: ${G.fromLabel} "${v}" is not a canonical run identity — a normalised repo-relative report stem under .skills/supermodo/, no .md, no empty/. /.. segments`)]);
+  const idLines = [...spec.matchAll(G.idsReG())];
   if (fromLines.length !== 1 || idLines.length !== 1) {
-    return [issue("promotion", `${rel}spec.md: a promoted item needs exactly one "Promoted-from:" and one "Promoted-ids:" in the documented form — found ${fromLines.length} and ${idLines.length}${hasFindings ? ", and findings.md is present" : ""}`)];
+    return [issue("promotion", `${rel}${G.spec}: a promoted item needs exactly one "${G.fromLabel}:" and one "${G.idsLabel}:" in the documented form — found ${fromLines.length} and ${idLines.length}${hasFindings ? `, and ${G.findings} is present` : ""}`)];
   }
   const stray = loose.length > 2
-    ? [issue("promotion", `${rel}spec.md: ${loose.length} provenance-key lines, expected exactly the two`)]
+    ? [issue("promotion", `${rel}${G.spec}: ${loose.length} provenance-key lines, expected exactly the two`)]
     : [];
   const idLine = idLines[0][1];
   const ids = idLine.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
   const sorted = [...ids].sort();
   const order = ids.every((id, i) => id === sorted[i])
     ? []
-    : [issue("promotion", `${rel}spec.md: Promoted-ids must be ASCII-sorted so the line is a function of the set`)];
+    : [issue("promotion", `${rel}${G.spec}: ${G.idsLabel} must be ASCII-sorted so the line is a function of the set`)];
   const idDupes = ids
     .filter((id, i) => ids.indexOf(id) < i)
-    .map((id) => issue("promotion", `${rel}spec.md: Promoted-ids lists ${id} twice`));
+    .map((id) => issue("promotion", `${rel}${G.spec}: ${G.idsLabel} lists ${id} twice`));
   const idShape = ids
     .filter((id) => !isCanonicalId(id))
-    .map((id) => issue("promotion", `${rel}spec.md: Promoted-ids entry "${id}" is not a canonical finding id (<PREFIX>-<run-stamp>-<seq>, as minted)`));
-  const findings = readIf(join(dir, "findings.md"));
+    .map((id) => issue("promotion", `${rel}${G.spec}: ${G.idsLabel} entry "${id}" is not a canonical finding id (<PREFIX>-<run-stamp>-<seq>, as minted)`));
+  const findings = readIf(join(dir, G.findings));
   if (findings === "") {
-    return [...order, ...stray, ...canonical, ...idDupes, ...idShape, issue("promotion", `${rel} missing findings.md — promoted work carries its evidence, the run artifact is gitignored`)];
+    return [...order, ...stray, ...canonical, ...idDupes, ...idShape, issue("promotion", `${rel} missing ${G.findings} — promoted work carries its evidence, the run artifact is gitignored`)];
   }
   // EXACT sets, never substring: "…-01" is contained in "…-010". Evidence ids
   // head their section (`## <ID> — title`); task ids come ONLY from checklist
@@ -242,20 +247,19 @@ const promotionIssues = (dir: string, rel: string): readonly Issue[] => {
   // empty body passes every set comparison while carrying nothing anyone can
   // act on — and the shard it was copied from is gitignored, so the loss is
   // permanent and looks clean.
-  const REQUIRED = ["severity", "evidence", "impact", "fix"];
   const shape = sections.flatMap(({ head, tok }) =>
     /^##[ \t]+\S+[ \t]+—[ \t]+\S/.test(head)
       ? []
-      : [issue("promotion", `${rel}findings.md: "${tok}" must head a "## ${tok} — <title>" section`)]);
+      : [issue("promotion", `${rel}${G.findings}: "${tok}" must head a "## ${tok} — <title>" section`)]);
   const bodies = sections.flatMap(({ body, tok }) =>
-    REQUIRED
+    G.findingSections
       .filter((field) => !new RegExp(`(^|\\n)[-*\\s]*${field}:[ \\t]*\\S`, "i").test(body))
-      .map((field) => issue("promotion", `${rel}findings.md: ${tok} has no "${field}:" — a heading is not evidence`)));
+      .map((field) => issue("promotion", `${rel}${G.findings}: ${tok} has no "${field}:" — a heading is not evidence`)));
   const taskIds = new Set(
-    readIf(join(dir, "tasks.md"))
+    readIf(join(dir, G.tasks))
       .split("\n")
-      .filter((line) => /^\s*- \[[ xX/^-]\]/.test(line))
-      .flatMap((line) => [...line.matchAll(/<!--\s*task:([a-z0-9-]+)\s*-->/g)].map((m) => m[1])),
+      .filter((line) => G.checklistRe.test(line))
+      .flatMap((line) => [...line.matchAll(G.taskMarkerReG())].map((m) => m[1])),
   );
   return [
     ...order,
@@ -267,66 +271,106 @@ const promotionIssues = (dir: string, rel: string): readonly Issue[] => {
     ...bodies,
     ...headings
       .filter((h, i) => headings.indexOf(h) < i)
-      .map((h) => issue("promotion", `${rel}findings.md: ${h} heads two sections`)),
+      .map((h) => issue("promotion", `${rel}${G.findings}: ${h} heads two sections`)),
     ...ids.filter((id) => !evidence.has(id))
-      .map((id) => issue("promotion", `${rel}: ${id} is in Promoted-ids but heads no "## ${id} — …" section in findings.md`)),
+      .map((id) => issue("promotion", `${rel}: ${id} is in ${G.idsLabel} but heads no "## ${id} — …" section in ${G.findings}`)),
     ...ids.filter((id) => !taskIds.has(id.toLowerCase()))
-      .map((id) => issue("promotion", `${rel}: ${id} is in Promoted-ids but no CHECKLIST task carries <!-- task:${id.toLowerCase()} -->`)),
+      .map((id) => issue("promotion", `${rel}: ${id} is in ${G.idsLabel} but no CHECKLIST task carries <!-- ${G.taskPrefix}:${id.toLowerCase()} -->`)),
     // The reverse direction, for evidence only. findings.md belongs to the
     // promotion, so a section with no provenance is the state an interrupted
     // extension leaves (provenance is written last) — clean-looking, and the
     // finding gets promoted a second time later. Tasks get no reverse check:
     // a triad may legitimately carry tasks that are not findings.
     ...headings.filter((h) => !promoted.has(h))
-      .map((h) => issue("promotion", `${rel}findings.md: ${h} has evidence but is absent from Promoted-ids — an extension that never recorded its provenance`)),
+      .map((h) => issue("promotion", `${rel}${G.findings}: ${h} has evidence but is absent from ${G.idsLabel} — an extension that never recorded its provenance`)),
   ];
 };
 
+
+// `extraRequired` is the ADD-ONLY half of the grammar: fields a project makes
+// mandatory on top of the convention. Nothing in the package reads their
+// values — that is the point. A team requiring `Owner:` or `Jira:` gets it
+// enforced here without the package having to know what those mean.
+const extraSpecIssues = (dir: string, rel: string): readonly Issue[] => {
+  if (G.extraSpec.length === 0) return [];
+  const spec = readIf(join(dir, G.spec));
+  if (spec === "") return [];
+  return G.extraSpec
+    .filter((label) => !new RegExp(`^${esc(label)}:[ \\t]*\\S`, "m").test(spec))
+    .map((label) => issue("required", `${rel}${G.spec}: missing required field "${label}:" — docs.grammar.extraRequired.spec`));
+};
+
+// Backlog entries per docs-convention: `- **<slug>** (date): text`, an entry
+// running until the next top-level list item. Struck-through and graduated
+// entries are history, not live work, so a field added today is never
+// backdated onto them.
+const liveBacklogEntries = (text: string): readonly { readonly slug: string; readonly body: string; readonly n: number }[] => {
+  const lines = text.split("\n");
+  const starts = lines.flatMap((l, i) => (/^- /.test(l) ? [i] : []));
+  return starts.flatMap((i, k) => {
+    const end = k + 1 < starts.length ? starts[k + 1] : lines.length;
+    const body = lines.slice(i, end).join("\n");
+    const m = lines[i].match(/^- \*\*([a-z0-9-]+)\*\*/);
+    return m === null || /→ graduated/.test(body) ? [] : [{ slug: m[1], body, n: i + 1 }];
+  });
+};
+
+const extraBacklogIssues = (docs: string): readonly Issue[] => {
+  if (G.extraBacklog.length === 0) return [];
+  const file = join(docs, G.backlog);
+  if (!existsSync(file)) return [];
+  return liveBacklogEntries(readFileSync(file, "utf8")).flatMap(({ slug, body, n }) =>
+    G.extraBacklog
+      .filter((label) => !new RegExp(`^[ \\t]+${esc(label)}[ \\t]*:[ \\t]*\\S`, "im").test(body))
+      .map((label) => issue("required", `<docs>/${G.backlog}:${n}: entry "${slug}" is missing required field "${label}:" — docs.grammar.extraRequired.backlog`)));
+};
+
 const triadIssues = (dir: string, rel: string): readonly Issue[] => [
-  ...["spec.md", "plan.md", "tasks.md"]
+  ...[G.spec, G.plan, G.tasks]
     .filter((part) => !existsSync(join(dir, part)))
     .map((part) => issue("triad", `${rel} missing ${part}`)),
   ...promotionIssues(dir, rel),
   ...priorityIssues(dir, rel),
+  ...extraSpecIssues(dir, rel),
 ];
 
 const programIssues = (dir: string, rel: string): readonly Issue[] => {
   const entries = readdirSync(dir, { withFileTypes: true });
   const subdirs = entries.filter((e) => e.isDirectory()).map((e) => e.name);
   const files = entries.filter((e) => e.isFile()).map((e) => e.name);
-  const initiatives = subdirs.filter((n) => INITIATIVE_RE.test(n));
-  const nums = initiatives.map((n) => n.slice(0, 2));
+  const initiatives = subdirs.filter((n) => G.initiativeRe.test(n));
+  const nums = initiatives.map((n) => n.slice(0, G.initiativeDigits));
   const fmProgram = (() => {
     try {
-      return readFileSync(join(dir, "README.md"), "utf8")
-        .match(/^program:\s*(.+)$/m)?.[1].trim();
+      return readFileSync(join(dir, G.programReadme), "utf8")
+        .match(G.programKeyRe)?.[1].trim();
     } catch {
       return undefined;
     }
   })();
   return [
     ...files
-      .filter((n) => n !== "README.md")
-      .map((n) => issue("program", `${rel}${n}: stray file — a program dir holds only README.md and NN-<slug>/ initiatives`)),
+      .filter((n) => n !== G.programReadme)
+      .map((n) => issue("program", `${rel}${n}: stray file — a program dir holds only ${G.programReadme} and ${G.initiativeShape} initiatives`)),
     ...subdirs
-      .filter((n) => !INITIATIVE_RE.test(n))
-      .map((n) => issue("program", `${rel}${n}/: initiative dirs must match NN-<slug> (two digits, kebab-case)`)),
+      .filter((n) => !G.initiativeRe.test(n))
+      .map((n) => issue("program", `${rel}${n}/: initiative dirs must match ${G.initiativeShape} (${G.initiativeDigits} digits, kebab-case)`)),
     ...(initiatives.length === 0
-      ? [issue("program", `${rel} has no NN-<slug>/ initiatives`)]
+      ? [issue("program", `${rel} has no ${G.initiativeShape} initiatives`)]
       : []),
     ...nums
       .filter((n, i) => nums.indexOf(n) < i)
       .map((n) => issue("program", `${rel} duplicate initiative number ${n}`)),
     ...(fmProgram === undefined
-      ? [issue("program", `${rel}README.md: missing "program:" frontmatter line`)]
+      ? [issue("program", `${rel}${G.programReadme}: missing "${G.programKey}:" frontmatter line`)]
       : fmProgram !== basename(dir)
-        ? [issue("program", `${rel}README.md: program "${fmProgram}" != folder "${basename(dir)}"`)]
+        ? [issue("program", `${rel}${G.programReadme}: ${G.programKey} "${fmProgram}" != folder "${basename(dir)}"`)]
         : []),
     ...initiatives.flatMap((n) => [
       ...triadIssues(join(dir, n), `${rel}${n}/`),
       ...readdirSync(join(dir, n), { withFileTypes: true })
         .filter((c) => c.isDirectory() &&
-          (INITIATIVE_RE.test(c.name) || existsSync(join(dir, n, c.name, "tasks.md"))))
+          (G.initiativeRe.test(c.name) || existsSync(join(dir, n, c.name, G.tasks))))
         .map((c) => issue("program", `${rel}${n}/${c.name}/: nesting deeper than program/initiative is not allowed`)),
     ]),
   ];
@@ -338,10 +382,10 @@ const allTriads = (workDir: string): readonly (readonly [string, string])[] =>
     .filter((e) => e.isDirectory() && !e.name.startsWith("."))
     .flatMap((e) => {
       const dir = join(workDir, e.name);
-      if (existsSync(join(dir, "tasks.md"))) return [[dir, `<docs>/work/${e.name}/`] as const];
+      if (existsSync(join(dir, G.tasks))) return [[dir, `<docs>/${G.work}/${e.name}/`] as const];
       return readdirSync(dir, { withFileTypes: true })
-        .filter((c) => c.isDirectory() && existsSync(join(dir, c.name, "tasks.md")))
-        .map((c) => [join(dir, c.name), `<docs>/work/${e.name}/${c.name}/`] as const);
+        .filter((c) => c.isDirectory() && existsSync(join(dir, c.name, G.tasks)))
+        .map((c) => [join(dir, c.name), `<docs>/${G.work}/${e.name}/${c.name}/`] as const);
     });
 
 // One finding, one item. Per-item validation cannot see this: two promotions
@@ -350,9 +394,9 @@ const allTriads = (workDir: string): readonly (readonly [string, string])[] =>
 // twice, and whichever item is archived first makes the other look stale.
 const duplicatePromotions = (workDir: string): readonly Issue[] => {
   const claims = allTriads(workDir).flatMap(([dir, rel]) => {
-    const spec = readIf(join(dir, "spec.md"));
-    const from = spec.match(/^Promoted-from:[ \t]*(\S+)[ \t]*$/m)?.[1];
-    const idLine = spec.match(/^Promoted-ids:[ \t]*(.+?)[ \t]*$/m)?.[1];
+    const spec = readIf(join(dir, G.spec));
+    const from = spec.match(G.fromRe)?.[1];
+    const idLine = spec.match(G.idsRe)?.[1];
     if (from === undefined || idLine === undefined) return [];
     return idLine.split(",").map((s) => s.trim()).filter((s) => s.length > 0)
       .map((id) => ({ key: claimKey(from, id), id, from, rel }));
@@ -366,7 +410,7 @@ const duplicatePromotions = (workDir: string): readonly Issue[] => {
 };
 
 const checkWork = (docs: string): readonly Issue[] => {
-  const workDir = join(docs, "work");
+  const workDir = join(docs, G.work);
   if (!existsSync(workDir)) return [];
   return [
     // Dot dirs are skipped here exactly as `walkMd` skips them: a promotion
@@ -376,10 +420,10 @@ const checkWork = (docs: string): readonly Issue[] => {
       .filter((e) => e.isDirectory() && !e.name.startsWith("."))
       .flatMap((e) => {
         const dir = join(workDir, e.name);
-        const rel = `<docs>/work/${e.name}/`;
-        if (existsSync(join(dir, "tasks.md"))) return triadIssues(dir, rel);
-        if (existsSync(join(dir, "README.md"))) return programIssues(dir, rel);
-        return [issue("triad", `${rel} is neither a triad (no tasks.md) nor a program (no README.md + NN-<slug>/ initiatives)`)];
+        const rel = `<docs>/${G.work}/${e.name}/`;
+        if (existsSync(join(dir, G.tasks))) return triadIssues(dir, rel);
+        if (existsSync(join(dir, G.programReadme))) return programIssues(dir, rel);
+        return [issue("triad", `${rel} is neither a triad (no ${G.tasks}) nor a program (no ${G.programReadme} + ${G.initiativeShape} initiatives)`)];
       }),
     ...duplicatePromotions(workDir),
   ];
@@ -389,19 +433,19 @@ const count = (text: string, needle: string): number =>
   text.split(needle).length - 1;
 
 const checkNavMarkers = (r: string, text: string, isRouter: boolean): readonly Issue[] => {
-  const starts = count(text, "<!-- supermodo:nav:start -->");
-  const ends = count(text, "<!-- supermodo:nav:end -->");
-  const si = text.indexOf("<!-- supermodo:nav:start -->");
-  const ei = text.indexOf("<!-- supermodo:nav:end -->");
+  const starts = count(text, G.navStart);
+  const ends = count(text, G.navEnd);
+  const si = text.indexOf(G.navStart);
+  const ei = text.indexOf(G.navEnd);
   return [
     ...(starts !== ends || starts > 1
-      ? [issue("generated", `${r}: unbalanced or duplicated supermodo:nav markers (${starts} start / ${ends} end)`)]
+      ? [issue("generated", `${r}: unbalanced or duplicated ${G.navStartName}/${G.navEndName} markers (${starts} start / ${ends} end)`)]
       : []),
     ...(starts === 1 && ends === 1 && ei < si
-      ? [issue("generated", `${r}: supermodo:nav:end appears before supermodo:nav:start`)]
+      ? [issue("generated", `${r}: ${G.navEndName} appears before ${G.navStartName}`)]
       : []),
-    ...(isRouter && text.includes("<!-- supermodo:generated -->")
-      ? [issue("generated", `${r}: router must not carry the file-level supermodo:generated marker (only the nav section is generated)`)]
+    ...(isRouter && text.includes(G.fileMarker)
+      ? [issue("generated", `${r}: router must not carry the file-level ${G.fileMarkerName} marker (only the nav section is generated)`)]
       : []),
   ];
 };
@@ -431,7 +475,7 @@ const checkItem = (dir: string): number => {
   const rel = `${dir.replace(/\/+$/, "")}/`;
   const issues = [
     ...triadIssues(d, rel),
-    ...checkTaskIds(`${rel}tasks.md`, readIf(join(d, "tasks.md"))),
+    ...checkTaskIds(`${rel}${G.tasks}`, readIf(join(d, G.tasks))),
   ];
   issues.forEach(({ cls, msg }) => console.log(`[${cls}] ${msg}`));
   console.log(issues.length > 0 ? `docs-check: ${issues.length} issue(s)` : "docs-check: item ok");
@@ -441,7 +485,7 @@ const checkItem = (dir: string): number => {
 const main = (): number => {
   if (process.argv[2] === "--item") return checkItem(process.argv[3] ?? ".");
   const root = resolve(process.argv[2] ?? ".");
-  const entryRel = process.argv[3] ?? "docs/README.md";
+  const entryRel = process.argv[3] ?? `${G.root}/README.md`;
   const entry = resolve(root, entryRel);
   const docs = dirname(entry);
   const conventions = process.argv[4] !== undefined
@@ -456,6 +500,7 @@ const main = (): number => {
     ...walkMd(docs).flatMap(checkFile(relTo(root), entry)),
     ...checkAdrNumbering(docs),
     ...checkWork(docs),
+    ...extraBacklogIssues(docs),
   ];
   issues.forEach(({ cls, msg }) => console.log(`[${cls}] ${msg}`));
   if (issues.length > 0) {

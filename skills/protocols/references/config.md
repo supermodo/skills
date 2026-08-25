@@ -48,7 +48,9 @@ docs; config fields point at it.
   },
   "docs": {                                 // required for librarian/work/flow/tests
     "entry": "docs/README.md",              // the router; default "docs/README.md"
-    "conventions": "docs/CONVENTIONS.md"    // optional pointer to prose conventions
+    "conventions": "docs/CONVENTIONS.md",   // optional pointer to prose conventions
+    "layout": { … },                        // optional: what the places are CALLED
+    "grammar": { … }                        // optional: what the fields are CALLED
   },
   "commands": {                             // each optional; argv arrays only
     "test": ["string"],                     // fast test suite
@@ -196,4 +198,52 @@ Secrets never live in config — only env var NAMES (SUPERMODO_*). Never
 `source` a dotenv file. If a `.env` must be read, parse strict `KEY=VALUE`
 lines only (reject anything containing `$`, backticks, `(`, `;`) without
 shell evaluation, and read only the variables config names.
+
+## `docs.layout` and `docs.grammar` — the project's own names
+
+Both are optional and every key defaults, so a project that sets neither
+behaves exactly as the shipped convention describes. They exist so a team can
+keep its own vocabulary without giving up the checks.
+
+**`docs.layout`** names the places: `root`, `work`, `decisions`, `reference`,
+`archive`, `backlog`, `triad.{spec,plan,tasks,findings}`,
+`program.{readme,frontmatterKey,initiativeDigits}`, `adr.{prefix,digits}`,
+`archivePrefix`, `splitThresholdKb`.
+
+**`docs.grammar`** names the fields and tokens: `priority.{label,levels,
+separator,requireClassification,unsetLevel}`, `prioritySource.{label,
+derivedValue}`, `mixed.label`, `created.label`, `dependsOn.{label,backlogLabel}`,
+`promotion.{fromLabel,idsLabel}`, `task.{markerPrefix,states}`,
+`question.{markerPrefix,heading}`, `generated.{fileMarker,navStart,navEnd}`,
+`adrStatuses`, `finding.requiredSections`, and `extraRequired.{spec,backlog}`.
+
+Three rules govern them, and `config-check` enforces all three:
+
+1. **Rename freely.** Any name or token may be changed. `docs-check` and
+   `docs-generate` are built from the resolved values, and every message they
+   print speaks the project's vocabulary.
+2. **Add freely.** `extraRequired.spec` / `.backlog` make additional fields
+   mandatory on every triad spec and every LIVE backlog entry. They are checked
+   for presence and never interpreted, so a project can require `Owner:` or
+   `Jira:` without the package knowing what those mean.
+3. **Never remove.** A key some skill parses may not be blanked to `null`,
+   `""` or `[]`. The error names the skills that would have broken, because the
+   damage otherwise appears somewhere else entirely — an empty board, a
+   mis-derived version — with nothing pointing back at the config.
+
+What is NOT configurable, because it is structure rather than spelling: the
+two-level depth cap, that priority levels are ORDERED (index 0 outranks index
+1), that task states are a four-way partition whose incomplete half is
+pending ∪ in-progress, that a triad is identified by one marker file, and that
+promoted ids must resolve by exact set. See `docs-convention.md`.
+
+## `vcs.commit` and `release.alphaPolicy`
+
+`vcs.commit` holds the commit vocabulary `commit` writes with and `release`
+derives the semver bump from — one key, two skills: `types`, `minorTypes`,
+`breakingMarker`, `breakingFooter`, `subjectSoftCap`, `subjectHardCap`. Every
+entry of `minorTypes` must appear in `types`.
+
+`release.alphaPolicy` is `"demote"` (default — on 0.x a breaking change bumps
+MINOR, because 0.x promises nothing) or `"strict"` (it bumps MAJOR).
 

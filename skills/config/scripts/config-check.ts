@@ -3,6 +3,7 @@
 // Exit 0 = valid; exit 1 = invalid (errors on stderr, one per line).
 
 import { readFileSync } from "node:fs";
+import { DEFAULTS, at, floorViolations, resolve } from "./grammar.ts";
 
 type Json = unknown;
 type Obj = Record<string, Json>;
@@ -51,7 +52,7 @@ const checkProject = (v: Json): string[] =>
 
 const checkDocs = (v: Json): string[] =>
   v === undefined ? [] : !isObj(v) ? ["docs: object expected"] : [
-    ...unknownKeys(v, ["entry", "conventions"], "docs"),
+    ...unknownKeys(v, ["entry", "conventions", "layout", "grammar"], "docs"),
     ...(["entry", "conventions"] as const)
       .filter((k) => v[k] !== undefined && !(isPath(v[k]) && (v[k] as string).endsWith(".md")))
       .map((k) => `docs.${k}: project-root-relative POSIX path to a .md file, no ".."`),
@@ -168,7 +169,7 @@ const checkReleaseBranches = (v: Json): string[] =>
 
 const checkRelease = (v: Json): string[] =>
   v === undefined ? [] : !isObj(v) ? ["release: object expected"] : [
-    ...unknownKeys(v, ["mode", "branches", "versionFile", "versionPath", "changelog", "tagPrefix", "mergeStrategy", "githubRelease"], "release"),
+    ...unknownKeys(v, ["mode", "branches", "versionFile", "versionPath", "changelog", "tagPrefix", "mergeStrategy", "githubRelease", "alphaPolicy"], "release"),
     ...(v.mode !== undefined && !["light", "full"].includes(v.mode as string)
       ? ['release.mode: "light" | "full"'] : []),
     ...checkReleaseBranches(v.branches),
@@ -229,9 +230,184 @@ const checkIssueKey = (v: Json): string[] => {
 
 const checkVcs = (v: Json): string[] =>
   v === undefined ? [] : !isObj(v) ? ["vcs: object expected"] : [
-    ...unknownKeys(v, ["issueKey"], "vcs"),
+    ...unknownKeys(v, ["issueKey", "commit"], "vcs"),
     ...checkIssueKey(v.issueKey),
   ];
+
+// ── Grammar layer: docs.layout / docs.grammar / vcs.commit ─────────────────
+// The MUSCLE — every name, token and shape the skills parse. A project RENAMES
+// these freely and ADDS to `extraRequired`; it can never blank one out, because
+// that failure surfaces in a DIFFERENT skill (an empty board, a mis-derived
+// semver bump) with nothing pointing back at the config. `floorViolations`
+// turns that into an error here, at the point of change, naming the consumers.
+
+const kindOf = (v: Json): string =>
+  Array.isArray(v) ? "array" : v === null ? "null" : typeof v;
+
+// Accepted shape is DERIVED from DEFAULTS, never restated: a new default key is
+// accepted and type-checked with nothing to keep in sync.
+const checkShape = (def: Json, v: Json, ctx: string): string[] =>
+  v === undefined ? []
+    : isObj(def)
+      ? !isObj(v) ? [`${ctx}: object expected`] : [
+          ...unknownKeys(v, Object.keys(def), ctx),
+          ...Object.keys(def).flatMap((k) => checkShape(def[k], v[k], `${ctx}.${k}`)),
+        ]
+      : kindOf(def) !== kindOf(v) ? [`${ctx}: ${kindOf(def)} expected`]
+        : Array.isArray(v) && !v.every(isStr) ? [`${ctx}: array of non-empty strings`]
+          : [];
+
+// A renamed token is embedded in a generated RegExp; a marker also sits inside
+// `<!-- … -->`, where `--` or an angle bracket closes the comment early. Reject
+// anything that changes the meaning of either here, rather than letting it
+// corrupt a parser at read time.
+const CTRL_RE = /[\n\r\x00-\x1f]/;
+const RE_META = /[\\^$.|?*+()[\]{}]/;
+const isSafeText = (v: Json): boolean =>
+  isStr(v) && v === v.trim() && !CTRL_RE.test(v) && !RE_META.test(v);
+const isLabel = (v: Json): boolean => isSafeText(v) && !v.includes(":");
+const isWord = (v: Json): boolean => isSafeText(v) && !/\s/.test(v);
+const isMarker = (v: Json): boolean => isWord(v) && !/[<>]/.test(v) && !v.includes("--");
+const isHeading = (v: Json): boolean => isSafeText(v) && !v.startsWith("#");
+const isSegment = (v: Json): boolean =>
+  isStr(v) && v === v.trim() && !CTRL_RE.test(v)
+  && !v.includes("/") && !v.includes("\\") && !v.startsWith(".");
+// A checklist marker is exactly one character and never `]`, which would close
+// the box it lives in.
+const isStateChar = (v: Json): boolean =>
+  typeof v === "string" && [...v].length === 1 && !CTRL_RE.test(v) && v !== "]";
+const isCount = (v: Json, lo: number, hi: number): boolean =>
+  typeof v === "number" && Number.isInteger(v) && v >= lo && v <= hi;
+const distinct = (xs: readonly unknown[]): boolean => new Set(xs).size === xs.length;
+
+const bad = (cond: boolean, msg: string): string[] => (cond ? [msg] : []);
+
+const LABEL_KEYS = [
+  "docs.grammar.priority.label", "docs.grammar.prioritySource.label",
+  "docs.grammar.mixed.label", "docs.grammar.created.label",
+  "docs.grammar.dependsOn.label", "docs.grammar.promotion.fromLabel",
+  "docs.grammar.promotion.idsLabel",
+] as const;
+
+const SEGMENT_KEYS = [
+  "docs.layout.root", "docs.layout.work", "docs.layout.decisions",
+  "docs.layout.reference", "docs.layout.archive", "docs.layout.triad.spec",
+  "docs.layout.triad.plan", "docs.layout.triad.tasks",
+  "docs.layout.triad.findings", "docs.layout.program.readme",
+] as const;
+
+const MARKER_KEYS = [
+  "docs.grammar.task.markerPrefix", "docs.grammar.question.markerPrefix",
+  "docs.grammar.generated.fileMarker", "docs.grammar.generated.navStart",
+  "docs.grammar.generated.navEnd", "docs.layout.program.frontmatterKey",
+  "docs.layout.adr.prefix",
+] as const;
+
+// Semantics are checked against the EFFECTIVE grammar (defaults ⊕ config), so
+// renaming one key still validates every invariant that key participates in.
+const checkGrammarSemantics = (r: unknown): string[] => {
+  const get = (k: string): Json => at(r, k) as Json;
+  const strs = (k: string): readonly string[] => {
+    const v = get(k);
+    return Array.isArray(v) ? (v as readonly string[]) : [];
+  };
+  const levels = strs("docs.grammar.priority.levels");
+  const states = get("docs.grammar.task.states");
+  const stateChars = isObj(states)
+    ? [states.pending, states.inProgress, ...strs("docs.grammar.task.states.done"),
+       ...strs("docs.grammar.task.states.paused")]
+    : [];
+  const labels = LABEL_KEYS.map((k) => get(k));
+  const extra = [...strs("docs.grammar.extraRequired.spec"), ...strs("docs.grammar.extraRequired.backlog")];
+  const types = strs("vcs.commit.types");
+  const soft = get("vcs.commit.subjectSoftCap");
+  const hard = get("vcs.commit.subjectHardCap");
+  return [
+    ...SEGMENT_KEYS.filter((k) => !isSegment(get(k)))
+      .map((k) => `${k}: one path segment — no "/", no leading ".", no control characters`),
+    ...bad(!isPath(get("docs.layout.backlog")) || !(get("docs.layout.backlog") as string).endsWith(".md"),
+      'docs.layout.backlog: project-docs-relative POSIX path to a .md file, no ".."'),
+    ...MARKER_KEYS.filter((k) => !isMarker(get(k)))
+      .map((k) => `${k}: one word, no whitespace, no regex metacharacters, no "<", ">" or "--" (it is written inside an HTML comment)`),
+    ...bad(!distinct(MARKER_KEYS.map((k) => get(k))), "docs.grammar: two markers resolve to the same token — every marker must be distinct"),
+    ...bad(!isCount(get("docs.layout.adr.digits"), 1, 8), "docs.layout.adr.digits: integer 1-8"),
+    ...bad(!isCount(get("docs.layout.program.initiativeDigits"), 1, 4), "docs.layout.program.initiativeDigits: integer 1-4"),
+    ...bad(!isCount(get("docs.layout.splitThresholdKb"), 1, 10000), "docs.layout.splitThresholdKb: integer 1-10000"),
+    ...bad(!isSafeText(get("docs.layout.archivePrefix")), "docs.layout.archivePrefix: plain text, no regex metacharacters"),
+    // Priority is an ORDERED vocabulary: the names are the project's, the fact
+    // that index 0 outranks index 1 is what `next` sorts by and is not tunable.
+    ...bad(levels.length < 2, "docs.grammar.priority.levels: at least two levels, most urgent first"),
+    ...bad(levels.length >= 2 && !levels.every(isWord),
+      "docs.grammar.priority.levels: each level one word, no whitespace or regex metacharacters"),
+    ...bad(!distinct(levels), "docs.grammar.priority.levels: levels must be distinct"),
+    ...bad(levels.length > 0 && !levels.includes(get("docs.grammar.priority.unsetLevel") as string),
+      `docs.grammar.priority.unsetLevel: must be one of the declared levels (${levels.join(", ")})`),
+    ...bad(!isSafeText(get("docs.grammar.priority.separator")), "docs.grammar.priority.separator: plain text, no regex metacharacters"),
+    ...bad(typeof get("docs.grammar.priority.requireClassification") !== "boolean",
+      "docs.grammar.priority.requireClassification: boolean"),
+    ...bad(!isWord(get("docs.grammar.prioritySource.derivedValue")), "docs.grammar.prioritySource.derivedValue: one word"),
+    // Four roles, always four: "incomplete" = pending ∪ in-progress is what
+    // every tool reads. Characters are the project's; the partition is not.
+    ...bad(stateChars.length < 4 || !stateChars.every(isStateChar),
+      'docs.grammar.task.states: pending, inProgress, done[] and paused[] must all be present, each exactly one character and never "]"'),
+    ...bad(!distinct(stateChars), "docs.grammar.task.states: every state character must be distinct — two roles sharing one character make the checklist unreadable"),
+    ...bad(!isHeading(get("docs.grammar.question.heading")), 'docs.grammar.question.heading: plain heading text, no leading "#", no regex metacharacters'),
+    ...LABEL_KEYS.filter((k) => !isLabel(get(k)))
+      .map((k) => `${k}: a field label — trimmed, no ":", no regex metacharacters`),
+    ...bad(!distinct(labels), "docs.grammar: two field labels resolve to the same name — every label must be distinct"),
+    ...bad(!extra.every(isLabel), 'docs.grammar.extraRequired: each entry a field label — trimmed, no ":", no regex metacharacters'),
+    ...bad(extra.some((e) => labels.includes(e)),
+      "docs.grammar.extraRequired: may not repeat a built-in field label — it adds fields, it never redefines one"),
+    ...bad(strs("docs.grammar.finding.requiredSections").length === 0,
+      "docs.grammar.finding.requiredSections: at least one section"),
+    ...bad(!distinct(strs("docs.grammar.finding.requiredSections")),
+      "docs.grammar.finding.requiredSections: sections must be distinct"),
+    ...bad(isObj(get("docs.grammar.adrStatuses"))
+      && !distinct(Object.values(get("docs.grammar.adrStatuses") as Obj)),
+      "docs.grammar.adrStatuses: every status must be distinct"),
+    ...bad(types.length === 0 || !distinct(types) || !types.every(isWord),
+      "vcs.commit.types: a distinct, non-empty list of one-word types"),
+    ...strs("vcs.commit.minorTypes").filter((t) => !types.includes(t))
+      .map((t) => `vcs.commit.minorTypes: "${t}" is not in vcs.commit.types — release derives the minor bump from this list`),
+    ...bad(!isWord(get("vcs.commit.breakingMarker")), "vcs.commit.breakingMarker: one word, no whitespace or regex metacharacters"),
+    ...bad(!isSafeText(get("vcs.commit.breakingFooter")), "vcs.commit.breakingFooter: plain text, no regex metacharacters"),
+    ...bad(!isCount(soft, 1, 200) || !isCount(hard, 1, 200), "vcs.commit.subjectSoftCap / subjectHardCap: integer 1-200"),
+    ...bad(isCount(soft, 1, 200) && isCount(hard, 1, 200) && (soft as number) > (hard as number),
+      "vcs.commit.subjectSoftCap: must not exceed vcs.commit.subjectHardCap"),
+    ...bad(!["demote", "strict"].includes(get("release.alphaPolicy") as string),
+      'release.alphaPolicy: "demote" | "strict"'),
+  ];
+};
+
+// `docs.entry` names the router by full path and `docs.layout.root` names the
+// docs directory. Two ways to say the same thing, so they can disagree — and a
+// project that renamed one and not the other gets a scaffolder writing beside
+// the tree the checker reads.
+const checkRootAgreement = (c: Obj): string[] => {
+  const d = isObj(c.docs) ? c.docs : undefined;
+  const entry = d?.entry;
+  const root = isObj(d?.layout) ? d.layout.root : undefined;
+  if (!isStr(entry) || !isStr(root)) return [];
+  const dir = entry.includes("/") ? entry.slice(0, entry.lastIndexOf("/")) : ".";
+  return dir === root
+    ? []
+    : [`docs.layout.root "${root}" is not the directory of docs.entry "${entry}" — the router and the docs tree must be the same place`];
+};
+
+// One pass over the whole config: shape first (unknown keys, wrong types), then
+// the floor, then semantics against the effective grammar.
+const checkGrammar = (c: Obj): string[] => {
+  const shape = [
+    ...checkShape(DEFAULTS.docs.layout, isObj(c.docs) ? c.docs.layout : undefined, "docs.layout"),
+    ...checkShape(DEFAULTS.docs.grammar, isObj(c.docs) ? c.docs.grammar : undefined, "docs.grammar"),
+    ...checkShape(DEFAULTS.vcs.commit, isObj(c.vcs) ? c.vcs.commit : undefined, "vcs.commit"),
+  ];
+  // A malformed shape makes the resolved grammar meaningless; reporting both
+  // would bury the real error under cascade noise.
+  if (shape.length > 0) return shape;
+  const resolved = resolve(DEFAULTS, c);
+  return [...checkRootAgreement(c), ...floorViolations(resolved), ...checkGrammarSemantics(resolved)];
+};
 
 const ROOT_KEYS = [
   "configVersion", "project", "docs", "commands", "workspace", "coverage",
@@ -255,6 +431,7 @@ const validate = (c: Obj): string[] => [
   ...checkChangelog(c.changelog),
   ...checkRelease(c.release),
   ...checkVcs(c.vcs),
+  ...checkGrammar(c),
 ];
 
 const parse = (file: string): { config?: Obj; fatal?: string } => {

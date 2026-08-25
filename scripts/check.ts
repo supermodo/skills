@@ -767,6 +767,240 @@ const checkFixtures = (root: string, skillsDir: string): Result => {
   );
 };
 
+// The grammar layer's fixtures live in DIRECTORIES, not as named files: adding
+// a validation rule means dropping in a fixture, with no edit here. That makes
+// an emptied directory the silent-pass risk, so the counts are asserted too.
+// `pass/` is the control that matters most — it proves the validator is not
+// simply rejecting every renamed grammar put in front of it.
+const checkGrammarFixtures = (root: string, skillsDir: string): Result => {
+  const script = join(skillsDir, "config/scripts/config-check.ts");
+  const dir = join(root, "scripts/fixtures/grammar");
+  const list = (kind: string): readonly string[] => {
+    try {
+      return readdirSync(join(dir, kind)).filter((f) => f.endsWith(".json")).sort();
+    } catch {
+      return [];
+    }
+  };
+  const pass = list("pass");
+  const rejected = list("fail");
+  const wronglyRejected = pass.filter((f) => !runFixture(script, join(dir, "pass", f)));
+  const wronglyAccepted = rejected.filter((f) => runFixture(script, join(dir, "fail", f)));
+  return merge(
+    pass.length >= 2 && rejected.length >= 20
+      ? ok(`grammar fixtures present (${pass.length} valid, ${rejected.length} defective)`)
+      : fail(`scripts/fixtures/grammar: expected at least 2 pass/ and 20 fail/ fixtures, found ${pass.length} and ${rejected.length} — an empty directory would make the assertions below vacuous`),
+    wronglyRejected.length === 0
+      ? ok("every renamed-grammar fixture validates (the check can fail)")
+      : fail(`config-check REJECTED a valid renamed grammar: ${wronglyRejected.join(", ")} — a project must be able to rename any token`),
+    wronglyAccepted.length === 0
+      ? ok("every defective-grammar fixture is rejected (the check can fail)")
+      : fail(`config-check ACCEPTED a defective grammar: ${wronglyAccepted.join(", ")} — each of those files is valid except for the one rule it names`),
+  );
+};
+
+// The grammar layer's real claim is that the SAME tree validates under a
+// different spelling. `docs-tree-renamed` is `docs-tree` with every folder,
+// triad file, field label, priority level, state character and marker prefix
+// renamed, plus a project-required `Owner:` field, and its own config saying
+// so. Three things have to hold, and the last two are what stop this from
+// being a fixture that passes because nothing runs:
+//   1. it is clean under its own grammar;
+//   2. it FAILS under the defaults — proof the config is what drove (1);
+//   3. mutations are still caught — proof the checks are live, not skipped.
+const checkRenamedGrammar = (root: string, skillsDir: string): Result => {
+  const script = join(skillsDir, "librarian/scripts/docs-check.ts");
+  const fixture = join(root, "scripts/fixtures/docs-tree-renamed");
+  if (!existsSync(script) || !existsSync(fixture)) {
+    return fail("scripts/fixtures/docs-tree-renamed is missing — the grammar layer has no proof a renamed convention validates");
+  }
+  const clean = (dir: string): boolean => {
+    try {
+      execFileSync("node", [script, dir, "documentation/README.md", "documentation/CONVENTIONS.md"], { stdio: "pipe" });
+      return true;
+    } catch { return false; }
+  };
+  const tmp = mkdtempSync(join(tmpdir(), "supermodo-grammar-"));
+  const copy = (name: string): string => {
+    const dir = join(tmp, name);
+    cpSync(fixture, dir, { recursive: true });
+    return dir;
+  };
+  const edit = (name: string, file: string, fn: (s: string) => string): string => {
+    const dir = copy(name);
+    const f = join(dir, "documentation/tickets/hunt-api-p1", file);
+    writeFileSync(f, fn(readFileSync(f, "utf8")), "utf8");
+    return dir;
+  };
+  try {
+    const noConfig = copy("no-config");
+    rmSync(join(noConfig, "skills.config.json"));
+    const noOwner = edit("no-owner", "brief.md", (t) => t.replace("Owner: platform-team\n", ""));
+    const noMarker = edit("no-marker", "checklist.md", (t) =>
+      t.replace(" <!-- item:hnt-20260803141500-004 -->", ""));
+    return merge(
+      clean(fixture)
+        ? ok("a fully renamed docs convention validates (the check can fail)")
+        : fail("docs-check REJECTED scripts/fixtures/docs-tree-renamed under its own grammar — a project cannot rename the convention"),
+      clean(noConfig)
+        ? fail("docs-check ACCEPTED the renamed tree with its skills.config.json removed — it is not reading the grammar from config, so assertion 1 proves nothing")
+        : ok("the renamed tree fails under the default grammar (the check can fail)"),
+      clean(noOwner)
+        ? fail("docs-check ACCEPTED a spec missing a docs.grammar.extraRequired.spec field — the add-only half of the grammar is not enforced")
+        : ok("a project-required extra field is enforced (the check can fail)"),
+      clean(noMarker)
+        ? fail("docs-check ACCEPTED a checklist line with no renamed task marker — the task-id check is not running under a renamed grammar")
+        : ok("task IDs are checked under a renamed marker prefix (the check can fail)"),
+    );
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+};
+
+// docs-generate WRITES the router's nav section, so a grammar it does not read
+// produces links to paths that do not exist — broken navigation in the one file
+// every skill starts from. Asserted on copies: generate twice, require the
+// second run to change nothing, and require the renamed tree's nav to name the
+// renamed paths rather than the defaults.
+const checkGenerateGrammar = (root: string, skillsDir: string): Result => {
+  const script = join(skillsDir, "librarian/scripts/docs-generate.ts");
+  if (!existsSync(script)) return fail("docs-generate.ts is missing");
+  const tmp = mkdtempSync(join(tmpdir(), "supermodo-gen-"));
+  const run = (dir: string, entry: string): string | undefined => {
+    try {
+      execFileSync("node", [script, dir, entry], { stdio: "pipe" });
+      execFileSync("node", [script, dir, entry], { stdio: "pipe" });
+      return readFileSync(join(dir, entry), "utf8");
+    } catch { return undefined; }
+  };
+  const once = (dir: string, entry: string): string | undefined => {
+    try {
+      execFileSync("node", [script, dir, entry], { stdio: "pipe" });
+      return readFileSync(join(dir, entry), "utf8");
+    } catch { return undefined; }
+  };
+  const copy = (name: string, fixture: string): string => {
+    const dir = join(tmp, name);
+    cpSync(join(root, "scripts/fixtures", fixture), dir, { recursive: true });
+    return dir;
+  };
+  try {
+    const plain = copy("plain", "docs-tree");
+    const renamed = copy("renamed", "docs-tree-renamed");
+    const first = once(plain, "docs/README.md");
+    const second = run(plain, "docs/README.md");
+    const nav = run(renamed, "documentation/README.md");
+    return merge(
+      first !== undefined && second !== undefined && first === second
+        ? ok("docs-generate is idempotent (the check can fail)")
+        : fail("docs-generate is not idempotent — a second run changed the router, so every lifecycle pass would rewrite it"),
+      nav === undefined
+        ? fail("docs-generate failed on the renamed-grammar fixture")
+        : nav.includes("(tickets/hunt-api-p1/brief.md)") && nav.includes("(tickets/QUEUE.md)")
+          ? ok("docs-generate writes nav links in the project's own grammar (the check can fail)")
+          : fail("docs-generate wrote nav links that ignore docs.layout — the router would point at paths that do not exist"),
+    );
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+};
+
+// `commit` writes the message and `release` derives the semver bump from it,
+// so the type vocabulary has to be ONE key both read. Before the grammar layer
+// it was prose in commit/SKILL.md and a regex in release-check.ts, with nothing
+// tying them: rename a type in either and every feature commit silently
+// downgrades to a patch. The probe pins both directions — a renamed vocabulary
+// bumps correctly, and neither grammar can read the other's types.
+const EXPECTED_BUMPS: readonly string[] = [
+  "default-feat=minor", "default-fix=patch", "default-breaking=major",
+  "default-footer=major", "default-sees-feature=none",
+  "renamed-feature=minor", "renamed-bug=patch", "renamed-breaking=major",
+  "renamed-sees-feat=none", "max=minor",
+  "alpha-demote=minor", "alpha-strict=major", "alpha-past-1.0=major",
+];
+
+const checkBumpGrammar = (root: string): Result => {
+  const probe = join(root, "scripts/fixtures/bump-probe.mjs");
+  if (!existsSync(probe)) return fail("scripts/fixtures/bump-probe.mjs is missing — the semver bump has no proof it reads the project's commit vocabulary");
+  const out = ((): readonly string[] => {
+    try {
+      return execFileSync("node", [probe], { encoding: "utf8" }).trim().split("\n");
+    } catch { return []; }
+  })();
+  const wrong = EXPECTED_BUMPS.filter((e) => !out.includes(e));
+  return wrong.length === 0 && out.length === EXPECTED_BUMPS.length
+    ? ok("the semver bump follows the project's commit vocabulary (the check can fail)")
+    : fail(`bump derivation disagrees with the documented mapping: expected ${wrong.join(", ") || "(count mismatch)"} — got ${out.join(", ") || "(no output)"}`);
+};
+
+// docs-convention.md prints the DEFAULT names concretely, because a model
+// follows a concrete tree far better than an abstract description of one. The
+// cost of that choice is drift: change a default in grammar.ts and the prose
+// silently teaches the old name. This asserts the direction that matters —
+// every default the code defines must still appear in the prose. (The reverse,
+// prose naming something the code dropped, is caught by the fixtures instead.)
+const DEFAULT_MENTIONS: readonly (readonly [string, (v: string) => string])[] = [
+  ["docs.layout.work", (v) => `${v}/`],
+  ["docs.layout.decisions", (v) => `${v}/`],
+  ["docs.layout.reference", (v) => `${v}/`],
+  ["docs.layout.archive", (v) => `${v}/`],
+  ["docs.layout.backlog", (v) => v],
+  ["docs.layout.triad.spec", (v) => v],
+  ["docs.layout.triad.plan", (v) => v],
+  ["docs.layout.triad.tasks", (v) => v],
+  ["docs.layout.triad.findings", (v) => v],
+  ["docs.layout.adr.prefix", (v) => v],
+  ["docs.layout.splitThresholdKb", (v) => `${v} KB`],
+  ["docs.grammar.priority.label", (v) => `${v}:`],
+  ["docs.grammar.prioritySource.label", (v) => `${v}:`],
+  ["docs.grammar.mixed.label", (v) => `${v}:`],
+  ["docs.grammar.created.label", (v) => `${v}:`],
+  ["docs.grammar.dependsOn.label", (v) => `${v}:`],
+  ["docs.grammar.promotion.fromLabel", (v) => `${v}:`],
+  ["docs.grammar.promotion.idsLabel", (v) => `${v}:`],
+  ["docs.grammar.task.markerPrefix", (v) => `${v}:`],
+  ["docs.grammar.question.markerPrefix", (v) => `${v}:`],
+  ["docs.grammar.question.heading", (v) => v],
+  ["docs.grammar.generated.fileMarker", (v) => v],
+  ["docs.grammar.generated.navStart", (v) => v],
+  ["docs.grammar.generated.navEnd", (v) => v],
+];
+
+const checkConventionDefaults = (root: string, skillsDir: string): Result => {
+  const doc = join(skillsDir, "protocols/references/docs-convention.md");
+  const probe = join(root, "scripts/fixtures/defaults-probe.mjs");
+  if (!existsSync(doc) || !existsSync(probe)) return fail("docs-convention.md or scripts/fixtures/defaults-probe.mjs is missing");
+  const values = ((): Record<string, string> => {
+    try {
+      return JSON.parse(execFileSync("node", [probe], { encoding: "utf8" })) as Record<string, string>;
+    } catch { return {}; }
+  })();
+  const text = readFileSync(doc, "utf8");
+  const missing = DEFAULT_MENTIONS
+    .filter(([key, render]) => values[key] === undefined || !text.includes(render(values[key])))
+    .map(([key]) => key);
+  return missing.length === 0
+    ? ok("docs-convention.md prints the defaults the code defines (the check can fail)")
+    : fail(`docs-convention.md no longer names the default for: ${missing.join(", ")} — the prose teaches a name the code does not use`);
+};
+
+// A skill that CONSTRUCTS a docs path — rather than following links out of the
+// router — has to resolve the name from config first, or it writes a second
+// tree beside the real one in any project that renamed a folder. The roster is
+// enumerated so adding a skill to it is a decision someone makes, not a
+// side effect of a grep.
+const PATH_BUILDERS: readonly string[] = ["librarian", "hunt", "flow", "next", "work", "tests"];
+
+const checkPathResolution = (skillsDir: string): Result => {
+  const missing = PATH_BUILDERS.filter((name) => {
+    const f = join(skillsDir, name, "SKILL.md");
+    return !existsSync(f) || !readFileSync(f, "utf8").includes("Docs names come from config");
+  });
+  return missing.length === 0
+    ? ok("every docs-path-building skill resolves names from config (the check can fail)")
+    : fail(`${missing.join(", ")}: builds docs paths but never says to resolve them from docs.layout — it will write to the default names in a project that renamed them`);
+};
+
 const main = (): number => {
   const root = process.cwd();
   const skillsDir = join(root, "skills");
@@ -786,7 +1020,13 @@ const main = (): number => {
     checkRulesTree(root, skillsDir),
     checkRulesTemplates(skillsDir, found),
     checkFixtures(root, skillsDir),
+    checkGrammarFixtures(root, skillsDir),
     checkDocsTree(root, skillsDir),
+    checkRenamedGrammar(root, skillsDir),
+    checkGenerateGrammar(root, skillsDir),
+    checkBumpGrammar(root),
+    checkConventionDefaults(root, skillsDir),
+    checkPathResolution(skillsDir),
     checkRenderer(root, skillsDir),
   );
 

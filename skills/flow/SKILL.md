@@ -17,6 +17,8 @@ allowed-tools: >
 
 > **Requires:** the sibling `protocols` skill (shared protocol masters) and a valid `skills.config.json` (create with the `config` skill). Missing either → halt with that exact pointer; never guess.
 
+> **Docs names come from config.** Every `docs/…` path below is the DEFAULT. Resolve folder and file names from `skills.config.json` → `docs.layout` (defaults when unset) before reading or writing — a path typed from memory writes a second tree beside the real one. See `../protocols/references/docs-convention.md`.
+
 > **Project rules.** Read `.supermodo/rules/flow.md` if present, plus any
 > `.supermodo/rules/INDEX.md` rows naming `flow` — that file IS this project's
 > flow process and replaces the defaults below wherever they overlap. Contract:

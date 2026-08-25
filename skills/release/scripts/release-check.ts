@@ -11,6 +11,16 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
+import { buildGrammar } from "../../config/scripts/grammar-load.ts";
+import { applyAlphaPolicy, bumpOfCommit, maxBump } from "./bump.ts";
+
+// Resolved at the CLI edge. The commit vocabulary lives in ONE place
+// (config/scripts/grammar.ts) because `commit` writes with it and `release`
+// derives the bump from it — two copies drift into a silent mis-bump.
+const G = buildGrammar(
+  resolve(process.argv.slice(2).find((a) => !a.startsWith("--")) ?? "."),
+  false,
+);
 
 type ReleaseConfig = {
   readonly mode: "light" | "full";
@@ -24,7 +34,7 @@ type ReleaseConfig = {
   readonly githubRelease: boolean;
 };
 
-type Bump = "major" | "minor" | "patch" | "none";
+import type { Bump } from "./bump.ts";
 
 const DEFAULTS: ReleaseConfig = {
   mode: "light",
@@ -54,24 +64,6 @@ const parseSemver = (v: string): readonly [number, number, number] | undefined =
 const cmpSemver = (a: readonly [number, number, number], b: readonly [number, number, number]): number =>
   a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
 
-const CC_RE = /^(feat|fix|refactor|perf|docs|test|chore|build|ci|style|revert)(\([^)]*\))?(!)?:\s/;
-const BREAKING_RE = /^BREAKING[ -]CHANGE:/m;
-
-// A commit = subject + body (Conventional Commits: breaking via "!" in the
-// subject OR a "BREAKING CHANGE:"/"BREAKING-CHANGE:" footer in the body).
-const bumpOfCommit = (subject: string, body: string): Bump => {
-  const m = subject.match(CC_RE);
-  if (m === null) return "none";
-  if (m[3] === "!" || BREAKING_RE.test(body)) return "major";
-  return m[1] === "feat" ? "minor" : "patch";
-};
-
-const maxBump = (bumps: readonly Bump[]): Bump =>
-  (["major", "minor", "patch"] as const).find((b) => bumps.includes(b)) ?? "none";
-
-// Alpha (0.x) policy: breaking changes are MINOR, everything else PATCH.
-const applyAlphaPolicy = (bump: Bump, major: number): Bump =>
-  major === 0 && bump === "major" ? "minor" : bump;
 
 const nextVersion = ([ma, mi, pa]: readonly [number, number, number], bump: Bump): string | undefined =>
   bump === "major" ? `${ma + 1}.0.0`
@@ -188,7 +180,7 @@ const buildReport = (root: string, hotfix: boolean): Report => {
   const lastTag = lastReleaseTag(root, config.tagPrefix);
   const commits = commitsSince(root, lastTag);
   const nonConventional = commits
-    .filter(({ subject, body }) => bumpOfCommit(subject, body) === "none")
+    .filter(({ subject, body }) => bumpOfCommit(G, subject, body) === "none")
     .map(({ subject }) => subject);
 
   const versionRaw = dig(readJson(join(root, config.versionFile)), config.versionPath);
@@ -210,8 +202,8 @@ const buildReport = (root: string, hotfix: boolean): Report => {
     semver !== undefined && tagSemver !== undefined &&
     cmpSemver(semver, tagSemver) > 0 && currentVersion === changelogLatest;
 
-  const rawBump = maxBump(commits.map(({ subject, body }) => bumpOfCommit(subject, body)));
-  const commitBump = semver !== undefined ? applyAlphaPolicy(rawBump, semver[0]) : rawBump;
+  const rawBump = maxBump(commits.map(({ subject, body }) => bumpOfCommit(G, subject, body)));
+  const commitBump = semver !== undefined ? applyAlphaPolicy(G, rawBump, semver[0]) : rawBump;
   const suggestedBump = hotfix ? "patch" : commitBump;
   const suggestedVersion = preBumped
     ? currentVersion

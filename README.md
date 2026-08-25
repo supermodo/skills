@@ -100,6 +100,22 @@ Commits or `[PROJ-123]` prefixes for messages — and you get that instead.
 Conventions spanning several skills, like where the tracker key must appear,
 live once in `.supermodo/rules/vcs.md` so they can't drift apart.
 
+## Your names, too
+
+The documentation convention is strict about shape and open about naming. Call
+the work folder `tickets/`, rank items `now / next / later`, mark work in
+progress with whatever character your team already types, require an `Owner:`
+line on every spec — it's all `skills.config.json`, and the checker enforces
+your spelling rather than ours, in messages that use your words.
+
+What you can't do is delete a field a skill reads. Try, and config says so
+immediately and names the skills that would have broken — better than finding
+out next week from a board that came back empty.
+
+Safety rails aren't in those files and can't be edited away: nothing is pushed
+without your yes, a release still refuses a dirty tree, and secrets still
+never reach a commit.
+
 ## Core ideas
 
 - **Docs convention, strict:** one router, immutable task IDs, generated

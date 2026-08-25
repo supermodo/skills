@@ -7,6 +7,8 @@ description: Systematic bug hunting across a full-stack TypeScript application. 
 
 > **Requires:** the sibling `protocols` skill (shared protocol masters); uses `skills.config.json` when present. Missing protocols → tell the user to install the full supermodo package.
 
+> **Docs names come from config.** Every `docs/…` path below is the DEFAULT. Resolve folder and file names from `skills.config.json` → `docs.layout` (defaults when unset) before reading or writing — a path typed from memory writes a second tree beside the real one. See `../protocols/references/docs-convention.md`.
+
 > **Project rules.** Read `.supermodo/rules/hunt.md` if present, plus any
 > `.supermodo/rules/INDEX.md` rows naming `hunt` — that file IS this project's
 > hunt process and replaces the defaults below wherever they overlap. Contract:

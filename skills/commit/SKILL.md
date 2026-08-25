@@ -98,19 +98,28 @@ doesn't reveal.
 
 `<type>(<scope>)!: <imperative description>`
 
-- **Types:** feat, fix, refactor, perf, docs, test, chore, build, ci, style,
-  revert. Choose by what the change does, not where it lives. The common
-  confusion: feat = new capability, fix = wrong behavior corrected,
-  refactor = same behavior, new shape.
+The **type vocabulary is the project's** — `vcs.commit.types` in
+`skills.config.json`, defaulting to feat, fix, refactor, perf, docs, test,
+chore, build, ci, style, revert. `release` derives the semver bump from that
+same key, so the two skills can never disagree about what a type means. Never
+invent a type that is not in the configured list.
+
+Choosing among them is the judgement this skill contributes:
+
+- **feat** = a new capability, **fix** = wrong behavior corrected,
+  **refactor** = same behavior, new shape. Choose by what the change does, not
+  where it lives.
 - **Scope:** diff confined to one package/app/area → its short name
   (`packages/data` → `data`, `apps/dashboard` → `dashboard`). Multiple areas →
   omit scope. Never invent junk scopes like (core) or (misc) — an
   uninformative scope is worse than none.
-- **`!`** after type/scope when the change breaks consumers: removed or renamed
-  public API, changed behavior callers rely on, schema/format change.
+- **Breaking marker** (`vcs.commit.breakingMarker`, default `!`) goes after
+  type/scope when the change breaks consumers: removed or renamed public API,
+  changed behavior callers rely on, schema/format change.
 - **Description:** imperative mood ("add", "fix", "remove" — not "added",
-  "adds"), lowercase start (acronyms and proper nouns keep their caps),
-  ≤50 chars when possible, hard cap 72, no trailing period.
+  "adds"), lowercase start (acronyms and proper nouns keep their caps), within
+  `vcs.commit.subjectSoftCap` where possible (default 50), hard cap
+  `vcs.commit.subjectHardCap` (default 72), no trailing period.
 - **Language:** English. Reuse the project's own vocabulary from the diff and
   the log — package names, task IDs (MC-1, RA-14), domain terms
   (materialize, watermark). The message should read like the team wrote it.

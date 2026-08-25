@@ -1,0 +1,65 @@
+{
+  "configVersion": 1,
+  "project": {
+    "name": "renamed-grammar-fixture"
+  },
+  "docs": {
+    "entry": "documentation/README.md",
+    "conventions": "documentation/CONVENTIONS.md",
+    "layout": {
+      "root": "documentation",
+      "work": "tickets",
+      "decisions": "adr",
+      "reference": "contracts",
+      "archive": "done",
+      "backlog": "tickets/QUEUE.md",
+      "triad": {
+        "spec": "brief.md",
+        "tasks": "checklist.md",
+        "findings": "evidence.md"
+      }
+    },
+    "grammar": {
+      "priority": {
+        "label": "Rank",
+        "levels": [
+          "urgent",
+          "high",
+          "normal",
+          "low"
+        ],
+        "separator": ">>",
+        "unsetLevel": "normal"
+      },
+      "prioritySource": {
+        "label": "Rank-source",
+        "derivedValue": "computed"
+      },
+      "created": {
+        "label": "Opened"
+      },
+      "promotion": {
+        "fromLabel": "Source-run",
+        "idsLabel": "Source-ids"
+      },
+      "task": {
+        "markerPrefix": "item",
+        "states": {
+          "pending": ".",
+          "inProgress": ">",
+          "done": [
+            "v"
+          ],
+          "paused": [
+            "~"
+          ]
+        }
+      },
+      "extraRequired": {
+        "spec": [
+          "Owner"
+        ]
+      }
+    }
+  }
+}

@@ -46,8 +46,16 @@ item, one priority**. Nothing here drains a report into the board on its own.
 
 ### Scale
 
-`P0 P1 P2 P3`, P0 highest. Deliberately P-identifiers, so nothing collides
-with `hunt` finding severities (critical/high/medium/low).
+`P0 P1 P2 P3`, P0 highest — the **default** vocabulary
+(`docs.grammar.priority.levels`). Deliberately P-identifiers, so nothing
+collides with `hunt` finding severities (critical/high/medium/low).
+
+The names and the count are the project's: `now next later`, five levels,
+`must should could` all work. What is NOT the project's is that the list is
+**ordered, most urgent first** — every rule below reads position, never the
+spelling, so a renamed scale changes what a row is called and nothing about
+how the board sorts. The unset level is likewise configured
+(`docs.grammar.priority.unsetLevel`) and must be one of the declared levels.
 
 The scale is **user-owned**: the tool proposes a default, the human
 confirms, the value is **stored**. It is never inferred at render time and
@@ -92,7 +100,9 @@ Priority: P1 — released-workflow-breaking: checkout can fail before payment
   priority: P1 — released-workflow-breaking: checkout can fail before payment
 ```
 
-Grammar: `P<0-3> — <classification>: <one-line justification>`.
+Grammar: `P<0-3> — <classification>: <one-line justification>` — label,
+levels and separator all from `docs.grammar.priority`; a project that sets
+`requireClassification: false` drops the `<classification>:` half.
 Classification is one of:
 
 - defects — `<exposure>-<consequence>`, exposure ∈ `released` `unreleased`
