@@ -23,6 +23,28 @@ scanning `git log --oneline` a year from now.
 The message is always the deliverable. Running the commit is an **opt-in extra**
 the skill offers after the message exists — never the default, never silent.
 
+## The project's process (read FIRST)
+
+Before reading the diff, read `.supermodo/rules/commit.md` if it exists. It IS
+the commit process for this project — sequence, message format, trailers — and
+it replaces the defaults below wherever the two describe the same thing. Then
+read `.supermodo/rules/INDEX.md` if present and load only the cross-cutting
+files whose `applies-to` names `commit` (typically `vcs.md`). Open nothing else
+in that folder. Contract: `../protocols/references/rules.md`.
+
+**Absent file → the first-use gate**, folded into the consent gate that already
+exists in "Offer to commit" — never a separate interruption. **Absence alone is
+not first run:** read `.skills/supermodo/config-manifest.json` and gate only
+when the file is absent AND `rulesDeclined` does not name `"commit"`, or a user
+who declined once is asked again on every commit forever.
+
+What NEVER comes from that file, in any project: never commit secrets; never
+run git without the explicit yes or the configured auto policy; `git init` asks
+even in auto mode; a case-(c) scope mismatch always halts for an explicit
+answer; explicit paths only; the staged-diff preview before the commit line;
+single-quoted `-m`. Those are invariants — they are not in the file, so they
+cannot be removed from it.
+
 **Every invocation delivers all four, in order — none is optional:**
 
 1. the message (clipboard + printed);
@@ -328,6 +350,20 @@ nothing and merely decides what that plan will contain. In order:
    plain line, the default named, no ordered-choice list. Example:
 
    > Run exactly these commands? No push. (default: no — message only)
+
+   **First run** (no `.supermodo/rules/commit.md` AND no recorded decline —
+   see "The project's process" above): ask the process question HERE, above
+   the command question, in the same message — an ordered choice per
+   `../protocols/references/questions.md` listing the shipped starting points
+   (`conventional`, `issue-prefixed`), plus customize and show-full.
+   **Materialize through `config --rules commit`, never by writing the file
+   directly** — that procedure owns real-path containment, exclusive-temp
+   writing, validate-before-rename, index regeneration and the manifest
+   record; duplicating five safety steps here would get one of them wrong.
+   Then continue under the new file. `confirmations.mode: "auto"` does NOT
+   skip this: choosing a process is a class-(c) preference. A decline ("just
+   do it, don't save a file") is recorded as `rulesDeclined: ["commit"]` and
+   never asked again; the run proceeds on the bundled default.
 
    **Decline (the default) → done.** Message only. Never touch git state.
    With `confirmations.mode: "auto"` (or `perSkill.commit: "auto"`), skip

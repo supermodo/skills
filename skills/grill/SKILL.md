@@ -7,6 +7,12 @@ description: "Twin-agent adversarial interview that locks a task or design befor
 
 > **Requires:** the sibling `protocols` skill (shared protocol masters); uses `skills.config.json` when present. Missing protocols → tell the user to install the full supermodo package.
 
+> **Project rules.** Read `.supermodo/rules/grill.md` if present, plus any
+> `.supermodo/rules/INDEX.md` rows naming `grill` — that file IS this project's
+> grill process and replaces the defaults below wherever they overlap. Contract:
+> `../protocols/references/rules.md`. Never in that file, so never switchable off:
+> two models agreeing never substitutes for the user on a class-(c) question, a second opinion is never faked, disputes surface with both arguments verbatim.
+
 Moderator skill implementing the grilling protocol. Two planners (host model +
 the OTHER provider) work the same brief independently, attack each other, and
 surface only what genuinely needs the user. Output is the locked **triad**

@@ -7,6 +7,12 @@ description: "Lead implementer: use the docs router to load the active task and 
 
 > **Requires:** the sibling `protocols` skill (shared protocol masters) and a valid `skills.config.json` (create with the `config` skill). Missing either → halt with that exact pointer; never guess.
 
+> **Project rules.** Read `.supermodo/rules/work.md` if present, plus any
+> `.supermodo/rules/INDEX.md` rows naming `work` — that file IS this project's
+> work process and replaces the defaults below wherever they overlap. Contract:
+> `../protocols/references/rules.md`. Never in that file, so never switchable off:
+> never mutating git, and the implementing provider never verifying its own work.
+
 Pick up the next task, build the right team, drive it to completion, and get
 it independently verified. Start at the docs router; project constraints come
 from docs, not from this file.

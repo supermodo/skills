@@ -16,6 +16,12 @@ allowed-tools: >
 
 > **Requires:** the sibling `protocols` skill (shared protocol masters) and a valid `skills.config.json` (create with the `config` skill). Missing either → halt with that exact pointer; never guess.
 
+> **Project rules.** Read `.supermodo/rules/tests.md` if present, plus any
+> `.supermodo/rules/INDEX.md` rows naming `tests` — that file IS this project's
+> tests process and replaces the defaults below wherever they overlap. Contract:
+> `../protocols/references/rules.md`. Never in that file, so never switchable off:
+> a failing test is never skipped or loosened to pass, exit codes are the verdict, and an unconfigured tier is UNAVAILABLE rather than assumed green.
+
 Test coordinator for a supermodo-configured project. All framework, command, and
 domain specifics come from `skills.config.json` and the project's docs — nothing
 about a stack is hardcoded here.

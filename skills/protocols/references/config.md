@@ -115,6 +115,12 @@ docs; config fields point at it.
     "tagPrefix": "v",                       // tag = <tagPrefix><version>
     "mergeStrategy": "squash",              // "squash" (default) | "merge" for dev → main
     "githubRelease": true                   // publish a GitHub Release from the changelog entry after tagging
+  },
+  "vcs": {                                  // optional; read by commit and release
+    "issueKey": {                           // tracker linkage derived from the branch name
+      "pattern": "^(?:feature|fix)/([A-Z]+-[0-9]+)-",  // regex; group 1 IS the key
+      "template": "[{key}] {type}: {subject}"          // tokens: {key} {type} {scope} {subject}
+    }
   }
 }
 ```
@@ -173,9 +179,21 @@ docs; config fields point at it.
   performing them is named explicitly in `perSkill` — the global switch
   alone is not enough there.
 
+- `vcs` absent → no issue-key linkage. A skill whose materialized process
+  (`rules.md`) names `vcs.issueKey.pattern` with no `vcs` section configured
+  HALTS naming the field; it never guesses a pattern from branch names it
+  happens to see. `pattern` must compile and must expose at least one
+  capturing group — group 1 is the key. **`template` may not contain quotes,
+  backslashes, shell metacharacters or control characters**: it is composed
+  into a commit subject that `commit` prints as a literal single-quoted
+  `git commit -m '…'` line, so a `'` in a committed config would close that
+  quote. That is the "never interpolate config values into a shell string"
+  rule applied to the one field whose whole purpose is to shape a message.
+
 ## Secrets
 
 Secrets never live in config — only env var NAMES (SUPERMODO_*). Never
 `source` a dotenv file. If a `.env` must be read, parse strict `KEY=VALUE`
 lines only (reject anything containing `$`, backticks, `(`, `;`) without
 shell evaluation, and read only the variables config names.
+

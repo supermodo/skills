@@ -7,6 +7,12 @@ description: Deep functional refactoring of TypeScript code for purity, testabil
 
 > **Requires:** the sibling `protocols` skill (shared protocol masters); uses `skills.config.json` when present. Missing protocols → tell the user to install the full supermodo package.
 
+> **Project rules.** Read `.supermodo/rules/refactor.md` if present, plus any
+> `.supermodo/rules/INDEX.md` rows naming `refactor` — that file IS this project's
+> refactor process and replaces the defaults below wherever they overlap. Contract:
+> `../protocols/references/rules.md`. Never in that file, so never switchable off:
+> behavior preservation, the plan approved before code is touched, never silently deleting an export or tightening an external API type.
+
 A systematic, phase-gated refactoring process that transforms accumulated code into small, pure, well-tested functional modules. The skill analyzes before touching code, plans before executing, tests before changing, and verifies after each step.
 
 ## Invocation

@@ -527,6 +527,224 @@ const checkDocsTree = (root: string, skillsDir: string): Result => {
   }
 };
 
+// Every skill that reads project rules must reach the master by the
+// single-source path. RESOLVE the reference, never substring-match it: a bare
+// "protocols/references/rules.md" (no "../") resolves nowhere AND is invisible
+// to checkSingleSource, whose REF_RE requires (?:\.\./)+ — so a substring check
+// would keep this suite green with the master unreachable.
+// EVERY skill reads project rules. The exceptions are enumerated here rather
+// than left implicit, because a skill that silently stops reading rules is a
+// project's process being ignored without anyone being told:
+//   protocols — holds the masters and answers questions about them; it has no
+//               project process to own.
+//   reports   — a thin wrapper over a deterministic renderer. Its only knobs
+//               (`reports.html`, `reports.open`) are strict config, and a
+//               prose file cannot change a script's output.
+// Adding a name here needs the same justification: not "it has no template
+// yet" (reading and shipping a template are different things) but "there is
+// no sequence a project could own".
+const RULES_EXEMPT: readonly string[] = ["protocols", "reports"];
+const RULES_REF_RE = /(?:\.\.\/)+protocols\/references\/rules\.md/;
+const checkRulesMaster = (skillsDir: string, found: readonly string[]): Result => {
+  const master = join(skillsDir, "protocols/references/rules.md");
+  if (!existsSync(master)) return fail("skills/protocols/references/rules.md missing — the rules contract has no master");
+  return merge(
+    ...found.filter((s) => !RULES_EXEMPT.includes(s)).map((slug) => {
+      const sk = join(skillsDir, slug, "SKILL.md");
+      if (!existsSync(sk)) return fail(`skills/${slug}/SKILL.md missing`);
+      const rel = readFileSync(sk, "utf8").match(RULES_REF_RE)?.[0];
+      return rel !== undefined && resolve(dirname(sk), rel) === master
+        ? ok(`skills/${slug} resolves the rules master`)
+        : fail(`skills/${slug}/SKILL.md: no reference resolving to skills/protocols/references/rules.md — every skill reads project rules; to exempt one, add it to RULES_EXEMPT with a reason`);
+    }),
+  );
+};
+
+// rules-check over a real .supermodo/rules/ tree. Each mutation is applied to
+// its own copy of the clean fixture, so every assertion below fails on exactly
+// one defect — and each has a negative control, because an assertion that
+// cannot fail is worse than no assertion (see the two comments above).
+const checkRulesTree = (root: string, skillsDir: string): Result => {
+  const script = join(skillsDir, "config/scripts/rules-check.ts");
+  const fixture = join(root, "scripts/fixtures/rules-tree");
+  if (!existsSync(script) || !existsSync(fixture)) return fail("rules-check or its fixture tree is missing");
+  const run = (r: string): boolean => {
+    try { execFileSync("node", [script, r], { stdio: "pipe" }); return true; } catch { return false; }
+  };
+  const tmp = mkdtempSync(join(tmpdir(), "supermodo-rules-"));
+  const mutate = (name: string, file: string, edit: (s: string) => string): string => {
+    const dir = join(tmp, name);
+    cpSync(fixture, dir, { recursive: true });
+    const p = join(dir, ".supermodo/rules", file);
+    writeFileSync(p, edit(readFileSync(p, "utf8")), "utf8");
+    return dir;
+  };
+  try {
+    // The file is read by filename, so a `rule` that disagrees with the stem
+    // means the two identities point at different files.
+    const stemMismatch = mutate("stem", "commit.md", (s) => s.replace(/^rule: commit$/m, "rule: commits"));
+    // A typo'd skill name is a file nothing will ever read — silently.
+    const unknownSkill = mutate("unknown-skill", "vcs.md", (s) =>
+      s.replace(/^applies-to: .*$/m, "applies-to: [commit, releases]"));
+    // No frontmatter at all: nothing can route it and nothing can diff it.
+    const noFront = mutate("no-front", "commit.md", (s) => s.replace(/^---\n[\s\S]*?\n---\n/, ""));
+    // Drift cannot diff against a starting point that is not named.
+    const noTemplate = mutate("no-template", "commit.md", (s) => s.replace(/^template: .*$\n/m, ""));
+    const badVersion = mutate("bad-version", "commit.md", (s) => s.replace(/^template-version: .*$/m, "template-version: 0.7"));
+    // The INDEX row is the description; without one the file is unroutable.
+    const noDesc = mutate("no-desc", "vcs.md", (s) => s.replace(/^description: .*$\n/m, ""));
+    // A stem that is not a skill name and declares no applies-to is read by
+    // nobody: the filename cannot route it and the INDEX has no rows for it.
+    const orphanStem = join(tmp, "orphan-stem");
+    cpSync(fixture, orphanStem, { recursive: true });
+    writeFileSync(join(orphanStem, ".supermodo/rules/security.md"),
+      "---\nrule: security\ndescription: orphan\ntemplate: security\ntemplate-version: 0.7.0\n---\n\n## Process\n\n1. Nothing.\n", "utf8");
+    // 4 KB is a smell detector, not just a budget: a process this long is
+    // transcribing machinery, which goes stale the moment that code changes.
+    const oversized = mutate("oversized", "commit.md", (s) => `${s}\n${"x".repeat(4096)}\n`);
+    // A stale INDEX is worse than none: the skill reads it as the routing
+    // table, so a missing row means the file is never loaded by anyone.
+    const staleIndex = mutate("stale-index", "INDEX.md", (s) => s.replace(/^\| vcs\.md .*$\n/m, ""));
+    // A row for a file that is not cross-cutting sends a skill to read a file
+    // the filename convention already covers — double-loading its own rules.
+    const overIndex = mutate("over-index", "INDEX.md", (s) =>
+      `${s}| commit.md | commit | Conventional Commits with the Jira key from the branch name |\n`);
+    // Hand-edited generated file: the marker is the repo-wide contract that
+    // only the generator writes it.
+    const noMarker = mutate("no-marker", "INDEX.md", (s) => s.replace("<!-- supermodo:generated -->\n", ""));
+    // The FILENAME is still right, so every set comparison keyed on filenames
+    // agrees — but the row routes vcs.md to release only. commit would never
+    // load a file whose own frontmatter names it.
+    const wrongRow = mutate("wrong-row", "INDEX.md", (s) =>
+      s.replace(/^\| vcs\.md \| [^|]*\|/m, "| vcs.md | release |"));
+    // INDEX is a file and counts against the budget like any other.
+    const bigIndex = mutate("big-index", "INDEX.md", (s) => `${s}\n${"x".repeat(4096)}\n`);
+    // The generator and the validator must agree, or `config --rules` writes
+    // an INDEX that rules-check then rejects. Guard the exec: every other exec
+    // in this file goes through a try/catch, and an unguarded throw here kills
+    // check.ts with a stack trace instead of printing a clean FAIL.
+    const regen = join(tmp, "regen");
+    cpSync(fixture, regen, { recursive: true });
+    const generated = ((): string | undefined => {
+      try {
+        execFileSync("node", [join(skillsDir, "config/scripts/rules-index.ts"), regen], { stdio: "pipe" });
+        return readFileSync(join(regen, ".supermodo/rules/INDEX.md"), "utf8");
+      } catch { return undefined; }
+    })();
+    const committed = readFileSync(join(fixture, ".supermodo/rules/INDEX.md"), "utf8");
+    return merge(
+      run(fixture)
+        ? ok("rules-check accepts a valid .supermodo/rules/ tree")
+        : fail("rules-check rejected scripts/fixtures/rules-tree, which is meant to be clean"),
+      run(stemMismatch)
+        ? fail("rules-check ACCEPTED a `rule` that disagrees with the filename — the skill reads by filename, so the two identities name different files")
+        : ok("rules-check requires `rule` to equal the filename stem (the check can fail)"),
+      run(unknownSkill)
+        ? fail("rules-check ACCEPTED applies-to naming a skill that is not installed — a typo makes a file nothing ever reads")
+        : ok("rules-check validates applies-to against installed skills (the check can fail)"),
+      run(noFront)
+        ? fail("rules-check ACCEPTED a rules file with no frontmatter")
+        : ok("rules-check requires frontmatter (the check can fail)"),
+      run(noTemplate)
+        ? fail("rules-check ACCEPTED a rules file naming no template — drift has nothing to diff against")
+        : ok("rules-check requires `template` (the check can fail)"),
+      run(badVersion)
+        ? fail("rules-check ACCEPTED a non-semver template-version")
+        : ok("rules-check requires a semver template-version (the check can fail)"),
+      run(noDesc)
+        ? fail("rules-check ACCEPTED a rules file with no description — the INDEX row would be blank")
+        : ok("rules-check requires a description (the check can fail)"),
+      run(orphanStem)
+        ? fail("rules-check ACCEPTED a non-skill filename with no applies-to — nothing would ever read it")
+        : ok("rules-check requires applies-to on a non-skill filename (the check can fail)"),
+      run(oversized)
+        ? fail("rules-check ACCEPTED a rules file over the 4 KB cap")
+        : ok("rules-check enforces the 4 KB per-file cap (the check can fail)"),
+      run(staleIndex)
+        ? fail("rules-check ACCEPTED an INDEX missing a cross-cutting file — that file would be read by nobody")
+        : ok("rules-check requires every cross-cutting file to have an INDEX row (the check can fail)"),
+      run(overIndex)
+        ? fail("rules-check ACCEPTED an INDEX row for a per-skill file — the skill would load its own rules twice")
+        : ok("rules-check rejects INDEX rows for non-cross-cutting files (the check can fail)"),
+      run(noMarker)
+        ? fail("rules-check ACCEPTED an INDEX without the generated marker — nothing then stops a hand edit")
+        : ok("rules-check requires the generated marker on INDEX.md (the check can fail)"),
+      run(wrongRow)
+        ? fail("rules-check ACCEPTED an INDEX row whose applies-to contradicts the file's frontmatter — the file would be routed to the wrong skills while every filename comparison still agreed")
+        : ok("rules-check compares whole INDEX rows against frontmatter, not filenames (the check can fail)"),
+      run(bigIndex)
+        ? fail("rules-check ACCEPTED an oversized INDEX — it is a file and counts against the invocation budget")
+        : ok("rules-check applies the size cap to INDEX.md too (the check can fail)"),
+      generated === committed
+        ? ok("rules-index regenerates the fixture INDEX byte-identically")
+        : fail(`rules-index output differs from the committed INDEX — the generator and the fixture disagree${generated === undefined ? " (rules-index exited non-zero)" : ""}`),
+      run(regen)
+        ? ok("a freshly generated INDEX passes rules-check")
+        : fail("rules-index wrote an INDEX that rules-check rejects — the two disagree"),
+    );
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+};
+
+// A gated skill without a shipped template has nothing to show at its
+// first-use gate, so the gate would ask the user to approve nothing. The gate
+// shows the `summary` block VERBATIM, and `summary: >` with nothing under it
+// satisfies a presence regex while leaving the gate with no text at all — so
+// count the actual content lines.
+// Skills that stop and show their process before first use. Two triggers:
+// irreversible/outward-facing (commit, release) and expensive (flow,
+// bug-council). Every skill READS rules; only these four proactively ask.
+const GATED = ["commit", "release", "flow", "bug-council"] as const;
+const summaryLines = (fm: string): readonly string[] => {
+  const lines = fm.split("\n");
+  const start = lines.findIndex((l) => /^summary:\s*[>|]/.test(l));
+  if (start < 0) return [];
+  const after = lines.slice(start + 1);
+  const end = after.findIndex((l) => l.length > 0 && !/^\s/.test(l));
+  return (end < 0 ? after : after.slice(0, end)).map((l) => l.trim()).filter((l) => l.length > 0);
+};
+const checkRulesTemplates = (skillsDir: string, found: readonly string[]): Result =>
+  merge(
+    // A gated skill MUST ship a starting point — otherwise its gate asks the
+    // user to approve nothing.
+    ...GATED.filter((slug) => !existsSync(join(skillsDir, slug, "rules-templates")))
+      .map((slug) => fail(`skills/${slug}/rules-templates/ missing — a gated skill must ship at least one starting point`)),
+    // Every template anywhere is validated, gated or not: `work` ships one and
+    // never gates, and an unvalidated template is one `config --rules` cannot
+    // materialize into a file that passes rules-check.
+    ...found.flatMap((slug) => {
+      const dir = join(skillsDir, slug, "rules-templates");
+      if (!existsSync(dir)) return [];
+      const variants = readdirSync(dir).filter((f) => f.endsWith(".md")).sort();
+      if (variants.length === 0) return [fail(`skills/${slug}/rules-templates/ is empty`)];
+      if (variants.length > 3) return [fail(`skills/${slug}/rules-templates/: ${variants.length} variants (max 3) — beyond that the gate is a menu nobody reads`)];
+      return [
+        ...variants.flatMap((v) => {
+          const fm = readFileSync(join(dir, v), "utf8").match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
+          const stem = v.replace(/\.md$/, "");
+          const rule = fm.match(/^rule:\s*(\S+)$/m)?.[1];
+          const summary = summaryLines(fm);
+          return [
+            summary.length >= 5 && summary.length <= 7
+              ? merge()
+              : fail(`skills/${slug}/rules-templates/${v}: \`summary:\` has ${summary.length} content line(s), needs 5-7 — the gate shows this block verbatim`),
+            new RegExp(`^template:\\s*${stem}$`, "m").test(fm)
+              ? merge()
+              : fail(`skills/${slug}/rules-templates/${v}: \`template\` must equal the variant filename stem "${stem}"`),
+            // `rule` is the DESTINATION stem (procedures §9), not the folder.
+            // A cross-cutting template lives in some skill's folder but
+            // materializes under its own name — and must then say who reads it.
+            rule === slug || (rule !== undefined && /^applies-to:/m.test(fm))
+              ? merge()
+              : fail(`skills/${slug}/rules-templates/${v}: \`rule\` is ${JSON.stringify(rule ?? null)} — it must equal "${slug}", or declare applies-to if it is cross-cutting`),
+          ];
+        }),
+        ok(`skills/${slug} ships ${variants.length} rules template(s)`),
+      ];
+    }),
+  );
+
 const checkFixtures = (root: string, skillsDir: string): Result => {
   const script = join(skillsDir, "config/scripts/config-check.ts");
   return merge(
@@ -536,6 +754,16 @@ const checkFixtures = (root: string, skillsDir: string): Result => {
     runFixture(script, join(root, "scripts/fixtures/config-invalid.json"))
       ? fail("config-check ACCEPTED scripts/fixtures/config-invalid.json (should fail)")
       : ok("config-check rejects invalid fixture"),
+    // Each new rule needs a fixture valid EXCEPT for that rule. Adding a vcs
+    // defect to config-invalid.json would prove nothing: that file already
+    // fails for other reasons, so the assertion would stay green with the
+    // whole vcs validator deleted.
+    runFixture(script, join(root, "scripts/fixtures/config-vcs-nocapture.json"))
+      ? fail("config-check ACCEPTED a vcs.issueKey.pattern with no capturing group — there is nothing to extract as the key")
+      : ok("config-check rejects an issueKey pattern with no capturing group (the check can fail)"),
+    runFixture(script, join(root, "scripts/fixtures/config-vcs-unsafe.json"))
+      ? fail("config-check ACCEPTED an issueKey template carrying a quote — it would close the single-quoted `git commit -m '…'` line the commit skill executes verbatim")
+      : ok("config-check rejects a shell-unsafe issueKey template (the check can fail)"),
   );
 };
 
@@ -554,6 +782,9 @@ const main = (): number => {
     checkSingleSource(root, skillsDir, found),
     checkQuestionTransport(root, skillsDir, found),
     checkVersion(root),
+    checkRulesMaster(skillsDir, found),
+    checkRulesTree(root, skillsDir),
+    checkRulesTemplates(skillsDir, found),
     checkFixtures(root, skillsDir),
     checkDocsTree(root, skillsDir),
     checkRenderer(root, skillsDir),

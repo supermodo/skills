@@ -7,6 +7,12 @@ description: Systematic bug hunting across a full-stack TypeScript application. 
 
 > **Requires:** the sibling `protocols` skill (shared protocol masters); uses `skills.config.json` when present. Missing protocols → tell the user to install the full supermodo package.
 
+> **Project rules.** Read `.supermodo/rules/hunt.md` if present, plus any
+> `.supermodo/rules/INDEX.md` rows naming `hunt` — that file IS this project's
+> hunt process and replaces the defaults below wherever they overlap. Contract:
+> `../protocols/references/rules.md`. Never in that file, so never switchable off:
+> finders stay blind to `docs/`, no unverified finding reaches the report, no evidence means no finding, report-only — never a code change.
+
 Systematic bug hunting: automated scans → parallel blind finders → gap sweep →
 adversarial verification (Claude skeptics × Codex cross-check × docs
 adjudication) → open questions answered by the user (transport per config) →
@@ -485,15 +491,5 @@ optional) running as a subagent with its own context:
 
 ## Layer Reference Files
 
-| File | Patterns | Focus |
-|------|----------|-------|
-| `semantic.md` | Stale closures, stale accumulators, divergent representations, config-behavior mismatch, off-by-one, predicates, dead code | Logic correctness |
-| `async.md` | Missing await, race conditions, uncaught exceptions in wrappers, promise leaks, timer leaks | Concurrency |
-| `error-handling.md` | Silent swallowing, pattern catalog, consistency, error type granularity, logging audit | Error patterns |
-| `structure.md` | Repeated construction, exact/near duplication, circular deps, dead exports, unused variables | Code organization |
-| `data-integrity.md` | Domain invariants, temporal, entity resolution, completeness, floating point, SQL bugs, N+1 queries | Domain data |
-| `type-safety.md` | any leakage, name collisions, loose types, assertion safety, schema drift | Type system |
-| `perf.md` | O(n) hotspots, recomputation, allocations, memory, iteration tradeoffs, SQL performance | Runtime speed |
-| `security.md` | OWASP injection, access control, data exposure, misconfiguration, dependencies | Security |
-| `frontend.md` | React state, hydration, component patterns, accessibility | UI code |
-| `browser.md` | Console, network, visual, Lighthouse, performance, memory, interactions | Runtime testing |
+One finder reads ONE reference file and checks only its patterns. The full
+table — file, patterns, focus — is in `references/layers.md`.

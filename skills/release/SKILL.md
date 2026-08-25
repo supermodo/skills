@@ -26,6 +26,31 @@ version lives — `package.json:version`, `.claude-plugin/plugin.json:version`,
 …), `changelog`, `tagPrefix`, `mergeStrategy` (`"squash"` default |
 `"merge"`), `githubRelease` (publish via `gh` after tagging).
 
+## The project's process (read FIRST)
+
+Read `.supermodo/rules/release.md` if it exists. It IS the release process for
+this project and it replaces the light/full sequences below entirely — those
+become two bundled examples, not the two options. Then read
+`.supermodo/rules/INDEX.md` if present and load only the cross-cutting files
+naming `release` (typically `vcs.md`). Contract:
+`../protocols/references/rules.md`.
+
+The skill still supplies every capability the process names: deriving the bump
+from the Conventional Commits since the last tag, building the changelog entry
+from fragments, printing the exact git sequence, publishing the GitHub release.
+
+What NEVER comes from that file: preflight blockers halt and are never worked
+around; the version bump and changelog entry travel in one commit; consumed
+fragments are deleted in that commit and never counted twice; the complete
+command sequence is shown before anything runs; a failure stops at the first
+command and reports exactly which ran; worktree cleanup is printed, never run;
+`gh` missing is reported NOT done, never silently skipped.
+
+**Absent file → the first-use gate** at the end of Step 1, under the preflight
+result, before Step 2 writes anything. Absence alone is not first run: read
+`.skills/supermodo/config-manifest.json` and gate only when the file is absent
+AND `rulesDeclined` does not name `"release"`.
+
 ## Step 1 — Preflight (deterministic, read-only)
 
 **Establish where the release actually got to — from git, never from memory.**
@@ -71,6 +96,17 @@ the configured quality tiers: `commands.testAll` (fallback `commands.test`)
 and `commands.lint` (see `../protocols/references/tooling.md`). A red tier
 is a preflight blocker like any other; an absent tier is reported as "not
 gated", never silently assumed green.
+
+**First run** (no `.supermodo/rules/release.md` AND no recorded decline): under
+the preflight result, before Step 2 writes anything, ask an ordered choice per
+`../protocols/references/questions.md` naming the shipped starting points
+(`light`, `full`) with each template's `summary` as its description, plus
+customize and show-full. **Materialize through `config --rules release`, never
+by writing the file directly** — that procedure owns containment,
+exclusive-temp writing, validate-before-rename, index regeneration and the
+manifest record. Then continue under the new file.
+`confirmations.mode: "auto"` does NOT skip this: it is a class-(c) preference.
+A decline is recorded as `rulesDeclined: ["release"]` and never asked again.
 
 ## Step 2 — Write the release files (automatic file edits — no git)
 

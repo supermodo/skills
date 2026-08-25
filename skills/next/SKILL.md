@@ -7,6 +7,12 @@ description: "Shows the worklist board — everything that could be worked on, g
 
 > **Requires:** the sibling `protocols` skill (shared protocol masters) and a valid `skills.config.json` (create with the `config` skill). Missing either → halt with that exact pointer; never guess.
 
+> **Project rules.** Read `.supermodo/rules/next.md` if present, plus any
+> `.supermodo/rules/INDEX.md` rows naming `next` — that file IS this project's
+> next process and replaces the defaults below wherever they overlap. Contract:
+> `../protocols/references/rules.md`. Never in that file, so never switchable off:
+> never mutating docs or git, and an unset priority is unknown rather than P2.
+
 A THIN renderer. All selection semantics — priority, inheritance, execution
 state, ordering, effort bands, board format, suggestion rules — live in
 `../protocols/references/worklist.md`. Follow that master exactly; this file

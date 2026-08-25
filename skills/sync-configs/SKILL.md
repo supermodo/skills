@@ -8,6 +8,12 @@ disable-model-invocation: false
 
 > **Requires:** the sibling `protocols` skill (shared protocol masters); uses `skills.config.json` when present. Missing protocols → tell the user to install the full supermodo package.
 
+> **Project rules.** Read `.supermodo/rules/sync-configs.md` if present, plus any
+> `.supermodo/rules/INDEX.md` rows naming `sync-configs` — that file IS this project's
+> sync-configs process and replaces the defaults below wherever they overlap. Contract:
+> `../protocols/references/rules.md`. Never in that file, so never switchable off:
+> never deleting user content, overwriting only with a backup, never syncing secrets, verbatim fidelity on names and descriptions.
+
 Audit every configuration surface shared between Claude Code and Codex CLI,
 report drift, propose per-item sync actions, apply only what the user
 approves, then have the *opposite* provider adversarially verify the result.

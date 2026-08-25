@@ -7,6 +7,12 @@ description: "Sole owner of documentation mutations: run the lifecycle pass to c
 
 > **Requires:** the sibling `protocols` skill (shared protocol masters) and a valid `skills.config.json` (create with the `config` skill). Missing either → halt with that exact pointer; never guess.
 
+> **Project rules.** Read `.supermodo/rules/librarian.md` if present, plus any
+> `.supermodo/rules/INDEX.md` rows naming `librarian` — that file IS this project's
+> librarian process and replaces the defaults below wherever they overlap. Contract:
+> `../protocols/references/rules.md`. Never in that file, so never switchable off:
+> sole ownership of `docs/`, never inventing technical content, never hand-editing generated files, never mutating git.
+
 Sole owner of documentation mutations. Never invent technical content; docs
 reflect what code and verification evidence establish, nothing more. Every
 run starts at the docs router (`docs.entry` from config, default

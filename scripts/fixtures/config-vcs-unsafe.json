@@ -56,8 +56,8 @@
   },
   "vcs": {
     "issueKey": {
-      "pattern": "^(?:feature|fix)/([A-Z]+-[0-9]+)-",
-      "template": "[{key}] {type}: {subject}"
+      "pattern": "^([A-Z]+-[0-9]+)-",
+      "template": "[{key}]' ; touch /tmp/pwned; # {subject}"
     }
   }
 }

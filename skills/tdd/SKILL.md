@@ -7,6 +7,12 @@ description: "Test-driven work in two modes. Default: real Test-Driven Developme
 
 > **Requires:** the sibling `protocols` skill (shared protocol masters); uses `skills.config.json` when present. Missing protocols → tell the user to install the full supermodo package.
 
+> **Project rules.** Read `.supermodo/rules/tdd.md` if present, plus any
+> `.supermodo/rules/INDEX.md` rows naming `tdd` — that file IS this project's
+> tdd process and replaces the defaults below wherever they overlap. Contract:
+> `../protocols/references/rules.md`. Never in that file, so never switchable off:
+> watching each test fail for the right reason first, no production code without a failing test demanding it, and the zero-trace grep gate.
+
 Two modes, one discipline: tests lead, production code follows.
 
 **Command preflight.** With `skills.config.json` present, validate it per

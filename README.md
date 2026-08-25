@@ -85,6 +85,21 @@ navigation at minimum token cost, with `librarian` as the single
 documentation owner. The layout and rules:
 [docs/documentation.md](docs/documentation.md).
 
+## Your workflow, not ours
+
+Every team's git cycle is different — issue keys in branch names, RC branches,
+QA sign-off, merge commits instead of squashes. Each skill ships a default
+process, and the first time an invasive or expensive one runs it shows you
+that process and asks before using it.
+
+Accept, and it's written to `.supermodo/rules/<skill>.md`. From then on that
+file **is** the process: edit it, commit it, review it like source. Ask for a
+different starting point — `light` or `full` for releases, Conventional
+Commits or `[PROJ-123]` prefixes for messages — and you get that instead.
+
+Conventions spanning several skills, like where the tracker key must appear,
+live once in `.supermodo/rules/vcs.md` so they can't drift apart.
+
 ## Core ideas
 
 - **Docs convention, strict:** one router, immutable task IDs, generated

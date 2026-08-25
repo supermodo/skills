@@ -19,6 +19,8 @@ tell the user to install the full supermodo package):
 - `../protocols/references/questions.md` — before asking the user anything.
 - `../protocols/references/tooling.md` — before the commands step / Phase 6.
 - `../protocols/references/docs-convention.md` — before the dry-run.
+- `../protocols/references/rules.md` — the project-rules contract
+  (`.supermodo/rules/`). Read before `--rules`.
 - `references/procedures.md` (this skill) — **the phase playbook**: read
   its matching section when a checklist item below sends you there.
 
@@ -72,6 +74,7 @@ version.
 | `config --yes` | Bootstrap with defaults, no interview (auto-selected in an empty project) — procedures §1 |
 | `config --edit [field]` | Change fields — "Edit" below |
 | `config --upgrade` | Migrate config version — procedures §7 |
+| `config --rules [target] [--accept-defaults]` | Materialize a project process file into `.supermodo/rules/` — procedures §9 |
 
 Never re-scaffold over a configured project: with a valid config present,
 report and offer edits — bootstrap runs only when `skills.config.json` is
@@ -229,8 +232,8 @@ that file does not exist (rule 1).
 - Write only inside the project root (real-path resolved), and only paths
   from an approved plan or the fast path's create-only exception: docs
   scaffold, `skills.config.json`, `.gitignore`, `.skills/supermodo/`,
-  accepted `<agents.dir>/` files, approved tooling-phase targets. Nothing
-  else, ever.
+  `.supermodo/rules/`, accepted `<agents.dir>/` files, approved tooling-phase
+  targets. Nothing else, ever.
 - Halt-and-report on any conflict without an approved resolution.
 
 ## Report

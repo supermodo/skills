@@ -184,10 +184,59 @@ const checkRelease = (v: Json): string[] =>
       ? ["release.githubRelease: boolean"] : []),
   ];
 
+// `vcs.issueKey.pattern` is compiled and run against a branch name, so an
+// invalid regex must be rejected here rather than thrown at commit time.
+const TEMPLATE_TOKENS = /\{(key|type|scope|subject)\}/g;
+
+const compiled = (v: Json): RegExp | undefined => {
+  if (!isStr(v)) return undefined;
+  try { return new RegExp(v); } catch { return undefined; }
+};
+
+// Count capture groups by MEASURING, never by pattern-matching the source.
+// `^.*$` has none but matches the empty string; `(?<key>…)` has one but reads
+// as non-capturing to a `/\((?!\?)/` heuristic; `\(` is a literal paren.
+// Appending `|()` adds exactly one always-matching group, so a match on the
+// empty string reports groupCount + 1 entries after index 0.
+const captureCount = (re: RegExp): number =>
+  (new RegExp(`${re.source}|()`).exec("")?.length ?? 2) - 2;
+
+const checkIssueKey = (v: Json): string[] => {
+  if (v === undefined) return [];
+  if (!isObj(v)) return ["vcs.issueKey: object expected"];
+  const re = compiled(v.pattern);
+  return [
+    ...unknownKeys(v, ["pattern", "template"], "vcs.issueKey"),
+    ...(v.pattern !== undefined && re === undefined
+      ? ["vcs.issueKey.pattern: not a valid regular expression"] : []),
+    ...(re !== undefined && captureCount(re) < 1
+      ? ["vcs.issueKey.pattern: needs at least one capturing group — group 1 IS the key"] : []),
+    ...(v.template !== undefined && !isStr(v.template)
+      ? ["vcs.issueKey.template: non-empty string"] : []),
+    ...(isStr(v.template) && (v.template.match(TEMPLATE_TOKENS) ?? []).length === 0
+      ? ["vcs.issueKey.template: must contain at least one of {key} {type} {scope} {subject}"] : []),
+    // SECURITY. The commit skill prints `git commit -m '<subject>'` as a
+    // literal single-quoted line and executes the plan verbatim; a committed
+    // template containing `'` closes that quote and everything after it
+    // becomes shell. skills.config.json is untrusted committed input by the
+    // same rule that makes a committed Makefile untrusted, and the config
+    // contract already forbids interpolating config values into a shell
+    // string — this is where that rule gets teeth.
+    ...(isStr(v.template) && /['"`$\\;&|<>\n\r\x00-\x1f]/.test(v.template)
+      ? ["vcs.issueKey.template: must not contain quotes, backslashes, shell metacharacters or control characters — it is composed into a commit subject printed as a single-quoted shell line"] : []),
+  ];
+};
+
+const checkVcs = (v: Json): string[] =>
+  v === undefined ? [] : !isObj(v) ? ["vcs: object expected"] : [
+    ...unknownKeys(v, ["issueKey"], "vcs"),
+    ...checkIssueKey(v.issueKey),
+  ];
+
 const ROOT_KEYS = [
   "configVersion", "project", "docs", "commands", "workspace", "coverage",
   "agents", "questions", "output", "confirmations", "reports", "changelog",
-  "release",
+  "release", "vcs",
 ] as const;
 
 const validate = (c: Obj): string[] => [
@@ -205,6 +254,7 @@ const validate = (c: Obj): string[] => [
   ...checkReports(c.reports),
   ...checkChangelog(c.changelog),
   ...checkRelease(c.release),
+  ...checkVcs(c.vcs),
 ];
 
 const parse = (file: string): { config?: Obj; fatal?: string } => {

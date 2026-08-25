@@ -5,6 +5,17 @@ description: Last resort for ONE stubborn bug the ordinary attempts already fail
 
 # Bug Council
 
+> **Requires:** the sibling `protocols` skill (shared protocol masters); uses `skills.config.json` when present. Missing protocols → tell the user to install the full supermodo package.
+
+> **Project rules.** Read `.supermodo/rules/bug-council.md` if present, plus any
+> `.supermodo/rules/INDEX.md` rows naming `bug-council` — that file IS this
+> project's council process (seats, models, mode, rounds) and replaces the
+> defaults below wherever they overlap. Contract:
+> `../protocols/references/rules.md`. Never in that file, so never switchable
+> off: investigations stay blind and are never shown to each other, one
+> designated implementer, a fresh verifier that did not implement, passing
+> tests never mean solved, explicit invocation only.
+
 Run a structured, evidence-driven bug hunt.
 
 ## Invocation policy — read before starting
@@ -31,6 +42,17 @@ is worth. For the toughest stains only.
   tried to fix yet; wanting *more* bugs found rather than *one* explained.
   Those are `tdd --debug` (fix a known bug) or `hunt` (find unknown ones).
 - **Scope is one bug.** Two bugs = two runs, or none.
+- **First run in this project** (no `.supermodo/rules/bug-council.md` AND no
+  decline recorded under `rulesDeclined` in
+  `.skills/supermodo/config-manifest.json`): before spawning the first seat,
+  show the chosen template's `summary` — which states the seat count, the round
+  count, and that this is the most expensive act in the package — and ask an
+  ordered choice per `../protocols/references/questions.md` over the shipped
+  starting points, plus customize and show-full. **The cost disclaimer is part
+  of the gate, not a footnote:** the user is approving a token spend, not just
+  a procedure. Materialize through `config --rules bug-council`, never by
+  writing the file directly. `confirmations.mode: "auto"` does NOT skip this —
+  choosing a process is a class-(c) preference, and this one carries a bill.
 
 The goal is not agreement between agents. The goal is:
 

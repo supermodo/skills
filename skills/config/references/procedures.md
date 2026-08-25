@@ -178,3 +178,68 @@ are never touched by config. If any exist, END the report with:
 as the REQUIRED next step (librarian classifies each file, proposes
 per-file disposition) — until absorbed, those docs are invisible to the
 toolkit.
+
+## §9 `--rules [target] [--accept-defaults]`
+
+Materialize a project process file (`../../protocols/references/rules.md`). Never
+runs at bootstrap: a rules file is created on demand, or by a gated skill at
+its own first-use gate. **This procedure is the ONLY writer of
+`.supermodo/rules/`** — a gated skill routes its materialization through here
+rather than writing the file itself, so containment and validation happen in
+one place instead of being duplicated (and half-implemented) per skill.
+
+**Targets are TEMPLATES, not skills.** Build the candidate list by scanning
+`skills/*/rules-templates/*.md` and reading each one's `rule:` field. That
+field — not the owning folder — is the destination stem. `vcs.md` ships under
+`skills/config/rules-templates/` but declares `rule: vcs`, so it materializes
+to `.supermodo/rules/vcs.md`; deriving the destination from the folder would
+write `config.md`, which `rules-check` then rejects because its `rule` says
+`vcs`. A cross-cutting file has no owning skill by definition, so the folder
+can never be the answer.
+
+1. **Resolve the target.**
+   - `--accept-defaults` with no target → select the first variant of EVERY
+     rule that ships one, ask nothing, go to step 5. Checking this BEFORE the
+     "which target?" question is what makes the documented bulk escape
+     `config --rules --accept-defaults` question-free.
+   - A target named → match it against `rule:` values, never folder names. No
+     match → say so and stop; never fall back to a full listing.
+   - No target and no `--accept-defaults` → ordered choice over the available
+     rules, each described by its template's `description`.
+2. **Already materialized?** `.supermodo/rules/<rule>.md` exists → show its
+   `template` and `template-version`, offer to edit or re-scaffold, stop.
+   Never overwrite one silently.
+3. **Choose a starting point.** One variant → confirm it. Two or three →
+   ordered choice, each option described by that template's `summary`.
+4. **Customize (optional).** The user may edit any section before it lands.
+   Interview only the sections they ask about; never walk the whole file.
+5. **Stage.** Assemble the candidate in a temp directory OUTSIDE the rules
+   folder: the template body verbatim, minus the `summary:` key (that field
+   belongs to the gate, not the materialized file), with `template: <variant>`
+   and `template-version: <plugin.json version>` stamped into the frontmatter.
+6. **Validate the staged candidate BEFORE it lands.** The 4 KB cap is hard at
+   write, and a customized process can cross it. Validating after the rename
+   would leave an invalid file live in the rules folder if the run is
+   interrupted.
+   ```
+   node <dir-of-this-SKILL.md>/scripts/rules-check.ts <staging-root>
+   ```
+   Non-zero → report the errors, delete the staging dir, leave the project
+   unchanged. Nothing has been written yet, so there is nothing to roll back.
+7. **Write.** Real-path containment first: resolve the destination (or its
+   nearest existing parent) and refuse unless it stays beneath the real
+   project root — root-relative syntax alone does not stop a symlinked parent
+   from escaping (§4). Then write-temp-then-rename, creating the temp file
+   exclusively (`wx`) so a pre-existing symlink cannot redirect the write.
+8. **Regenerate the index and re-validate the live tree:**
+   ```
+   node <dir-of-this-SKILL.md>/scripts/rules-index.ts <project-root>
+   node <dir-of-this-SKILL.md>/scripts/rules-check.ts <project-root>
+   ```
+   Both must exit 0.
+9. **Record** the action in `.skills/supermodo/config-manifest.json` like every
+   other write. A **decline** is recorded here too, under
+   `rulesDeclined: ["<rule>", …]`, and is never re-asked: absence then means
+   chosen, not accidental. That key is what a gated skill reads before deciding
+   whether this is a first run.
+10. **Report** the path written, the variant, and the stamped version.
