@@ -4,6 +4,9 @@
 
 import { readFileSync } from "node:fs";
 import { DEFAULTS, at, floorViolations, resolve } from "./grammar.ts";
+import { parseJsonc } from "./jsonc.ts";
+import { dangerousPattern } from "./regex-safety.ts";
+
 
 type Json = unknown;
 type Obj = Record<string, Json>;
@@ -20,7 +23,10 @@ const isPath = (v: Json): boolean =>
 // never whitespace/control/ref-forbidden characters, and branch names must
 // also satisfy git's ref-format rules (no "..", "//", "@{", .lock suffix,
 // leading/trailing "/" or ".").
-const GIT_UNSAFE = /[\s~^:?*[\\\x00-\x1f]/;
+// git permits ; $ & | < > ( ) ! ' " ` in a ref name; a shell reads every one
+// of them as syntax, and these values are composed into commands written to be
+// pasted. `dev;id>/tmp/PWNED` is a branch git creates without complaint.
+const GIT_UNSAFE = /[\s~^:?*[\\\x00-\x1f;$&|<>()!'"`]/;
 // Per git-check-ref-format: rules apply PER slash-separated component.
 const isGitRef = (v: Json): boolean =>
   isStr(v) && !v.startsWith("-") && !GIT_UNSAFE.test(v) &&
@@ -167,11 +173,20 @@ const checkReleaseBranches = (v: Json): string[] =>
       .map((k) => `release.branches.${k}: safe git branch name (no leading "-", no whitespace/control/ref-forbidden chars)`),
   ];
 
+// Keys that USED to live here. A removed key must never fall through to the
+// generic "unknown key" error: the user did not typo it, we took it away, and
+// the only useful thing to say is where its meaning went and how to move it.
+const REMOVED_RELEASE: readonly (readonly [string, string])[] = [
+  ["mode",
+    'release.mode is removed. It never named a value — it named a WORKFLOW, and a workflow is a sequence, so it belongs in .supermodo/rules/release.md (frontmatter `template: light|full`), which is the single home for what steps run in what order. Migrate: run `config --rules release` and pick the template matching the mode you had, then delete this key.'],
+  ["githubRelease",
+    "release.githubRelease is removed. WHETHER and HOW this project publishes a release is part of its process, not a boolean: it belongs in .supermodo/rules/release.md, written in the project's own words (which command, on which forge, or none at all). Migrate it through `config --rules release`."],
+];
+
 const checkRelease = (v: Json): string[] =>
   v === undefined ? [] : !isObj(v) ? ["release: object expected"] : [
-    ...unknownKeys(v, ["mode", "branches", "versionFile", "versionPath", "changelog", "tagPrefix", "mergeStrategy", "githubRelease", "alphaPolicy"], "release"),
-    ...(v.mode !== undefined && !["light", "full"].includes(v.mode as string)
-      ? ['release.mode: "light" | "full"'] : []),
+    ...REMOVED_RELEASE.filter(([k]) => v[k] !== undefined).map(([, msg]) => msg),
+    ...unknownKeys(v, ["mode", "githubRelease", "branches", "versionFile", "versionPath", "changelog", "tagPrefix", "mergeStrategy", "versionPattern", "remote", "tagStyle", "alphaPolicy"], "release"),
     ...checkReleaseBranches(v.branches),
     ...(["versionFile", "changelog"] as const)
       .filter((k) => v[k] !== undefined && !isPath(v[k]))
@@ -179,10 +194,34 @@ const checkRelease = (v: Json): string[] =>
     ...(v.versionPath !== undefined && !isStr(v.versionPath) ? ["release.versionPath: non-empty string"] : []),
     ...(v.tagPrefix !== undefined && !isTagPrefix(v.tagPrefix)
       ? [`release.tagPrefix: safe tag prefix (no leading "-", no whitespace/control/ref-forbidden chars)`] : []),
+    ...(v.tagStyle !== undefined && !["lightweight", "annotated", "signed"].includes(v.tagStyle as string)
+      ? ['release.tagStyle: "lightweight" | "annotated" | "signed"'] : []),
+    ...(v.remote !== undefined && !isGitRef(v.remote)
+      ? ['release.remote: safe git remote name (no leading "-", no whitespace/control chars)'] : []),
     ...(v.mergeStrategy !== undefined && !["squash", "merge"].includes(v.mergeStrategy as string)
       ? ['release.mergeStrategy: "squash" | "merge"'] : []),
-    ...(v.githubRelease !== undefined && typeof v.githubRelease !== "boolean"
-      ? ["release.githubRelease: boolean"] : []),
+    // Only needed when the version lives somewhere no known shape finds it.
+    // It is compiled and run against the file, so an invalid regex — or one
+    // with nothing to capture — has to fail here, not at release time.
+    ...(v.versionPattern !== undefined ? ((): string[] => {
+      if (!isStr(v.versionPattern)) return ["release.versionPattern: non-empty string (a regex with one capture group)"];
+      // `^((a+)+)$` spent 19 SECONDS of CPU on one file before any screen
+      // existed, and two rewrites of it walked past the first screen. The
+      // one in regex-safety.ts is the single definition of "unsafe", shared
+      // with the preflight that compiles the pattern.
+      const danger = dangerousPattern(v.versionPattern as string);
+      try {
+        const re = new RegExp(v.versionPattern as string, "m");
+        return danger !== undefined
+          ? [`release.versionPattern: ${danger} and would hang the release preflight — rewrite it without that group`]
+
+          : re.exec("") === null && !/\((?!\?)/.test(v.versionPattern as string)
+            ? ["release.versionPattern: must contain a capture group — group 1 is the version"]
+            : [];
+      } catch (e) {
+        return [`release.versionPattern: invalid regex — ${(e as Error).message}`];
+      }
+    })() : []),
   ];
 
 // `vcs.issueKey.pattern` is compiled and run against a branch name, so an
@@ -206,10 +245,14 @@ const checkIssueKey = (v: Json): string[] => {
   if (v === undefined) return [];
   if (!isObj(v)) return ["vcs.issueKey: object expected"];
   const re = compiled(v.pattern);
+  const danger = isStr(v.pattern) ? dangerousPattern(v.pattern) : undefined;
   return [
     ...unknownKeys(v, ["pattern", "template"], "vcs.issueKey"),
     ...(v.pattern !== undefined && re === undefined
       ? ["vcs.issueKey.pattern: not a valid regular expression"] : []),
+    ...(danger !== undefined
+      ? [`vcs.issueKey.pattern: ${danger} — it is run against every branch name and would hang the commit skill; rewrite it without that group`] : []),
+
     ...(re !== undefined && captureCount(re) < 1
       ? ["vcs.issueKey.pattern: needs at least one capturing group — group 1 IS the key"] : []),
     ...(v.template !== undefined && !isStr(v.template)
@@ -441,7 +484,7 @@ const parse = (file: string): { config?: Obj; fatal?: string } => {
   const raw = read();
   if (raw === undefined) return { fatal: `cannot read ${file} — run the config skill to create it` };
   try {
-    const parsed: Json = JSON.parse(raw);
+    const parsed = parseJsonc(raw) as Json;
     return isObj(parsed) ? { config: parsed } : { fatal: "root must be an object" };
   } catch (e) {
     return { fatal: `invalid JSON: ${(e as Error).message}` };

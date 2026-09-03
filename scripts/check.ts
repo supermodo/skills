@@ -7,6 +7,8 @@ import { readFileSync, writeFileSync, readdirSync, existsSync, statSync, mkdirSy
 import { join, dirname, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
+import { stripJsonc } from "../skills/config/scripts/jsonc.ts";
+
 
 const EXPECTED = [
   "bug-council", "commit", "config", "flow", "grill", "hunt", "librarian",
@@ -327,6 +329,15 @@ const checkDocsTree = (root: string, skillsDir: string): Result => {
   // `--item` is the mode `--promote` calls on a staged item BEFORE renaming it
   // into docs/, so it is the last point anything can be caught while the tree
   // is still clean. Untested, the atomic-creation step validates nothing.
+  const runOut = (r: string): string => {
+    try {
+      execFileSync("node", [script, r, "docs/README.md"], { stdio: "pipe" });
+      return "";
+    } catch (e) {
+      const err = e as { readonly stdout?: Buffer; readonly stderr?: Buffer };
+      return `${err.stdout ?? ""}${err.stderr ?? ""}`;
+    }
+  };
   const runItem = (d: string): boolean => {
     try {
       execFileSync("node", [script, "--item", d], { stdio: "pipe" });
@@ -346,7 +357,18 @@ const checkDocsTree = (root: string, skillsDir: string): Result => {
   try {
     const stripped = join(tmp, "no-evidence");
     cpSync(fixture, stripped, { recursive: true });
-    rmSync(join(stripped, "docs/work/hunt-api-p1/findings.md"));
+    rmSync(join(stripped, "docs/work/hunt-api-p1/findings.md"));    // A work dir that is neither a triad nor a program is nothing the board
+    // can read; and program/initiative is the whole depth there is. Both
+    // relations held only because the clean fixture never exercised them.
+    const loose = join(tmp, "loose");
+    cpSync(fixture, loose, { recursive: true });
+    mkdirSync(join(loose, "docs/work/loose-notes"), { recursive: true });
+    writeFileSync(join(loose, "docs/work/loose-notes/spec.md"), "# loose\n", "utf8");
+    const deep = join(tmp, "deep");
+    cpSync(fixture, deep, { recursive: true });
+    mkdirSync(join(deep, "docs/work/prog-x/01-init/02-deeper"), { recursive: true });
+    writeFileSync(join(deep, "docs/work/prog-x/README.md"), "---\nprogram: prog-x\n---\n\n# prog-x\n", "utf8");
+
     // "…-011" CONTAINS "…-01": a substring check calls this present.
     const prefix = mutate("prefix", "spec.md", (s) =>
       s.replace(/HNT-20260803141500-011(?=[^\d])/, "HNT-20260803141500-01"));
@@ -457,7 +479,13 @@ const checkDocsTree = (root: string, skillsDir: string): Result => {
         : ok("docs-check rejects a promoted triad whose evidence is missing (the check can fail)"),
       run(prefix)
         ? fail("docs-check ACCEPTED a promoted id matched only as a PREFIX of another — substring, not identity")
-        : ok("docs-check matches promoted ids exactly, not by substring (the check can fail)"),
+        : ok("docs-check matches promoted ids exactly, not by substring (the check can fail)"),      runOut(loose).includes("is neither a triad")
+        ? ok("docs-check names a work dir that is neither a triad nor a program (the check can fail)")
+        : fail("docs-check ACCEPTED a work dir with no tasks.md and no program README — the board would show a folder nothing can read"),
+      runOut(deep).includes("nesting deeper than program/initiative")
+        ? ok("docs-check refuses nesting below program/initiative (the check can fail)")
+        : fail("docs-check ACCEPTED an initiative nested inside an initiative — the two-level depth cap is not enforced"),
+
       run(prose)
         ? fail("docs-check ACCEPTED a promoted id mentioned in prose with no task carrying it")
         : ok("docs-check requires a real task marker, not a prose mention (the check can fail)"),
@@ -753,7 +781,13 @@ const checkFixtures = (root: string, skillsDir: string): Result => {
       : fail("config-check rejected scripts/fixtures/config-valid.json"),
     runFixture(script, join(root, "scripts/fixtures/config-invalid.json"))
       ? fail("config-check ACCEPTED scripts/fixtures/config-invalid.json (should fail)")
-      : ok("config-check rejects invalid fixture"),
+      : ok("config-check rejects invalid fixture"),    // Comments and trailing commas are the one thing JSONC adds, and every
+    // other fixture the suite feeds is strict JSON — so a reader quietly
+    // reverted to JSON.parse would have stayed green.
+    runFixture(script, join(root, "scripts/fixtures/config-valid-commented.jsonc"))
+      ? ok("config-check reads a commented config (the check can fail)")
+      : fail("config-check REJECTED scripts/fixtures/config-valid-commented.jsonc — comments and trailing commas are exactly what the shared JSONC reader exists to accept"),
+
     // Each new rule needs a fixture valid EXCEPT for that rule. Adding a vcs
     // defect to config-invalid.json would prove nothing: that file already
     // fails for other reasons, so the assertion would stay green with the
@@ -905,6 +939,33 @@ const checkGenerateGrammar = (root: string, skillsDir: string): Result => {
   }
 };
 
+// A probe speaks in two registers. A PASSING value is lower-case prose or
+// data — `clean`, `blocked`, `1.1.0`, `git tag v1.0.1` — and a FAILING value
+// shouts (`MISSED`, `LEAKED`, `BARE`, `BLOCKED:<reason>`) or is a bare `no`.
+// An expectation table may only ever hold the first kind. The mistake this
+// guards against is routine, not hostile: regress a behaviour, watch the probe
+// print MISSED, and "fix the test" by pasting the new output into the table —
+// the build is green again and the regression is now the documented
+// behaviour. So a table is validated BEFORE its probe is compared, and a
+// shouting row fails the build naming itself.
+const FAILURE_SENTINEL = /^(?:[A-Z][A-Z_-]+(?::.*)?|no)$/;
+const sentinelRows = (table: readonly string[]): readonly string[] =>
+  table.filter((e) => FAILURE_SENTINEL.test(e.slice(e.indexOf("=") + 1)));
+const bakedSentinels = (name: string, table: readonly string[]): Result => {
+  const baked = sentinelRows(table);
+  return baked.length === 0
+    ? merge()
+    : fail(`${name} carries a failure sentinel as an expectation: ${baked.join(", ")} — the table asserts a regression as the documented behaviour (a row reading MISSED, LEAKED, BLOCKED:… or no is never a pass)`);
+};
+
+// The guard's own negative control: every register it must refuse, next to
+// every register it must let through.
+const checkSentinelGuard = (): Result =>
+  sentinelRows(["a=MISSED", "b=BLOCKED:reason", "c=no", "d=SELF-MERGE", "e=BLOCKED", "f=clean", "g=none", "h=1.2.3.5", "i=git tag v1.0.1", "j=v1.2.3-rc.1"]).join(",")
+    === "a=MISSED,b=BLOCKED:reason,c=no,d=SELF-MERGE,e=BLOCKED"
+    ? ok("an expectation table cannot carry a failure sentinel (the check can fail)")
+    : fail("the failure-sentinel guard does not recognise the probe's vocabulary — a regression could be pasted into EXPECTED_RELEASE_STATE as the documented behaviour");
+
 // `commit` writes the message and `release` derives the semver bump from it,
 // so the type vocabulary has to be ONE key both read. Before the grammar layer
 // it was prose in commit/SKILL.md and a regex in release-check.ts, with nothing
@@ -932,6 +993,301 @@ const checkBumpGrammar = (root: string): Result => {
     ? ok("the semver bump follows the project's commit vocabulary (the check can fail)")
     : fail(`bump derivation disagrees with the documented mapping: expected ${wrong.join(", ") || "(count mismatch)"} — got ${out.join(", ") || "(no output)"}`);
 };
+
+// The release preflight's whole job is to know the state BEFORE anything is
+// pushed, and every way it can be wrong is silent: a version file it cannot
+// parse reads as "no version", a tag outside HEAD's ancestry reads as "not
+// released yet", and a stale checkout reads as clean. None of those surface
+// until a version has already been published twice or rolled backwards. The
+// probe builds throwaway repositories in exactly those states.
+const EXPECTED_RELEASE_STATE: readonly string[] = [
+  // a JSONC version file is readable
+  "jsonc-version=1.0.0",
+  "jsonc-suggested=1.1.0",
+  "jsonc-strict-fails=yes",
+  "jsonc-string-intact=yes",
+  "jsonc-trailing-comma=yes",
+  // state comes from every branch and tag, not from HEAD's ancestry
+  "cross-branch-tag=v1.0.1",
+  "cross-branch-highest=1.0.1",
+  "stale-checkout=blocked",
+  "behind-main=blocked",
+  "stale-repair=offered",
+  "no-steps-when-blocked=yes",
+  // a squash release bounds the unreleased range at the back-merge
+  "backmerge-range=1",
+  "backmerge-bump=patch",
+  "backmerge-version=1.1.1",
+  // git commands are rendered from this project's real names...
+  "plan-clean=ready",
+  "plan-add=git add package.json CHANGELOG.md",
+  "plan-tag=yes",
+  "plan-one-tag=yes",
+  "plan-backmerge=yes",
+  "plan-gh=clean",
+  "plan-quoted=yes",
+  "plan-order=bump-commit>integrate>tag>push>extract-notes>publish-release>back-merge",
+  // ...and nothing of the default spelling survives a renaming project
+  "renamed-clean=ready",
+  "renamed-merge=yes",
+  "renamed-no-squash=clean",
+  "renamed-tag=yes",
+  "renamed-no-gh=clean",
+  "renamed-no-default-branch=clean",
+  // a hotfix rejoins the open stabilization branch, never picking between two
+  "hotfix-rejoin=yes",
+  "hotfix-patch=1.0.1",
+  "hotfix-many-asks=asks",
+  "hotfix-many-no-pick=clean",
+  // the fetch is why any of it is trustworthy; offline DEGRADES to a warning
+  "fetch-ran=ok",
+  "fetch-catches-stale=caught",
+  "fetch-repair=offered",
+  "offline-degrades=failed",
+  "offline-warns=yes",
+  "offline-not-blocked=clean",
+  "offline-repair=offered",
+  // a rules file IS the sequence; the inference it replaces does not run
+  "rule-detected=yes",
+  "rule-template=light",
+  "rule-no-default-order=withheld",
+  "rule-steps-rendered=yes",
+  "rule-skips-inference=skipped",
+  "rule-steps-scoped=await-approval,back-merge,bump-commit,cut-hotfix,cut-stabilization,extract-notes,integrate,open-request,publish-release,push,push-branch,push-tag,sync-main,tag",
+  // without one, the process is proposed with the evidence behind each guess
+  "norule-infers=proposed",
+  "norule-strategy=squash",
+  "norule-evidenced=yes",
+  // the skill renders git and REFUSES to invent a forge's commands
+  "only-git-rendered=yes",
+  "no-forge-cli=clean",
+  "publish-is-yours=yes",
+  "publish-no-commands=none",
+  "request-steps-are-yours=await-approval,open-request,publish-release",
+  "no-suicidal-delete=absent",
+  "notes-rendered=yes",
+  // removed config keys are migrated, never ignored
+  "migration-count=2",
+  "migration-names-rules=yes",
+  "migration-mode-inert=light",
+  // CI and remotes are OBSERVED for the user to read, never classified
+  "ci-detected=yes",
+  "ci-owns-versioning=flagged",
+  "ci-observed-not-classified=observation",
+  "ci-remote-verbatim=verbatim",
+  // the shape comes from the rules file, not from a config key
+  "shape-from-rule=full",
+  "shape-offers-cut=yes",
+  // version files are not all JSON; a section path beats the first match
+  "toml-version=1.0.0",
+  "toml-says-how=by-section",
+  "toml-no-false-warning=clean",
+  "bare-version-file=2.5.0",
+  "bare-warns-shape=yes",
+  // a scheme with no arithmetic is read, reported, and never invented
+  "calver-readable=2026.08.1",
+  "calver-no-guess=abstains",
+  "calver-not-blocked=usable",
+  "calver-says-skipped=yes",
+  // a dependency's version is not the package's; one heading, one entry
+  "toml-section-wins=3.1.0",
+  "duplicate-entry-warned=yes",
+  "duplicate-buildmeta-warned=yes",
+
+  // prereleases parse, order, and get no invented successor
+  "prerelease-tag-seen=v1.2.3-rc.1",
+  "prerelease-no-guess=abstains",
+  "prerelease-explains=yes",
+  // one branch is a process too
+  "trunk-ready=ready",
+  "trunk-order=bump-commit>tag>push>extract-notes>publish-release",
+  "trunk-no-self-merge=clean",
+  // a tag carrying a version the prefix does not recognise is a HALT
+  "foreign-tags-blocked=blocked",
+  "foreign-tags-named=yes",
+  "scoped-prefix-works=pkg-a@1.0.0",
+  // the first release is the declared version; CI owning versioning halts
+  "first-release-version=0.1.0",
+  "first-release-explains=yes",
+  "ci-owned-blocks=blocked",
+  "ci-owned-no-steps=none",
+  // a shallow clone cannot answer any of this
+  "shallow-blocked=blocked",
+  "shallow-repair=offered",
+  // hostile config values: exponential regex, symlink escape
+  "redos-rejected=rejected",
+  "redos-nested-group-rejected=rejected",
+  "redos-alternation-rejected=rejected",
+  "redos-issuekey-rejected=rejected",
+  "redos-benign-accepted=valid",
+  "redos-preflight-refuses=blocked",
+  "redos-runtime-bounded=blocked",
+
+  "symlink-escape-blocked=blocked",
+  // a mid-cycle main->dev sync is NOT a release boundary
+  "midcycle-sync-not-boundary=1.1.0",
+  "midcycle-warns-widened=yes",
+  "real-backmerge-bounds=1",
+  "real-backmerge-bump=patch",
+  // a path is not a shell token
+  "spaced-path-quoted=quoted",
+  "spaced-path-never-bare=clean",
+  "plain-path-unquoted=readable",
+  // a tag whose name and contents disagree is not authoritative
+  "wrong-tag-blocked=blocked",
+  "wrong-tag-no-steps=none",
+  // tags live in one namespace: every remote is fetched
+  "upstream-tag-seen=2.0.0",
+  "upstream-blocks-rollback=blocked",
+  "multi-remote-warned=yes",
+  // clean porcelain is not 'no operation in progress'
+  "merge-in-progress-blocked=blocked",
+  "merge-in-progress-no-steps=none",
+  // a stabilization branch that exists only on the remote counts
+  "remote-only-stabilization=rejoined",
+  // line endings must not decide the workflow
+  "crlf-rules-template=full",
+  "crlf-rules-shape=full",
+  "lf-rules-unchanged=full",
+  // a prefix can prefix a DIFFERENT convention
+  "prefix-overlap-blocked=blocked",
+  "calver-tags-not-foreign=clean",
+  // declining to guess must not leave the project with no plan
+  "fourpart-no-steps-alone=none",
+  "fourpart-version-supplied=1.2.3.5",
+  "fourpart-steps-rendered=yes",
+  "fourpart-rollback-blocked=blocked",
+
+  // a supplied version is still a validated version
+  "chosen-rollback-blocked=blocked",
+  "chosen-duplicate-blocked=blocked",
+  "chosen-forward-ok=ready",
+  "chosen-short-rollback-blocked=blocked",
+  "chosen-short-no-tag=clean",
+  "chosen-unorderable-blocked=blocked",
+
+  // the version is data, never a pattern
+  "buildmeta-not-a-regex=string-compare",
+  "buildmeta-heading-literal=literal",
+  // tag style is the project's
+  "tag-default-lightweight=git tag v1.0.1",
+  "tag-annotated=git tag -a v1.0.1 -m 'release: v1.0.1'",
+  "tag-signed=git tag -s v1.0.1 -m 'release: v1.0.1'",
+  // a ref is not a shell token
+  "injectable-ref-blocked=blocked",
+  "injectable-ref-never-rendered=clean",
+  "injectable-repair-quoted=clean",
+  // facts and commands must describe ONE repository
+  "missing-remote-blocked=blocked",
+  "worktree-branch-blocked=blocked",
+  "tag-changelog-mismatch=blocked",
+  "signed-policy-baseline=reported",  // controls for what was only ever asserted (probe section 27)
+  "cherry-pick-in-progress-blocked=blocked",
+  "revert-in-progress-blocked=blocked",
+  "bisect-in-progress-blocked=blocked",
+  "rebase-in-progress-blocked=blocked",
+  "am-in-progress-blocked=blocked",
+  "sequencer-in-progress-blocked=blocked",
+  "inherited-gitdir-blocked=blocked",
+  "remote-tracking-version-seen=3.0.0",
+  "remote-tracking-rollback-blocked=blocked",
+  "nofetch-flag-inert=ok",
+  "bom-rules-template=full",
+  "prerelease-numeric-order=1.0.0-beta.11",
+  "prerelease-below-release=1.0.0",
+  "gradle-version=4.2.0",
+  "python-dunder-version=5.0.1",
+  "jsonc-config-read=rel-1.0.0",
+  "no-trailing-comment=clean",
+
+];
+
+const checkReleaseState = (root: string): Result => {
+  const baked = bakedSentinels("EXPECTED_RELEASE_STATE", EXPECTED_RELEASE_STATE);
+  if (baked.fails.length > 0) return baked;
+
+  const probe = join(root, "scripts/fixtures/release-state-probe.mjs");
+  if (!existsSync(probe)) return fail("scripts/fixtures/release-state-probe.mjs is missing — the release preflight has no proof it reads state from git");
+  const out = ((): readonly string[] => {
+    try {
+      return execFileSync("node", [probe], { encoding: "utf8" }).trim().split("\n");
+    } catch { return []; }
+  })();
+  const wrong = EXPECTED_RELEASE_STATE.filter((e) => !out.includes(e));
+  return wrong.length === 0 && out.length === EXPECTED_RELEASE_STATE.length
+    ? ok("the release preflight reads version state from git and builds its sequence from config (the check can fail)")
+    : fail(`release preflight disagrees with the documented behavior: expected ${wrong.join(", ") || "(count mismatch)"} — got ${out.join(", ") || "(no output)"}`);
+};
+
+// Executable release COMMANDS have one home: release-check.ts renders them
+// with the project's real branch names, remote, version and tag substituted.
+// (Their ORDER has a different home — the project's rules file.) A copy in
+// SKILL.md is a copy that can do neither: it teaches `main` and `dev` to a
+// project that renamed them, and drifts from the renderer the moment either
+// changes.
+const SEQUENCE_MARKERS: readonly string[] = ["git merge --squash", "git tag ", "git push origin"];
+
+const checkSequenceSingleSource = (skillsDir: string): Result => {
+  const f = join(skillsDir, "release/SKILL.md");
+  if (!existsSync(f)) return fail("skills/release/SKILL.md is missing");
+  const text = readFileSync(f, "utf8");
+  const found = SEQUENCE_MARKERS.filter((m) => text.includes(m));
+  return found.length === 0
+    ? ok("release commands live only in release-check.ts; their order lives in the rules file (the check can fail)")
+    : fail(`release/SKILL.md re-embeds release commands (${found.join(", ")}) — it cannot substitute the project's names and will drift from release-check.ts`);
+};
+
+// The guide may name a forge CLI only as the thing it must never emit, never
+// as an instruction. `gh release list` "before you say anything about state"
+// ordered a GitHub-only command on every preflight, in a skill whose whole
+// argument is that the set of forges is not enumerable.
+const FORGE_CLI_MARKERS: readonly string[] = ["gh release", "glab release", "`gh `", "`glab `", "`bb `", "`tea `", "`hub `"];
+
+const checkNoForgeCliInGuide = (root: string, skillsDir: string): Result =>
+  merge(...([["skills/release/SKILL.md", join(skillsDir, "release/SKILL.md")], ["docs/release.md", join(root, "docs/release.md")]] as const).map(([label, f]) => {
+    if (!existsSync(f)) return fail(`${label} is missing`);
+    const text = readFileSync(f, "utf8");
+    const found = FORGE_CLI_MARKERS.filter((m) => text.includes(m));
+    return found.length === 0
+      ? ok(`${label} instructs no forge CLI (the check can fail)`)
+      : fail(`${label} names a forge CLI (${found.join(", ")}) — publishing is the project's own step; the guide must not order a command the rules file did not name`);
+  }));
+
+// The JSONC reader blanks comments and trailing commas to SPACES so that
+// every byte offset and line number survives the strip: a parse error still
+// names the position it occupies in the file the user is looking at. The
+// property held by construction and was pinned by nothing.
+const checkJsoncPositions = (): Result => {
+  const src = '{\n  "a": 1, // one\n  /* two\n     lines */ "b": [1, 2,],\n  "c": "https://x//y", \n}\n';
+  const out = stripJsonc(src);
+  const newlines = (s: string): string => [...s].flatMap((ch, i) => (ch === "\n" ? [i] : [])).join(",");
+  const parsed = ((): { readonly a?: number; readonly b?: readonly number[]; readonly c?: string } | undefined => {
+    try { return JSON.parse(out) as { readonly a?: number; readonly b?: readonly number[]; readonly c?: string }; } catch { return undefined; }
+  })();
+  return out.length === src.length && newlines(out) === newlines(src)
+    && parsed?.a === 1 && parsed?.b?.length === 2 && parsed?.c === "https://x//y"
+    ? ok("the JSONC reader keeps every offset and newline in place (the check can fail)")
+    : fail("the JSONC reader moves text while stripping — a parse error would name a position in a string the user never sees");
+};
+
+// A skill's default process has ONE home, its rules template: that is what a
+// project materialises and later diffs against. A second copy of the steps in
+// SKILL.md is the copy that drifts, and the model reads the prose first.
+const checkNoTemplateCopy = (skillsDir: string, found: readonly string[]): Result =>
+  merge(...found.flatMap((slug): readonly Result[] => {
+    const dir = join(skillsDir, slug, "rules-templates");
+    if (!existsSync(dir) || !existsSync(join(skillsDir, slug, "SKILL.md"))) return [];
+    const skill = readFileSync(join(skillsDir, slug, "SKILL.md"), "utf8");
+    const steps = readdirSync(dir).filter((f) => f.endsWith(".md")).flatMap((f) =>
+      readFileSync(join(dir, f), "utf8").split("\n").flatMap((l) => {
+        const m = l.match(/^\d+\.\s+(.{20,})$/);
+        return m === null ? [] : [m[1].trim()];
+      }));
+    const copied = steps.filter((s) => skill.includes(s));
+    return [copied.length < 2
+      ? ok(`skills/${slug}/SKILL.md carries no copy of its template's steps (the check can fail)`)
+      : fail(`skills/${slug}/SKILL.md repeats ${copied.length} step(s) of its rules template verbatim (e.g. ${JSON.stringify(copied[0].slice(0, 60))}) — the process has one home, the template; SKILL.md holds capabilities and invariants`)];
+  }));
 
 // docs-convention.md prints the DEFAULT names concretely, because a model
 // follows a concrete tree far better than an abstract description of one. The
@@ -1052,6 +1408,15 @@ const main = (): number => {
     checkRenamedGrammar(root, skillsDir),
     checkGenerateGrammar(root, skillsDir),
     checkBumpGrammar(root),
+    checkSentinelGuard(),
+    checkReleaseState(root),
+
+    checkSequenceSingleSource(skillsDir),
+    checkNoForgeCliInGuide(root, skillsDir),
+    checkJsoncPositions(),
+    checkNoTemplateCopy(skillsDir, found),
+
+
     checkConventionDefaults(root, skillsDir),
     checkPathResolution(skillsDir),
     checkRenderer(root, skillsDir),

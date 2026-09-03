@@ -6,8 +6,10 @@ whole file before writing or reading a rules file.
 
 Every supermodo skill encodes an opinionated process. A company's git cycle,
 release sequence, and definition of "done" differ from ours, and no closed set
-of `key: value` pairs covers them — `release.mode: light|full` is not a
-parameter, it is a choice between two workflows we happened to ship.
+of `key: value` pairs covers them. `release.mode: light|full` used to be a
+config key and was the clearest case of the mistake: it never named a
+parameter, it named a choice between two workflows we happened to ship. It is
+now the `template:` field of this file's frontmatter, where a workflow belongs.
 
 A **rules file** is where a project states its own process for one skill.
 

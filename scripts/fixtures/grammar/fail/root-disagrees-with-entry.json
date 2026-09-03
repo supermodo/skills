@@ -38,7 +38,6 @@
     "dir": "changes"
   },
   "release": {
-    "mode": "light",
     "branches": {
       "main": "main",
       "dev": "dev"
@@ -48,7 +47,7 @@
     "changelog": "CHANGELOG.md",
     "tagPrefix": "v",
     "mergeStrategy": "squash",
-    "githubRelease": true
+    "mergeStrategy": "squash"
   },
   "agents": {
     "dir": ".claude/agents",

@@ -157,10 +157,20 @@ const isBlank = (v: unknown): boolean =>
   || (Array.isArray(v) && v.length === 0)
   || (isObj(v) && Object.keys(v).length === 0);
 
-/** Keys a config blanked out that some skill still parses. Empty = fine. */
+// Every dotted path at or under `value` whose content is blank. A consumed
+// key names a SUBTREE: `docs.grammar.task.states` is four roles, and blanking
+// `states.done` removes exactly what the key exists to provide — a checklist
+// with no way to say "done" — while the key itself still looks populated.
+const blankPaths = (value: unknown, path: string): readonly string[] =>
+  isBlank(value) ? [path]
+  : isObj(value) ? Object.entries(value).flatMap(([k, v]) => blankPaths(v, `${path}.${k}`))
+  : [];
+
+/** Keys — or children of keys — a config blanked out that some skill still parses. Empty = fine. */
 export const floorViolations = (resolved: unknown): readonly string[] =>
   Object.entries(CONSUMED_BY)
-    .filter(([key]) => isBlank(at(resolved, key)))
-    .map(([key, skills]) =>
-      `${key}: must not be empty — it is renameable, not removable. Parsed by: ${skills.join(", ")}.`,
+    .flatMap(([key, skills]) => blankPaths(at(resolved, key), key).map((path) => [path, skills] as const))
+    .map(([path, skills]) =>
+      `${path}: must not be empty — it is renameable, not removable. Parsed by: ${skills.join(", ")}.`,
     );
+

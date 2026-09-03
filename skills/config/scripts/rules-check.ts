@@ -25,7 +25,10 @@ const installedSkills = (): readonly string[] =>
 
 type Front = Readonly<Record<string, string>>;
 
-const frontmatter = (text: string): Front | undefined => {
+const frontmatter = (raw: string): Front | undefined => {
+  // A CRLF or BOM-prefixed checkout is the same file; a parser that disagrees
+  // makes the workflow depend on the reader's line endings.
+  const text = raw.replace(/^\uFEFF/, "").replaceAll("\r\n", "\n");
   const block = text.match(/^---\n([\s\S]*?)\n---/)?.[1];
   return block === undefined
     ? undefined

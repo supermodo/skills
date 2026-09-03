@@ -6,6 +6,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { DEFAULTS, resolve as resolveGrammar } from "./grammar.ts";
+import { parseJsonc } from "./jsonc.ts";
 
 // ── The project's grammar ──────────────────────────────────────────────────
 // Every name, token and shape this script parses is resolved from the
@@ -33,7 +34,7 @@ const findConfig = (start: string, walkUp: boolean): unknown => {
   const read = (dir: string): unknown => {
     const f = join(dir, "skills.config.json");
     if (!existsSync(f)) return undefined;
-    try { return JSON.parse(readFileSync(f, "utf8")) as unknown; } catch { return undefined; }
+    try { return parseJsonc(readFileSync(f, "utf8")); } catch { return undefined; }
   };
   const up = (dir: string, left: number): unknown => {
     const here = read(dir);

@@ -4,8 +4,10 @@
     "entry": "docs/README.md",
     "conventions": "docs/CONVENTIONS.md",
     "grammar": {
-      "mixed": {
-        "label": "Created"
+      "task": {
+        "states": {
+          "done": []
+        }
       }
     }
   },
@@ -48,7 +50,6 @@
     "versionPath": "version",
     "changelog": "CHANGELOG.md",
     "tagPrefix": "v",
-    "mergeStrategy": "squash",
     "mergeStrategy": "squash"
   },
   "agents": {

@@ -17,6 +17,7 @@ import { join, resolve, basename, relative, dirname } from "node:path";
 import { spawn } from "node:child_process";
 import { scan, contained, type Model } from "./lib/scan.ts";
 import { runPage, reportPage, indexPage, navOf } from "./lib/page.ts";
+import { parseJsonc } from "../../config/scripts/jsonc.ts";
 
 const argv = process.argv.slice(2);
 const flag = (name: string): boolean => argv.includes(name);
@@ -41,7 +42,7 @@ type Config = {
 const config = ((): Config => {
   const file = join(root, "skills.config.json");
   if (!existsSync(file)) return {};
-  try { return JSON.parse(readFileSync(file, "utf8")) as Config; }
+  try { return parseJsonc(readFileSync(file, "utf8")) as Config; }
   catch { warn("skills.config.json unreadable — using defaults"); return {}; }
 })();
 

@@ -35,7 +35,6 @@
     "dir": "changes"
   },
   "release": {
-    "mode": "light",
     "branches": {
       "main": "main",
       "dev": "dev"
@@ -45,8 +44,7 @@
     "changelog": "CHANGELOG.md",
     "tagPrefix": "v",
     "mergeStrategy": "squash",
-    "githubRelease": true,
-    "alphaPolicy": "maybe"
+        "alphaPolicy": "maybe"
   },
   "agents": {
     "dir": ".claude/agents",

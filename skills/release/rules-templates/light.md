@@ -1,10 +1,10 @@
 ---
 rule: release
-description: dev to main by squash, tag, push, GitHub release
+description: dev to main by squash, tag, push, forge release
 default: true
 template: light
 summary: >
-  Cut from dev into main by squash merge, tag, push, publish the GitHub release,
+  Cut from dev into main by squash merge, tag, push, publish the forge release,
   then merge main back into dev.
   The bump comes from the Conventional Commits since the last tag.
   The changelog entry is built from the fragments commit wrote.
@@ -19,7 +19,8 @@ summary: >
 3. Commit the bump on dev.
 4. Squash-merge dev into main; create the release commit.
 5. Tag, then push main and that one tag — never `--tags`.
-6. Publish the GitHub release from the changelog entry.
+6. Publish the forge release from the changelog entry (skip when the
+   project publishes none).
 7. Merge main back into dev. This is part of the release, not cleanup:
    skipping it breaks the next cycle.
 

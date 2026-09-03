@@ -29,6 +29,13 @@ docs; config fields point at it.
   rules by hand) before acting on any config value. Missing or invalid config
   → halt with a clear error naming the field; suggest running `config`. Never guess.
 - **Unknown fields are errors** (`additionalProperties: false` semantics).
+- **Config is READ as JSONC.** `skills.config.json` and the project's
+  `release.versionFile` are parsed with `//` and `/* */` comments and trailing
+  commas allowed. `deno.jsonc` and `tsconfig.json` are JSONC by definition, and
+  a project is not going to strip the comments out of the file holding its
+  version because a release preflight cannot parse them. Comments are the ONLY
+  relaxation — every other rule here still applies to the value that results,
+  and the `config` skill still WRITES strict JSON.
 - **Paths** are project-root-relative, POSIX separators, no `..` segments.
 - **Commands are argv arrays** (`["deno", "task", "test"]`), never shell
   strings. Execute without a shell. The FIRST use of each configured command in
@@ -106,17 +113,30 @@ docs; config fields point at it.
     "dir": "changes"                        // fragment folder, project-root-relative; default "changes"
   },
   "release": {                              // optional; used by the release skill
-    "mode": "light",                        // "light" (default: dev → main squash) | "full" (adds release/* and hotfix/* branches)
+                                            // "mode" REMOVED: it named a workflow, so it now lives in
+                                            // .supermodo/rules/release.md frontmatter (`template:`).
+                                            // "githubRelease" REMOVED: whether/how a release is published
+                                            // is process, so it lives in the rules file, in the project's
+                                            // own words — no forge is enumerated here.
     "branches": {                           // optional; defaults shown
       "main": "main",                       // released states only — what installers/users consume
-      "dev": "dev"                          // integration branch (full mode: nvie "develop")
+      "dev": "dev"                          // integration branch (nvie git-flow calls it "develop")
     },
-    "versionFile": "package.json",          // JSON file holding the version (this repo: ".claude-plugin/plugin.json")
+    "versionFile": "package.json",          // file holding the version — JSON/JSONC, or TOML/YAML/
+                                            // properties/VERSION (matched by shape, reported as such) (this repo: ".claude-plugin/plugin.json")
     "versionPath": "version",               // dot-path to the version string inside versionFile
     "changelog": "CHANGELOG.md",            // Keep-a-Changelog file; latest "## [x.y.z]" must match versionFile
     "tagPrefix": "v",                       // tag = <tagPrefix><version>
+    "tagStyle": "lightweight",              // "lightweight" (default) | "annotated" | "signed"
+                                            // — compliance processes that require signed tags
+    "remote": "origin",                     // which remote this project releases to; every remote
+                                            // is fetched regardless, since tags share one namespace
     "mergeStrategy": "squash",              // "squash" (default) | "merge" for dev → main
-    "githubRelease": true                   // publish a GitHub Release from the changelog entry after tagging
+    "versionPattern": "^version = \"(.+)\"", // optional; ONLY when the version lives somewhere no
+                                            // known shape finds it. Regex, group 1 = the version.
+                                            // JSON files use versionPath; TOML/YAML/properties/
+                                            // __version__/bare VERSION files are matched by shape.
+    "alphaPolicy": "demote"                 // 0.x: "demote" (default: breaking → minor) | "strict"
   },
   "vcs": {                                  // optional; read by commit and release
     "issueKey": {                           // tracker linkage derived from the branch name

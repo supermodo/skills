@@ -2,12 +2,7 @@
   "configVersion": 1,
   "docs": {
     "entry": "docs/README.md",
-    "conventions": "docs/CONVENTIONS.md",
-    "grammar": {
-      "mixed": {
-        "label": "Created"
-      }
-    }
+    "conventions": "docs/CONVENTIONS.md"
   },
   "commands": {
     "test": [
@@ -40,6 +35,7 @@
     "dir": "changes"
   },
   "release": {
+    "mode": "light",
     "branches": {
       "main": "main",
       "dev": "dev"
