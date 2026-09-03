@@ -29,6 +29,13 @@ docs; config fields point at it.
   rules by hand) before acting on any config value. Missing or invalid config
   → halt with a clear error naming the field; suggest running `config`. Never guess.
 - **Unknown fields are errors** (`additionalProperties: false` semantics).
+- **Config is READ as JSONC.** `skills.config.json` and the project's
+  `release.versionFile` are parsed with `//` and `/* */` comments and trailing
+  commas allowed. `deno.jsonc` and `tsconfig.json` are JSONC by definition, and
+  a project is not going to strip the comments out of the file holding its
+  version because a release preflight cannot parse them. Comments are the ONLY
+  relaxation — every other rule here still applies to the value that results,
+  and the `config` skill still WRITES strict JSON.
 - **Paths** are project-root-relative, POSIX separators, no `..` segments.
 - **Commands are argv arrays** (`["deno", "task", "test"]`), never shell
   strings. Execute without a shell. The FIRST use of each configured command in
@@ -48,7 +55,9 @@ docs; config fields point at it.
   },
   "docs": {                                 // required for librarian/work/flow/tests
     "entry": "docs/README.md",              // the router; default "docs/README.md"
-    "conventions": "docs/CONVENTIONS.md"    // optional pointer to prose conventions
+    "conventions": "docs/CONVENTIONS.md",   // optional pointer to prose conventions
+    "layout": { … },                        // optional: what the places are CALLED
+    "grammar": { … }                        // optional: what the fields are CALLED
   },
   "commands": {                             // each optional; argv arrays only
     "test": ["string"],                     // fast test suite
@@ -104,17 +113,36 @@ docs; config fields point at it.
     "dir": "changes"                        // fragment folder, project-root-relative; default "changes"
   },
   "release": {                              // optional; used by the release skill
-    "mode": "light",                        // "light" (default: dev → main squash) | "full" (adds release/* and hotfix/* branches)
+                                            // "mode" REMOVED: it named a workflow, so it now lives in
+                                            // .supermodo/rules/release.md frontmatter (`template:`).
+                                            // "githubRelease" REMOVED: whether/how a release is published
+                                            // is process, so it lives in the rules file, in the project's
+                                            // own words — no forge is enumerated here.
     "branches": {                           // optional; defaults shown
       "main": "main",                       // released states only — what installers/users consume
-      "dev": "dev"                          // integration branch (full mode: nvie "develop")
+      "dev": "dev"                          // integration branch (nvie git-flow calls it "develop")
     },
-    "versionFile": "package.json",          // JSON file holding the version (this repo: ".claude-plugin/plugin.json")
+    "versionFile": "package.json",          // file holding the version — JSON/JSONC, or TOML/YAML/
+                                            // properties/VERSION (matched by shape, reported as such) (this repo: ".claude-plugin/plugin.json")
     "versionPath": "version",               // dot-path to the version string inside versionFile
     "changelog": "CHANGELOG.md",            // Keep-a-Changelog file; latest "## [x.y.z]" must match versionFile
     "tagPrefix": "v",                       // tag = <tagPrefix><version>
+    "tagStyle": "lightweight",              // "lightweight" (default) | "annotated" | "signed"
+                                            // — compliance processes that require signed tags
+    "remote": "origin",                     // which remote this project releases to; every remote
+                                            // is fetched regardless, since tags share one namespace
     "mergeStrategy": "squash",              // "squash" (default) | "merge" for dev → main
-    "githubRelease": true                   // publish a GitHub Release from the changelog entry after tagging
+    "versionPattern": "^version = \"(.+)\"", // optional; ONLY when the version lives somewhere no
+                                            // known shape finds it. Regex, group 1 = the version.
+                                            // JSON files use versionPath; TOML/YAML/properties/
+                                            // __version__/bare VERSION files are matched by shape.
+    "alphaPolicy": "demote"                 // 0.x: "demote" (default: breaking → minor) | "strict"
+  },
+  "vcs": {                                  // optional; read by commit and release
+    "issueKey": {                           // tracker linkage derived from the branch name
+      "pattern": "^(?:feature|fix)/([A-Z]+-[0-9]+)-",  // regex; group 1 IS the key
+      "template": "[{key}] {type}: {subject}"          // tokens: {key} {type} {scope} {subject}
+    }
   }
 }
 ```
@@ -173,9 +201,69 @@ docs; config fields point at it.
   performing them is named explicitly in `perSkill` — the global switch
   alone is not enough there.
 
+- `vcs` absent → no issue-key linkage. A skill whose materialized process
+  (`rules.md`) names `vcs.issueKey.pattern` with no `vcs` section configured
+  HALTS naming the field; it never guesses a pattern from branch names it
+  happens to see. `pattern` must compile and must expose at least one
+  capturing group — group 1 is the key. **`template` may not contain quotes,
+  backslashes, shell metacharacters or control characters**: it is composed
+  into a commit subject that `commit` prints as a literal single-quoted
+  `git commit -m '…'` line, so a `'` in a committed config would close that
+  quote. That is the "never interpolate config values into a shell string"
+  rule applied to the one field whose whole purpose is to shape a message.
+
 ## Secrets
 
 Secrets never live in config — only env var NAMES (SUPERMODO_*). Never
 `source` a dotenv file. If a `.env` must be read, parse strict `KEY=VALUE`
 lines only (reject anything containing `$`, backticks, `(`, `;`) without
 shell evaluation, and read only the variables config names.
+
+## `docs.layout` and `docs.grammar` — the project's own names
+
+Both are optional and every key defaults, so a project that sets neither
+behaves exactly as the shipped convention describes. They exist so a team can
+keep its own vocabulary without giving up the checks.
+
+**`docs.layout`** names the places: `root`, `work`, `decisions`, `reference`,
+`archive`, `backlog`, `triad.{spec,plan,tasks,findings}`,
+`program.{readme,frontmatterKey,initiativeDigits}`, `adr.{prefix,digits}`,
+`archivePrefix`, `splitThresholdKb`.
+
+**`docs.grammar`** names the fields and tokens: `priority.{label,levels,
+separator,requireClassification,unsetLevel}`, `prioritySource.{label,
+derivedValue}`, `mixed.label`, `created.label`, `dependsOn.{label,backlogLabel}`,
+`promotion.{fromLabel,idsLabel}`, `task.{markerPrefix,states}`,
+`question.{markerPrefix,heading}`, `generated.{fileMarker,navStart,navEnd}`,
+`adrStatuses`, `finding.requiredSections`, and `extraRequired.{spec,backlog}`.
+
+Three rules govern them, and `config-check` enforces all three:
+
+1. **Rename freely.** Any name or token may be changed. `docs-check` and
+   `docs-generate` are built from the resolved values, and every message they
+   print speaks the project's vocabulary.
+2. **Add freely.** `extraRequired.spec` / `.backlog` make additional fields
+   mandatory on every triad spec and every LIVE backlog entry. They are checked
+   for presence and never interpreted, so a project can require `Owner:` or
+   `Jira:` without the package knowing what those mean.
+3. **Never remove.** A key some skill parses may not be blanked to `null`,
+   `""` or `[]`. The error names the skills that would have broken, because the
+   damage otherwise appears somewhere else entirely — an empty board, a
+   mis-derived version — with nothing pointing back at the config.
+
+What is NOT configurable, because it is structure rather than spelling: the
+two-level depth cap, that priority levels are ORDERED (index 0 outranks index
+1), that task states are a four-way partition whose incomplete half is
+pending ∪ in-progress, that a triad is identified by one marker file, and that
+promoted ids must resolve by exact set. See `docs-convention.md`.
+
+## `vcs.commit` and `release.alphaPolicy`
+
+`vcs.commit` holds the commit vocabulary `commit` writes with and `release`
+derives the semver bump from — one key, two skills: `types`, `minorTypes`,
+`breakingMarker`, `breakingFooter`, `subjectSoftCap`, `subjectHardCap`. Every
+entry of `minorTypes` must appear in `types`.
+
+`release.alphaPolicy` is `"demote"` (default — on 0.x a breaking change bumps
+MINOR, because 0.x promises nothing) or `"strict"` (it bumps MAJOR).
+

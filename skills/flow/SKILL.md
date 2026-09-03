@@ -1,15 +1,8 @@
 ---
 name: flow
 description: >
-  Orchestrates the full supermodo development pipeline end-to-end for one task,
-  running each stage in its own subagent so the main context stays small. Eight
-  stages: librarian task intake (grilled), work implementation, optional hunt bug
-  audit, tdd fixes for any bugs found, a mandatory tests gate (suite green +
-  coverage target), refactor, a mandatory post-refactor verify gate, a final
-  librarian docs pass, and commit. Supports entering at a later stage
-  (--from work|hunt|tests|refactor|librarian|commit) and three job sources:
-  an existing docs/work triad, a backlog entry, or a completely new task —
-  with a context-aware "next job" suggestion when none is named. Use when
+  Runs the whole supermodo development pipeline for one task, each stage in its
+  own subagent so the main context stays small. Use when
   the user wants to run the whole pipeline, "take this task from spec to
   commit", orchestrate a feature end-to-end, run the full flow (or the flow
   from a given stage), or drive a task through the complete dev-to-commit
@@ -23,6 +16,14 @@ allowed-tools: >
 # flow — pipeline orchestrator
 
 > **Requires:** the sibling `protocols` skill (shared protocol masters) and a valid `skills.config.json` (create with the `config` skill). Missing either → halt with that exact pointer; never guess.
+
+> **Docs names come from config.** Every `docs/…` path below is the DEFAULT. Resolve folder and file names from `skills.config.json` → `docs.layout` (defaults when unset) before reading or writing — a path typed from memory writes a second tree beside the real one. See `../protocols/references/docs-convention.md`.
+
+> **Project rules.** Read `.supermodo/rules/flow.md` if present, plus any
+> `.supermodo/rules/INDEX.md` rows naming `flow` — that file IS this project's
+> flow process and replaces the defaults below wherever they overlap. Contract:
+> `../protocols/references/rules.md`. Never in that file, so never switchable off:
+> the fail-closed preflight, mandatory gates (5 and 6b) never move, a skipped gate can never report pipeline success, docs mutate only at stages 1 and 7.
 
 A THIN orchestrator. It runs stages, validates their reports, routes questions,
 and keeps run state — it never implements, tests, or edits docs itself. All real
@@ -121,6 +122,28 @@ run gets a new run dir with its baseline recorded at entry time. Rules:
    fallback. Record all capability findings in `state.json`.
 4. **Adversary preflight** is deferred to the stages that use it (hunt, tests
    audit, grill) per `../protocols/references/cross-model.md` — flow does not pin it globally.
+5. **Resolve project rules for the WHOLE pipeline, here, once.** For flow and
+   every stage skill this run will invoke, check whether
+   `.supermodo/rules/<skill>.md` exists and whether the manifest
+   (`.skills/supermodo/config-manifest.json`) records a decline under
+   `rulesDeclined`. Anything that is neither materialized nor declined AND
+   whose skill gates (`commit`, `bug-council`, flow itself) is unresolved.
+
+   Present every unresolved one **in a single batch** per
+   `../protocols/references/questions.md`, with each template's `summary` as
+   its description, then materialize the accepted ones through
+   `config --rules <target>` before stage 1 starts.
+
+   This exists because **a stage subagent cannot talk to the user** — that is
+   the same constraint `needs-input` exists for. A gate discovered at stage 8
+   would stop a pipeline that has already spent its tests gate, and route a
+   process question through the report channel as though it were a technical
+   blocker. Resolving it here costs one `stat` per stage.
+
+   Do NOT record a separate "first run" flag: presence of the file plus the
+   manifest decline already answer that, and a third copy of the same fact is
+   one that can disagree with the other two the first time someone deletes a
+   rules file by hand.
 
 ## 1. Baseline (before stage 1)
 
@@ -274,3 +297,21 @@ any mandatory gate AT OR DOWNSTREAM OF THE ENTRY was skipped or red, the
 report says the run did NOT succeed; a run entered after the last
 verification gate reports at most **segment success** in the exact terms of
 the Invocation section — never bare "success".
+
+**Close the final chat message with the board pointer**, one line, last:
+
+```
+Board is stale (docs changed) — run `/supermodo:next`.
+```
+
+A run that reached stage 7 has written to `docs/work/` — tasks closed, a triad
+archived, decisions recorded — so the board the user last saw describes the
+state before this run, and the next thing they will want is what to do now. Say
+it whenever stage 7 ran, whatever the run's verdict: a failed run changed the
+docs too.
+
+It is a POINTER and nothing more (`../protocols/references/worklist.md`): no
+question, no consent gate, and nothing auto-run. A board carries its own triage
+gate, and firing that at the tail of an eight-stage run the user has already
+gated twice is an interview nobody asked for. The archive page marks the same
+staleness on its Board tab; this line is for the user who never opens it.

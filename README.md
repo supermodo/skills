@@ -51,7 +51,7 @@ flags, behavior).
 | [`flow`](docs/flow.md) | Thin orchestrator: runs the 8-stage pipeline in full or `--from` any stage, with a context-aware next-job suggestion |
 | [`next`](docs/next.md) | The worklist board: everything open by priority, with effort, status, blockers — plus a shortlist of 3-5 things to do now |
 | [`grill`](docs/grill.md) | Twin-agent adversarial interview (Claude + Codex plan independently, disprove each other, you answer only real conflicts) |
-| [`librarian`](docs/librarian.md) | Sole owner of documentation: lifecycle pass, backlog ops, task intake, `--absorb` onboarding |
+| [`librarian`](docs/librarian.md) | Sole owner of documentation: lifecycle pass, backlog ops, task intake, `--promote` of findings into work, `--absorb` onboarding |
 | [`work`](docs/work.md) | Lead implementer: docs router → context chain → team or solo → implement → cross-provider verify |
 | [`tests`](docs/tests.md) | Fix failing tests, audit suite quality with a specialist fleet + two-model verification, push coverage |
 | [`hunt`](docs/hunt.md) | Systematic bug hunt with adversarially verified findings |
@@ -84,6 +84,37 @@ router, work triads, ADRs, verified reference contracts — designed for LLM
 navigation at minimum token cost, with `librarian` as the single
 documentation owner. The layout and rules:
 [docs/documentation.md](docs/documentation.md).
+
+## Your workflow, not ours
+
+Every team's git cycle is different — issue keys in branch names, RC branches,
+QA sign-off, merge commits instead of squashes. Each skill ships a default
+process, and the first time an invasive or expensive one runs it shows you
+that process and asks before using it.
+
+Accept, and it's written to `.supermodo/rules/<skill>.md`. From then on that
+file **is** the process: edit it, commit it, review it like source. Ask for a
+different starting point — `light` or `full` for releases, Conventional
+Commits or `[PROJ-123]` prefixes for messages — and you get that instead.
+
+Conventions spanning several skills, like where the tracker key must appear,
+live once in `.supermodo/rules/vcs.md` so they can't drift apart.
+
+## Your names, too
+
+The documentation convention is strict about shape and open about naming. Call
+the work folder `tickets/`, rank items `now / next / later`, mark work in
+progress with whatever character your team already types, require an `Owner:`
+line on every spec — it's all `skills.config.json`, and the checker enforces
+your spelling rather than ours, in messages that use your words.
+
+What you can't do is delete a field a skill reads. Try, and config says so
+immediately and names the skills that would have broken — better than finding
+out next week from a board that came back empty.
+
+Safety rails aren't in those files and can't be edited away: nothing is pushed
+without your yes, a release still refuses a dirty tree, and secrets still
+never reach a commit.
 
 ## Core ideas
 

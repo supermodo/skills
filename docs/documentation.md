@@ -45,12 +45,17 @@ shape is fixed.)
 - The archive is cold storage, read only for provenance.
 - ADR bodies are immutable once accepted; only lifecycle fields (superseded,
   rejected) ever change.
+- **One item carries one priority** — it is what the board ranks and what the
+  archive closes, so work that does not share a priority is more than one
+  item.
 
 The full convention (task states, backlog grammar, work metadata, generated
 markers) is the master in
 `skills/protocols/references/docs-convention.md`; what to work on next — the
 priority scale, ordering and suggestions — is its own master,
-`skills/protocols/references/worklist.md` (see [next](next.md)).
+`skills/protocols/references/worklist.md` (see [next](next.md)); and how
+findings or old documents turn into items in the first place is
+`skills/protocols/references/promotion.md`.
 
 ## Conventions we build on
 

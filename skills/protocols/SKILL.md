@@ -34,7 +34,7 @@ duplicated — editing a master here changes behavior everywhere.
 3. **Doctor** — the user wants their installation checked: verify all 13
    skill folders are present as siblings of this one (a missing sibling
    means a partial install — recommend installing the full package), that
-   `references/` here contains the 9 masters, and, inside a project, that
+   `references/` here contains the 12 masters, and, inside a project, that
    `skills.config.json` validates (defer to the `config` skill) and the
    docs convention is in place (`docs-check`, via `librarian`). Report
    findings; fix nothing yourself.
@@ -44,7 +44,10 @@ duplicated — editing a master here changes behavior everywhere.
 | File | Governs |
 |------|---------|
 | `references/config.md` | `skills.config.json` contract: versioning, validation, argv commands, env-var namespacing, defaults |
+| `references/rules.md` | Project rules under `.supermodo/rules/`: the per-skill process files, their frontmatter, the load sequence, materialization and the first-use gate, the invariant/sequence split |
 | `references/docs-convention.md` | The strict docs layout: router, work triads, immutable task IDs, ADRs, generated navigation, single doc owner |
+| `references/worklist.md` | What to work on next: priority scale and intake questions, dependency inheritance, execution state, total ordering, effort bands, the triage gate, the board and its suggestions |
+| `references/promotion.md` | How findings and pre-existing documents become work items: opt-in promotion, severity ownership, one item one priority, cohesion grouping, tracked evidence, idempotent retries |
 | `references/reports.md` | Where and how skills persist output: run dirs, stage report frontmatter, run-state hashes, symlink containment |
 | `references/handoff.md` | Subagent stages: file-based handoff, needs-input escalation, liveness (periodic progress checks on every delegated agent), failure protocol |
 | `references/cross-model.md` | Running the other provider as adversary: read-only sandboxes, preflight, batching, hung-detection, degradation honesty |

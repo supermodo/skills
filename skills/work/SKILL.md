@@ -7,6 +7,14 @@ description: "Lead implementer: use the docs router to load the active task and 
 
 > **Requires:** the sibling `protocols` skill (shared protocol masters) and a valid `skills.config.json` (create with the `config` skill). Missing either → halt with that exact pointer; never guess.
 
+> **Docs names come from config.** Every `docs/…` path below is the DEFAULT. Resolve folder and file names from `skills.config.json` → `docs.layout` (defaults when unset) before reading or writing — a path typed from memory writes a second tree beside the real one. See `../protocols/references/docs-convention.md`.
+
+> **Project rules.** Read `.supermodo/rules/work.md` if present, plus any
+> `.supermodo/rules/INDEX.md` rows naming `work` — that file IS this project's
+> work process and replaces the defaults below wherever they overlap. Contract:
+> `../protocols/references/rules.md`. Never in that file, so never switchable off:
+> never mutating git, and the implementing provider never verifying its own work.
+
 Pick up the next task, build the right team, drive it to completion, and get
 it independently verified. Start at the docs router; project constraints come
 from docs, not from this file.
@@ -161,7 +169,7 @@ Standalone runs write this report to
 the session. Then publish it:
 
 ```
-node <skills>/reports/scripts/render.ts --report <that path>
+node <skills>/reports/scripts/render.ts --root <project-root> --report <that path>
 ```
 
 and NAME the page in your final message. Inside a `flow` run this does not
@@ -172,6 +180,22 @@ Sections, same order every run: **What was built** · **Tasks closed** (which
 `tasks.md` IDs moved, and to what state) · **Verification** (which tiers ran,
 which model verified, what it said) · **Drift observed** · **Decisions taken**
 · **Left for the user**.
+
+**Close the final chat message of a STANDALONE run with the board pointer**,
+one line, last:
+
+```
+Board is stale (docs changed) — run `/supermodo:next`.
+```
+
+A standalone run moves task states in `tasks.md`, and usually runs a librarian
+closeout on top, so the board the user last saw is a snapshot of the state
+before this run. It is a POINTER (`../protocols/references/worklist.md`): no
+question, no consent gate, nothing auto-run — a board fires its own triage gate
+and must never do so unasked.
+
+In flow mode this line is the orchestrator's, not the stage's: work mutates no
+docs there, and the run reports once at the end.
 
 **`task` is never omitted here.** Work always runs against a triad — that is
 what makes it work rather than a patch — so the report carries the triad slug

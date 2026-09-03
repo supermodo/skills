@@ -107,6 +107,18 @@ export const dateOf = (stamp: string): string =>
 export const timeOf = (stamp: string): string =>
   stamp === "" ? "" : `${stamp.slice(9, 11)}:${stamp.slice(11, 13)}`;
 
+/**
+ * A stamp as LOCAL epoch ms — skills name their reports off the wall clock, so
+ * that is the clock a filesystem mtime must be compared against. 0 = no usable
+ * stamp, which every caller must read as "unknown", never as "1970".
+ */
+export const stampMs = (stamp: string): number => {
+  const m = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$/.exec(stamp);
+  return m === null
+    ? 0
+    : new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime();
+};
+
 const stageOf = (dir: string, name: string): Stage => {
   const order = name.match(/^(\d+[a-z]?)-/)?.[1] ?? "";
   const raw = readText(join(dir, name));

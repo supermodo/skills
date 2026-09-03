@@ -1,8 +1,10 @@
 # personal / working material — never publish
+# (root-anchored: core.ignorecase is on for macOS, so an unanchored PLAN*.md
+#  also swallows any nested docs/work/<task>/plan.md — including fixtures)
 /my-skills
-PLAN*.md
-PLAN-REVIEW-LOG.md
-NOTICE.md
+/PLAN*.md
+/PLAN-REVIEW-LOG.md
+/NOTICE.md
 .remember/
 
 # local install & test artifacts

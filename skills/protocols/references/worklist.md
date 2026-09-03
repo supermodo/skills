@@ -17,6 +17,16 @@ and a board that exists only in a chat window dies with the session. Read the
 two rules together: recompute from source every time, persist the result every
 time, never treat the persisted copy as an input.
 
+That persisted copy is a SNAPSHOT, and it goes out of date the moment
+`librarian` writes a triad, a priority or a backlog entry. It is MARKED, never
+quietly refreshed: the archive page compares the board's stamp against the
+newest mtime under the work docs and warns when the docs are newer
+(`reports.md`, "HTML projection"). And the two skills that always leave
+`docs/work/` changed — `flow` and `work` — close by naming
+`/supermodo:next` in one line. Both are pointers. Nothing recomputes a board
+outside this protocol, and nothing auto-runs one: a board that appeared without
+being asked for is a board whose triage gate fires unasked.
+
 ## Items
 
 An item is a live **work triad** (identity = `<task-slug>` or
@@ -28,17 +38,53 @@ everything else under `.skills/supermodo/` reach the board only once
 librarian has promoted them to a backlog entry or a triad — which is also
 where they acquire a priority. One intake path, one place priority is set.
 
+That promotion is governed by `promotion.md`: it happens only when the user
+asks for it, it covers only what they named, and what it creates obeys **one
+item, one priority**. Nothing here drains a report into the board on its own.
+
 ## Priority
 
 ### Scale
 
-`P0 P1 P2 P3`, P0 highest. Deliberately P-identifiers, so nothing collides
-with `hunt` finding severities (critical/high/medium/low).
+`P0 P1 P2 P3`, P0 highest — the **default** vocabulary
+(`docs.grammar.priority.levels`). Deliberately P-identifiers, so nothing
+collides with `hunt` finding severities (critical/high/medium/low).
+
+The names and the count are the project's: `now next later`, five levels,
+`must should could` all work. What is NOT the project's is that the list is
+**ordered, most urgent first** — every rule below reads position, never the
+spelling, so a renamed scale changes what a row is called and nothing about
+how the board sorts. The unset level is likewise configured
+(`docs.grammar.priority.unsetLevel`) and must be one of the declared levels.
 
 The scale is **user-owned**: the tool proposes a default, the human
 confirms, the value is **stored**. It is never inferred at render time and
 never reclassified from prose. A tool that believes a stored priority is
 wrong SAYS so and offers re-triage; it does not silently recompute.
+
+### Confirmed, derived, unset
+
+A stored value and a chosen value are not the same thing, so the board draws
+three states, not two:
+
+| state | what it is | board |
+| --- | --- | --- |
+| **confirmed** | a human answered the intake questions | the value, plain |
+| **derived** | a tool computed it from evidence; nobody confirmed it | the value **and** a `derived` pill |
+| **unset** | no valid `Priority:` line | `P2 — unset` |
+
+Derived exists because unattended runs are real — a promotion or an absorb
+inside `flow` has nobody to ask — and both ways of hiding that are lies. Write
+nothing and a genuine P0 sits unranked at the bottom; write it plain and the
+board claims a judgement nobody made. So write the value, and mark that it is
+the tool's.
+
+A derived priority is carried by `Priority-source: derived` in `spec.md`
+(grammar in `docs-convention.md`). It is a **real value, not a placeholder**:
+render it, rank on it, inherit through it. What the marker changes is that the
+item is **not yet triaged** — it is listed under repairs, `next --triage`
+collects it, and confirming it clears the marker. Hand-editing the priority
+away is not confirmation; only answering the questions is.
 
 ### Stored form
 
@@ -54,7 +100,9 @@ Priority: P1 — released-workflow-breaking: checkout can fail before payment
   priority: P1 — released-workflow-breaking: checkout can fail before payment
 ```
 
-Grammar: `P<0-3> — <classification>: <one-line justification>`.
+Grammar: `P<0-3> — <classification>: <one-line justification>` — label,
+levels and separator all from `docs.grammar.priority`; a project that sets
+`requireClassification: false` drops the `<classification>:` half.
 Classification is one of:
 
 - defects — `<exposure>-<consequence>`, exposure ∈ `released` `unreleased`
@@ -65,6 +113,32 @@ Classification is one of:
 Missing or malformed → the item renders as provisional **`P2 — unset`** and
 is listed under repairs. A project with no priorities at all still renders a
 board; nothing blocks.
+
+### One priority per item, and the `mixed` pill
+
+An item carries exactly one priority because it is ranked and archived as a
+whole; work that does not share one priority is more than one item. When and
+how that split happens is `promotion.md`'s — it is a write-time act, and this
+protocol never mutates documentation.
+
+What reaches the board is an item that knowingly holds more than one — because
+cohesion bound the work together, or because the user declined a proposed
+split. Either way it carries an optional `Mixed:` line in `spec.md` (grammar
+in `docs-convention.md`) naming the other priorities inside it. Render it as a
+`mixed` pill beside the effective priority:
+
+```
+  auth-hunt-fixes   mixed P3   in-progress   XL — 41 tasks, public-contract change
+```
+
+It is **never** counted as a repair and never triggers the triage gate. The
+item has a valid stored priority, the user was asked about its contents and
+answered, and re-raising a settled decision on every board is arguing, not
+reporting. The pill is for the next reader, who was not in that conversation
+and would otherwise read a P0 row without knowing forty of its tasks are P3.
+
+Absence of the line claims nothing. An item with no `Mixed:` has not been
+certified pure; it has merely never been split and declined.
 
 ### Every item is born with a priority
 
@@ -82,7 +156,7 @@ every way an item can be born, with no exceptions:
 | --- | --- |
 | `librarian --task` (free text, or `flow` stage 1) | yes — into `spec.md` |
 | `librarian --backlog add` | yes — into the entry |
-| `librarian --backlog graduate` | no — the entry's priority VALUE moves to the new `spec.md`, re-emitted as `Priority: <value>` (see below); it was already answered. Only ask if the entry had none. |
+| `librarian --backlog graduate` | no — the entry's priority VALUE moves to the new `spec.md`, re-emitted as `Priority: <value>` (see below), and any `derived` marker moves with it; it was already answered. Only ask if the entry had none. |
 | `librarian --absorb`, for every file it turns into a triad or a backlog entry | **yes** — a document absorbed without one becomes an item nobody ranked |
 | `grill` / `flow`, wherever they create an item | yes |
 | `next --triage` | yes — the repair path, for what got through |
@@ -91,6 +165,11 @@ A user may always decline; the item is then provisional and appears under
 repairs. What must never happen is the questions not being ASKED at creation —
 that is what fills a board with thirty `P2 — unset` rows and forces the triage
 gate below.
+
+**When the creating path has nobody to ask** — a subagent, a `flow` stage,
+anything unattended — it does not skip the priority and does not fake one. It
+derives the best value the evidence supports and marks it `derived`, naming
+what it assumed. That applies to every row above, not only promotion.
 
 **Moving a priority between files changes its field name, never its value.**
 The two stored forms differ: `  priority: P1 — …` indented under a backlog
@@ -239,33 +318,42 @@ that board and mentioning triage afterwards — in a closing line, an insight,
 a repairs list — is the wrong order: the user has already read and believed
 it.
 
-**Untriaged** means no VALID stored priority — the line is missing, or it is
-there but malformed. Both render as provisional `P2 — unset`, and a malformed
-line is exactly as unranked as an absent one. The universe it is counted
-against is **every item on the board**, in all rank groups, including blocked
-and paused ones; an item is untriaged whether or not it happens to be doable.
+**Untriaged** means no human chose the value: **unset** (the line is missing
+or malformed — a malformed line is exactly as unranked as an absent one) or
+**derived**. The universe it is counted against is **every item on the
+board**, in all rank groups, including blocked and paused ones; an item is
+untriaged whether or not it happens to be doable.
 
-**An untriaged priority is UNKNOWN, not P2.** `P2 — unset` is a rendering
+The two are not equally unknown, and the gate's two tests split on exactly
+that: an **unset** priority spans P0–P3, while a **derived** one is an
+evidence-backed estimate that the interview will usually confirm and can move
+by about a band. So unset alone can fire the single-item test; both count
+toward the volume test, because a board whose order was mostly computed by a
+tool and confirmed by nobody is the ranking-nobody-chose the gate exists for.
+
+**An unset priority is UNKNOWN, not P2.** `P2 — unset` is a rendering
 default so the board can draw a row; it is not an estimate and carries no
 evidence. The item's real priority spans the whole range, P0 to P3, and until
 someone answers three questions nobody knows which.
 
-Everything below turns on that. The tempting test — "does the untriaged item
-reach the provisional shortlist" — is exactly wrong, because it asks the
-question *while assuming the answer*. An untriaged released-catastrophic
-defect ranks as P2, sorts below every known P0 and P1, never reaches the
-provisional shortlist, and so never trips the gate — and it was the P0 all
-along. The one case the gate exists for is the one that test cannot see.
+Everything below turns on that. The tempting test — "does the unset item reach
+the provisional shortlist" — is exactly wrong, because it asks the question
+*while assuming the answer*. An unset released-catastrophic defect ranks as
+P2, sorts below every known P0 and P1, never reaches the provisional
+shortlist, and so never trips the gate — and it was the P0 all along. The one
+case the gate exists for is the one that test cannot see. (A derived item is
+not in this trap: it already carries the value the evidence supports, so it
+sorts where it belongs and the pill is what tells the truth about it.)
 
 **Gate when the order is materially unknown**, which is either of:
 
-- **any ACTIVE item is untriaged.** Unknown spans P0–P3, so any such item
-  could be the true lead — or could lift a different item into the lead. One
+- **any ACTIVE item is UNSET.** Unknown spans P0–P3, so any such item could be
+  the true lead — or could lift a different item into the lead. One
   unclassified item is enough: three questions resolve it, and it is the only
   thing that can silently invert the answer.
-- untriaged items are at least half of all items — the whole ORDER is then
-  guesswork, not just its head, and the board is what the user reads even
-  when they are not asking for a suggestion.
+- **untriaged items — unset or derived — are at least half of all items.** The
+  whole ORDER is then unconfirmed, not just its head, and the board is what
+  the user reads even when they are not asking for a suggestion.
 
 **Active, not doable — the distinction matters and the narrower one is
 wrong.** "It is blocked, so its priority cannot change what I do next" is
@@ -352,6 +440,12 @@ by the writer. No prose around them, no file to go and read, no "the
 priorities we just discussed" — the receiving skill is a fresh context and
 cannot see the interview. Anything not in that list does not get written.
 
+A **derived** item whose value the user confirms UNCHANGED still goes in that
+list. It looks like a no-op and is not: the write that matters is deleting the
+`Priority-source: derived` marker, which is the difference between a rank the
+tool proposed and one the user owns. Leave it out and the same item is on next
+week's triage list.
+
 Then re-read the touched files and confirm each line is actually there.
 Confirmation is reading the file, not the absence of an error message.
 
@@ -397,6 +491,7 @@ P1
   auth/02-refresh-flow       needs-input   M — 5 tasks                  1 open question
 P2
   telemetry-batching         blocked       ? — backlog entry            depends: api-client-retry
+  api-sign-replay    derived  not-started   M — 3 tasks
 P3
   docs-tone-pass       unset not-started   S — 2 tasks
 paused / invalid
@@ -404,7 +499,8 @@ paused / invalid
 ```
 
 Every line carries: identity · effective priority (`→` when inherited,
-`unset` when provisional) · execution state · effort with evidence ·
+`unset` when provisional, `derived` when no human confirmed it, `mixed` when
+the item declares a `Mixed:` line) · execution state · effort with evidence ·
 dependency or leverage note.
 
 ## Suggestions — a shortlist of three to five, never auto-picked
@@ -442,7 +538,10 @@ point of a shortlist.
 | `next in line` | no special role; it is simply next in board order |
 
 Every entry states its identity (`work:<slug>` / `backlog:<slug>`), its
-priority, one line of why, and the **exact command** to start it.
+priority, one line of why, and the **exact command** to start it. An entry
+whose priority is `derived` says so in that line — most of all the lead,
+where "this is what you should do next" rests entirely on a value the user
+never saw.
 
 `dependency-blocked`, `paused` and `invalid` items are never suggested.
 Duplicates collapse — an item earning two roles appears once, with the
@@ -465,10 +564,15 @@ suggestion and ignores it; here it is an eight-stage pipeline that edits code,
 writes docs and reaches a commit gate on the wrong task.
 
 So `--job next` never resolves silently past an unknown. When any ACTIVE item
-is untriaged — including a blocked one, which can lift its blocker into the
-lead — triage it or get explicit confirmation of the pick before running
-anything. "Skip" is not available in this path, because there is no board for
-the user to read and correct: the choice becomes an action immediately.
+is untriaged — unset or derived, including a blocked one, which can lift its
+blocker into the lead — triage it or get explicit confirmation of the pick
+before running anything. "Skip" is not available in this path, because there
+is no board for the user to read and correct: the choice becomes an action
+immediately.
+
+Derived counts here even though it does not fire the board's single-item test.
+The board is a page the user reads and can disagree with; this is a pipeline
+that starts editing. Confirming the pick costs one question.
 Nothing here may auto-run on a provisional lead.
 
 ## Doable
@@ -486,3 +590,7 @@ The worklist never mutates `docs/`. It reports convention debt for
 `librarian`: missing `Priority:`, missing `Created:`, malformed priority or
 dependency lines, dependency cycles, dangling references. Repairs are
 counted in the board header and listed after the suggestions.
+
+A declared `Mixed:` line is not debt and is never listed here — see the
+`mixed` pill above. A MALFORMED `Mixed:` line is, like any other malformed
+field.

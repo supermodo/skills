@@ -63,4 +63,10 @@ placed in `docs/`, that placement goes through librarian — hunt never writes
 docs itself. After the report, hunt asks before tearing down anything it
 left running (finders, dev servers, browser tabs).
 
+The report is the record, not a queue: findings never become work items or
+backlog entries on their own. When you want some of them on your board, name
+them — `/supermodo:librarian --promote <report> [ids…]` — and they arrive as
+properly-sized work, split by priority so one critical is not buried in
+eighty nits. See [librarian](librarian.md#promoting-findings---promote).
+
 Requires: `protocols`; uses `skills.config.json` when present.

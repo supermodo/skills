@@ -68,6 +68,14 @@ with per-task state. It sits apart from the other tabs because it describes
 *now*, not history, and it carries a stamp saying when it was computed. The
 renderer computes nothing — `next` resolves the board and the page draws it.
 
+Because it is a snapshot, it can fall behind the work: closing a task, adding a
+backlog entry or setting a priority all change what the board would say. When
+the work documents have changed since it was computed, the tab says so above
+the board and names the command to recompute it. It never refreshes itself —
+that would mean answering triage questions you did not ask for. For the same
+reason `/supermodo:flow` and `/supermodo:work` end with a one-line reminder
+that the board is now stale, so you get there from the run you just finished.
+
 Then four archive tabs:
 
 | tab | what's in it |

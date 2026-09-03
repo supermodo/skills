@@ -14,6 +14,7 @@ evidence establish — nothing is invented. See
 | `/supermodo:librarian --task [description]` | **Task intake**: grill → create the spec/plan/tasks triad |
 | `/supermodo:librarian --backlog <op>` | **Backlog operations** on `docs/work/BACKLOG.md` |
 | `/supermodo:librarian --priorities` | Write **confirmed triage answers** into the items they belong to |
+| `/supermodo:librarian --promote <report> [ids…]` | Turn **named findings** from a hunt or test audit into work items |
 | `/supermodo:librarian --absorb` | One-time **sweep of pre-existing docs** into the convention |
 
 ## Lifecycle pass
@@ -74,12 +75,75 @@ Triage is the repair path, though, not the normal route. Every mode that
 creates work — `--task`, `--backlog add`, and `--absorb` for every document it
 turns into work — asks the three priority questions right there, while you
 have the thing in front of you. `--graduate` asks nothing: the entry's
-priority moves to the new task unchanged.
+priority moves to the new task unchanged, and if it was ranked by a tool it
+arrives still marked as such — a value nobody confirmed does not become a
+confirmed one by being moved. `--promote` asks one confirmation per priority
+group instead, because a finding's severity was already decided by the agents
+that found and attacked it.
 
-It fills blanks and nothing else: an item that already has a valid priority is
-left alone and the conflict reported, because priorities are yours and are
-frozen once set. Malformed or unresolvable entries are rejected individually
+It fills blanks and confirms what a tool ranked; it overwrites nothing else.
+An item that already carries a priority you chose is left alone and the
+conflict reported, because priorities are yours and are frozen once set. An
+item marked `derived` is different: the whole point of the interview is that
+you take that value over, so the answer is written in place and the marker
+deleted — including when you confirm exactly the value you were shown, since
+what changed is who owns it. Hand-editing the priority is not confirmation;
+only answering is. Malformed or unresolvable entries are rejected individually
 and named, never guessed at.
+
+## Promoting findings (`--promote`)
+
+A [`hunt`](hunt.md) or a [`tests audit`](tests.md) produces a report, not a
+queue. Nothing from it reaches your board on its own: the report persists, it
+renders as a page, and it is still there next month. Promotion happens when
+you ask, for the findings you name:
+
+```
+/supermodo:librarian --promote .skills/supermodo/hunt/2026-08-03-api.md HNT-260803-004 HNT-260803-011
+```
+
+Four things make that safe to run on a report with a hundred findings in it.
+
+**One item, one priority.** A triad is what the board ranks and what the
+archive closes, so one folder holding a P0 and ninety-nine P3s is a broken
+board: its priority never drops as the urgent part gets fixed, `flow --job
+next` will run the whole folder as one task, and nothing waiting on the P0 can
+proceed until the last nit is done. You can decline a split; the item is then
+written as you asked and carries a `mixed` pill on the board, so the next
+reader can see what is inside it.
+
+**Sized to close.** Findings that belong together — one deliverable, one
+acceptance criterion, one edit surface, a real internal order — stay together.
+A shared priority is not togetherness, so sixty unrelated P2 findings do not
+become one P2 triad; they group by the surface they touch, and several items
+at the same priority is the normal outcome. You see the proposed grouping,
+with the ids in each, before anything is written.
+
+**Few questions.** For an actual bug found by a hunt, none of the priority
+interview is repeated: the severity was decided by the agent that found it and
+the skeptic that attacked it, it maps straight onto the consequence question,
+and exposure comes from checking the file against your main branch — leaving
+one confirmation per priority band, four at the very worst. Everything else
+gets the ordinary questions once per group: a test audit's severities rank how
+weakly the tests protect the code rather than what happens to a user, and a
+hunt finding marked as an improvement — a dead export, a missing test — is not
+a defect at all, so neither one implies a priority. Never once per finding.
+Decline a group and it simply stays in the report, unpromoted.
+
+**Nobody to ask? It still runs, and says so.** A promotion inside an
+unattended [`flow`](flow.md) run has no one to confirm anything, so it decides
+from the evidence and writes the priority marked as its own — a
+`Priority-source: derived` line naming what it assumed, and a `derived` pill
+on the board row. The work is startable immediately; what is owed is your
+signature, which [`next --triage`](next.md) comes back for.
+
+**The evidence comes with it.** Each promoted item gets a `findings.md`
+holding the actual evidence, impact and suggested fix — not a link to the run
+artifact, which is gitignored and would resolve to nothing in anyone else's
+clone. The report path stays as provenance. Re-running the same promotion
+after a failure creates nothing twice: findings already promoted are skipped
+and named, and anything found half-written is reported for you to look at,
+never overwritten.
 
 ## Absorbing pre-existing docs (`--absorb`)
 

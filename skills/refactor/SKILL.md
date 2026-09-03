@@ -7,6 +7,12 @@ description: Deep functional refactoring of TypeScript code for purity, testabil
 
 > **Requires:** the sibling `protocols` skill (shared protocol masters); uses `skills.config.json` when present. Missing protocols → tell the user to install the full supermodo package.
 
+> **Project rules.** Read `.supermodo/rules/refactor.md` if present, plus any
+> `.supermodo/rules/INDEX.md` rows naming `refactor` — that file IS this project's
+> refactor process and replaces the defaults below wherever they overlap. Contract:
+> `../protocols/references/rules.md`. Never in that file, so never switchable off:
+> behavior preservation, the plan approved before code is touched, never silently deleting an export or tightening an external API type.
+
 A systematic, phase-gated refactoring process that transforms accumulated code into small, pure, well-tested functional modules. The skill analyzes before touching code, plans before executing, tests before changing, and verifies after each step.
 
 ## Invocation
@@ -140,7 +146,7 @@ not two.
 | | standalone | inside `flow` (stage 6) |
 | --- | --- | --- |
 | write the plan to | `.skills/supermodo/refactor/<YYYYMMDD-HHMMSS>.md` | `.skills/supermodo/runs/<run-id>/06-refactor.md` |
-| render it | yes — `node <skills>/reports/scripts/render.ts --report <that path>`, and NAME the page in the question | **no** — the orchestrator renders the one run page |
+| render it | yes — `node <skills>/reports/scripts/render.ts --root <project-root> --report <that path>`, and NAME the page in the question | **no** — the orchestrator renders the one run page |
 | ask the user | directly, under the named page | **no** — return `status: needs-input` with the question and stop; the orchestrator routes it and continues this subagent with the answer |
 
 A flow stage runs as a subagent and **cannot talk to the user at all**, so
@@ -408,7 +414,7 @@ An approved plan that quietly changed shape during execution is the one thing
 this report exists to make impossible.
 
 **Then publish it** per `../protocols/references/reports.md`: invoke
-`node <skills>/reports/scripts/render.ts --report <that path>` and NAME the
+`node <skills>/reports/scripts/render.ts --root <project-root> --report <that path>` and NAME the
 page in your final message. Standalone runs only — inside a `flow` run the
 orchestrator renders the run page and stages render nothing.
 

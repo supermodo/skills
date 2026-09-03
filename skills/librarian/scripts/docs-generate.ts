@@ -4,13 +4,18 @@
 // a fully-generated file — only the delimited nav section is owned here, so
 // no file-level <!-- supermodo:generated --> marker is inserted.
 // Usage: node docs-generate.ts [project-root] [docs-entry]   (Node ≥ 22.18)
-//   docs-entry: root-relative router path (default "docs/README.md").
+//   docs-entry: root-relative router path (default: the configured docs root
+//   + README.md). Every folder, file and marker name below is resolved from
+//   the project's skills.config.json — see config/scripts/grammar-load.ts.
 
 import { readFileSync, writeFileSync, readdirSync, existsSync, renameSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
+import { buildGrammar } from "../../config/scripts/grammar-load.ts";
 
-const START = "<!-- supermodo:nav:start -->";
-const END = "<!-- supermodo:nav:end -->";
+// Resolved once at the CLI edge, exactly as docs-check does.
+const G = buildGrammar(process.argv[2] ?? ".", false);
+const START = G.navStart;
+const END = G.navEnd;
 
 const firstHeading = (p: string): string | undefined => {
   try {
@@ -34,24 +39,23 @@ const listFiles = (dir: string, match: (n: string) => boolean): readonly string[
 const orNone = (lines: readonly string[]): readonly string[] =>
   lines.length === 0 ? ["_none_"] : lines;
 
-const INITIATIVE_RE = /^\d{2}-[a-z0-9-]+$/;
-
 const triadLine = (docs: string, relPath: string, indent: string): string => {
-  const title = firstHeading(join(docs, "work", relPath, "spec.md")) ?? relPath;
-  return `${indent}- [${title}](work/${relPath}/spec.md) — [plan](work/${relPath}/plan.md) · [tasks](work/${relPath}/tasks.md)`;
+  const title = firstHeading(join(docs, G.work, relPath, G.spec)) ?? relPath;
+  const link = (f: string): string => `${G.work}/${relPath}/${f}`;
+  return `${indent}- [${title}](${link(G.spec)}) — [plan](${link(G.plan)}) · [tasks](${link(G.tasks)})`;
 };
 
 // A work/ dir is a triad (has tasks.md) or a program (README.md +
 // NN-<slug>/ initiative triads, listed nested under the program line).
 const workLines = (docs: string): readonly string[] =>
-  listDirs(join(docs, "work")).flatMap((w) => {
-    const dir = join(docs, "work", w);
-    if (!existsSync(join(dir, "tasks.md")) && existsSync(join(dir, "README.md"))) {
-      const title = firstHeading(join(dir, "README.md")) ?? w;
+  listDirs(join(docs, G.work)).flatMap((w) => {
+    const dir = join(docs, G.work, w);
+    if (!existsSync(join(dir, G.tasks)) && existsSync(join(dir, G.programReadme))) {
+      const title = firstHeading(join(dir, G.programReadme)) ?? w;
       return [
-        `- **[${title}](work/${w}/README.md)**`,
+        `- **[${title}](${G.work}/${w}/${G.programReadme})**`,
         ...listDirs(dir)
-          .filter((n) => INITIATIVE_RE.test(n))
+          .filter((n) => G.initiativeRe.test(n))
           .map((n) => triadLine(docs, `${w}/${n}`, "  ")),
       ];
     }
@@ -59,15 +63,15 @@ const workLines = (docs: string): readonly string[] =>
   });
 
 const adrLines = (docs: string): readonly string[] =>
-  listFiles(join(docs, "decisions"), (n) => /^ADR-\d{4}-.+\.md$/.test(n)).map((a) => {
-    const title = firstHeading(join(docs, "decisions", a)) ?? a.replace(/\.md$/, "");
-    return `- [${title}](decisions/${a})`;
+  listFiles(join(docs, G.decisions), (n) => G.adrNameRe.test(n) && n.endsWith(".md")).map((a) => {
+    const title = firstHeading(join(docs, G.decisions, a)) ?? a.replace(/\.md$/, "");
+    return `- [${title}](${G.decisions}/${a})`;
   });
 
 const referenceLines = (docs: string): readonly string[] =>
-  listFiles(join(docs, "reference"), (n) => n.endsWith(".md")).map((rf) => {
-    const title = firstHeading(join(docs, "reference", rf)) ?? rf.replace(/\.md$/, "");
-    return `- [${title}](reference/${rf})`;
+  listFiles(join(docs, G.reference), (n) => n.endsWith(".md")).map((rf) => {
+    const title = firstHeading(join(docs, G.reference, rf)) ?? rf.replace(/\.md$/, "");
+    return `- [${title}](${G.reference}/${rf})`;
   });
 
 const navBody = (docs: string): string =>
@@ -77,7 +81,7 @@ const navBody = (docs: string): string =>
     "",
     ...orNone(workLines(docs)),
     "",
-    "- [Backlog](work/BACKLOG.md)",
+    `- [Backlog](${G.backlog})`,
     "",
     "### Decisions",
     "",
@@ -104,7 +108,7 @@ const writeAtomic = (path: string, content: string): void => {
 
 const main = (): number => {
   const root = resolve(process.argv[2] ?? ".");
-  const entryRel = process.argv[3] ?? "docs/README.md";
+  const entryRel = process.argv[3] ?? `${G.root}/README.md`;
   const router = resolve(root, entryRel);
   const docs = dirname(router);
   if (!existsSync(router)) {

@@ -1,15 +1,9 @@
 ---
 name: tests
 description: >
-  Fixes failing tests and lint/type errors, audits test-suite quality with a
-  fleet of specialist reviewers, or drives coverage — for any project configured
-  with a supermodo skills.config.json. Modes: `tests` (default) fixes every
-  failure tier by tier (unit, integration, E2E, lint); `tests audit [scope]`
-  spawns parallel specialist reviewers (spec-alignment, assertion-strength,
-  corner-cases, coverage-balance, and a domain lens derived from the project's
-  docs), runs mutation probes where configured, and adversarially verifies every
-  finding with a second model before reporting; `tests coverage` drives coverage
-  to the configured target with a balance check. Use whenever the user mentions
+  Fixes failing tests and lint/type errors, audits test-suite quality, or drives
+  coverage — for any project configured with a supermodo skills.config.json.
+  Use whenever the user mentions
   failing tests, lint errors, "make tests pass", green build, flaky tests, test
   quality, weak or missing tests, corner cases, coverage, mutation testing, or
   asks whether the tests actually protect the core logic — even without "/tests".
@@ -21,6 +15,14 @@ allowed-tools: >
 # tests — fix, audit, coverage
 
 > **Requires:** the sibling `protocols` skill (shared protocol masters) and a valid `skills.config.json` (create with the `config` skill). Missing either → halt with that exact pointer; never guess.
+
+> **Docs names come from config.** Every `docs/…` path below is the DEFAULT. Resolve folder and file names from `skills.config.json` → `docs.layout` (defaults when unset) before reading or writing — a path typed from memory writes a second tree beside the real one. See `../protocols/references/docs-convention.md`.
+
+> **Project rules.** Read `.supermodo/rules/tests.md` if present, plus any
+> `.supermodo/rules/INDEX.md` rows naming `tests` — that file IS this project's
+> tests process and replaces the defaults below wherever they overlap. Contract:
+> `../protocols/references/rules.md`. Never in that file, so never switchable off:
+> a failing test is never skipped or loosened to pass, exit codes are the verdict, and an unconfigured tier is UNAVAILABLE rather than assumed green.
 
 Test coordinator for a supermodo-configured project. All framework, command, and
 domain specifics come from `skills.config.json` and the project's docs — nothing
@@ -208,6 +210,46 @@ survived), coverage snapshot, and explicitly-clean dimensions. Present the
 summary, then ask which buckets to implement (missing tests / weak-test fixes /
 nothing yet).
 
+**Ship machine-readable findings with the report**, in the run-scoped folder
+named from its stem — `.skills/supermodo/tests/<YYYYMMDD-HHMMSS>/findings/`
+beside `<YYYYMMDD-HHMMSS>.md`, both allocated together so they take the same
+collision suffix (`../protocols/references/reports.md`, "Machine-readable
+findings"). A shared `findings/` folder is overwritten by the next audit,
+leaving this report pointing at another run's results. Shards let a fix agent
+— or a promotion — load the actionable set without parsing prose:
+`findings-<verdict>.jsonl`, one file per verdict (`confirmed`,
+`disputed`, `refuted`; omit empty ones).
+
+**`OVERSTATED` is not a fourth shard.** The matrix KEEPS an overstated
+finding, at the lower of the two severities — so it serializes as `confirmed`
+at that lowered severity, with `overstated_from: <the severity originally
+claimed>` preserving what the verification actually decided. Without that
+normalization a real, retained finding exists only in the report prose, where
+no fix agent and no promotion can reach it: it is dropped in effect while the
+matrix says it was kept.
+
+One finding per line, with `id`,
+`severity`, `dimension`, `file`, `line` (or `locus: "suite"` when the finding
+has no single site), `title`, `evidence`, `impact`, `fix`, `verdict`. Ids are
+`TAU-<run-stamp>-<seq>`, assigned in severity order, never reused — they are
+what a promotion names. Same shard discipline as `hunt`: `file:line` must
+point at a real repo location, each shard ≤100KB (overflow →
+`findings-<verdict>-2.jsonl`).
+
+**Audit severity is a suite-weakness scale, not a consequence scale.** The
+anchors in `references/review-dimensions.md` rank how badly the tests fail to
+protect the code — a spec violation encoded in a passing test is `CRITICAL`
+there, a normative clause left untested is `HIGH` — which is a different axis
+from hunt's user-facing consequence, despite sharing the four words. Severity
+is recorded per finding and it ORDERS them; nothing maps it onto a priority
+(`../protocols/references/promotion.md`, which asks instead).
+
+Findings are not work items: what the user does not implement now stays in
+this report, and turning any of it into `docs/work/` is that master, run by
+librarian when the user asks
+(`/supermodo:librarian --promote <report-path> [finding-id…]`). Never write to
+`BACKLOG.md` and never create a triad here.
+
 Sections, in this order every run — two audits a month apart must be
 comparable: **Coverage** · **Mutation** · **Findings by severity** ·
 **Clean dimensions** (named explicitly — what was checked and found strong is
@@ -238,10 +280,13 @@ never estimated to complete a series.
 Frontmatter: `status` is `ok` for an audit that ran (findings are its output,
 not its failure) and `failed` only when the suite or the tooling would not
 run; `summary` carries the numbers a reader decides on; set `task` when the
-audit was scoped to one triad.
+audit was scoped to one triad; set `findings` to this run's shard directory
+and `run_stamp` to the stamp its ids embed, so a consumer can tell which
+report a finding came from — ids are unique within a run, not globally
+(`../protocols/references/reports.md`).
 
 **Then publish it** per `../protocols/references/reports.md`: invoke
-`node <skills>/reports/scripts/render.ts --report <that path>` and NAME the
+`node <skills>/reports/scripts/render.ts --root <project-root> --report <that path>` and NAME the
 page in your final message. Standalone runs only — inside a `flow` run the
 orchestrator renders the run page and stages render nothing.
 

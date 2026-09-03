@@ -23,6 +23,28 @@ scanning `git log --oneline` a year from now.
 The message is always the deliverable. Running the commit is an **opt-in extra**
 the skill offers after the message exists — never the default, never silent.
 
+## The project's process (read FIRST)
+
+Before reading the diff, read `.supermodo/rules/commit.md` if it exists. It IS
+the commit process for this project — sequence, message format, trailers — and
+it replaces the defaults below wherever the two describe the same thing. Then
+read `.supermodo/rules/INDEX.md` if present and load only the cross-cutting
+files whose `applies-to` names `commit` (typically `vcs.md`). Open nothing else
+in that folder. Contract: `../protocols/references/rules.md`.
+
+**Absent file → the first-use gate**, folded into the consent gate that already
+exists in "Offer to commit" — never a separate interruption. **Absence alone is
+not first run:** read `.skills/supermodo/config-manifest.json` and gate only
+when the file is absent AND `rulesDeclined` does not name `"commit"`, or a user
+who declined once is asked again on every commit forever.
+
+What NEVER comes from that file, in any project: never commit secrets; never
+run git without the explicit yes or the configured auto policy; `git init` asks
+even in auto mode; a case-(c) scope mismatch always halts for an explicit
+answer; explicit paths only; the staged-diff preview before the commit line;
+single-quoted `-m`. Those are invariants — they are not in the file, so they
+cannot be removed from it.
+
 **Every invocation delivers all four, in order — none is optional:**
 
 1. the message (clipboard + printed);
@@ -76,36 +98,58 @@ doesn't reveal.
 
 `<type>(<scope>)!: <imperative description>`
 
-- **Types:** feat, fix, refactor, perf, docs, test, chore, build, ci, style,
-  revert. Choose by what the change does, not where it lives. The common
-  confusion: feat = new capability, fix = wrong behavior corrected,
-  refactor = same behavior, new shape.
+The **type vocabulary is the project's** — `vcs.commit.types` in
+`skills.config.json`, defaulting to feat, fix, refactor, perf, docs, test,
+chore, build, ci, style, revert. `release` derives the semver bump from that
+same key, so the two skills can never disagree about what a type means. Never
+invent a type that is not in the configured list.
+
+Choosing among them is the judgement this skill contributes:
+
+- **feat** = a new capability, **fix** = wrong behavior corrected,
+  **refactor** = same behavior, new shape. Choose by what the change does, not
+  where it lives.
 - **Scope:** diff confined to one package/app/area → its short name
   (`packages/data` → `data`, `apps/dashboard` → `dashboard`). Multiple areas →
   omit scope. Never invent junk scopes like (core) or (misc) — an
   uninformative scope is worse than none.
-- **`!`** after type/scope when the change breaks consumers: removed or renamed
-  public API, changed behavior callers rely on, schema/format change.
+- **Breaking marker** (`vcs.commit.breakingMarker`, default `!`) goes after
+  type/scope when the change breaks consumers: removed or renamed public API,
+  changed behavior callers rely on, schema/format change.
 - **Description:** imperative mood ("add", "fix", "remove" — not "added",
-  "adds"), lowercase start (acronyms and proper nouns keep their caps),
-  ≤50 chars when possible, hard cap 72, no trailing period.
+  "adds"), lowercase start (acronyms and proper nouns keep their caps), within
+  `vcs.commit.subjectSoftCap` where possible (default 50), hard cap
+  `vcs.commit.subjectHardCap` (default 72), no trailing period.
 - **Language:** English. Reuse the project's own vocabulary from the diff and
   the log — package names, task IDs (MC-1, RA-14), domain terms
   (materialize, watermark). The message should read like the team wrote it.
 
-## One line — hard rule
+## Message shape is the project's
 
-No body. A breaking change is carried by `!`, not prose. Only exception:
-breaking/security/migration cases where one line cannot hold the essential
-warning — then at most ONE body line, blank-line separated (spec format):
+Whether a message is one line or carries a body, and what may never appear in
+it, come from `.supermodo/rules/commit.md` — from `rules-templates/` when the
+project has not written one. Both shipped variants are one-line: a breaking
+change is carried by the marker, not by prose. Do not add a body unless the
+project's rules file says to.
 
+## Quoting — single quotes, always
+
+Every `git commit -m` this skill prints or runs wraps the message in SINGLE
+quotes:
+
+```bash
+git commit -m 'feat(api)!: rename /v1/orders to /v1/checkout'
 ```
-feat(api)!: rename /v1/orders to /v1/checkout
 
-BREAKING CHANGE: /v1/orders returns 410 after 2026-06-01
-```
+Inside DOUBLE quotes an interactive shell (bash, zsh, and the terminals built
+on them) reads `!` as a history expansion and refuses the line — so the
+messages that carry a breaking change are exactly the ones that fail when the
+user pastes them. Single quotes are literal, and nothing in a Conventional
+Commits subject ever needs interpolation.
 
-Never more than that.
+Corollary: **no apostrophe in the description.** The imperative lowercase
+style never needs one, and the escape that would survive the quoting
+(`'\''`) costs more than the word is worth.
 
 ## Mixed-concern diffs
 
@@ -133,26 +177,18 @@ When the diff contains genuinely unrelated changes, produce two outputs:
    1.
    ```bash
    git add packages/data/src/watermark.ts
-   git commit -m "fix(data): guard null watermark"
+   git commit -m 'fix(data): guard null watermark'
    ```
 
    2.
    ```bash
    git add docs/architecture/lease.md
-   git commit -m "docs: pipeline lease spec"
+   git commit -m 'docs: pipeline lease spec'
    ```
    ````
 
    Every changed file appears in exactly one suggested commit. Skip this
    section entirely for single-concern diffs — don't manufacture splits.
-
-## Never in the message
-
-- "This commit...", "I", "we", "now", "currently" — the diff already says what
-- AI attribution ("Generated with Claude...") — unless the repo's own rules
-  require a trailer
-- Emoji (unless the repo's log shows that convention)
-- File names the scope already implies
 
 ## Deliver
 
@@ -266,13 +302,13 @@ nothing and merely decides what that plan will contain. In order:
 1. **Classify — read-only.** `git status --porcelain`; nothing runs here:
    - **(a) Message describes the staged diff** (the staged-changes path of
      "Read the changes"): the index IS the commit — the plan will be the
-     `git commit -m …` line, plus one `git add -- <fragment-path>` when a
+     `git commit -m '…'` line, plus one `git add -- <fragment-path>` when a
      changelog fragment exists; the user's already-staged paths are NEVER
      re-added. A mixed-hunk file (staged + unstaged hunks) whose staged
      hunks the message describes stays in this case: plain `git commit`
      takes only the staged hunks, and the plan never re-adds that file.
    - **(b) Index empty, message describes the working tree:** the plan
-     will be `git add <paths>` (fragment included) + `git commit -m …`.
+     will be `git add <paths>` (fragment included) + `git commit -m '…'`.
    - **(c) Mismatch:** the index holds changes the message does NOT
      describe — the user's own in-flight work. SELECT SCOPE first: name
      the exact paths and ask a CLOSED MENU per the questions protocol
@@ -296,7 +332,8 @@ nothing and merely decides what that plan will contain. In order:
    mutation as a literal line in one fenced block: any
    `git restore --staged <path>`, any `git add <path>` (explicit paths
    only, the fragment's exact path among them — never `git add -A` / `.`),
-   then the `git commit -m …`. Case (a): the fragment add (if any) plus
+   then the `git commit -m '…'` (single quotes, per "Quoting" above — the
+   plan is a block the user may paste). Case (a): the fragment add (if any) plus
    the commit line. (Fragment file operations are not git mutations and
    live outside the plan: the skill may create, rewrite, or delete ONLY
    the fragment file this invocation authored, or the ONE prior pending
@@ -308,6 +345,20 @@ nothing and merely decides what that plan will contain. In order:
    plain line, the default named, no ordered-choice list. Example:
 
    > Run exactly these commands? No push. (default: no — message only)
+
+   **First run** (no `.supermodo/rules/commit.md` AND no recorded decline —
+   see "The project's process" above): ask the process question HERE, above
+   the command question, in the same message — an ordered choice per
+   `../protocols/references/questions.md` listing the shipped starting points
+   (`conventional`, `issue-prefixed`), plus customize and show-full.
+   **Materialize through `config --rules commit`, never by writing the file
+   directly** — that procedure owns real-path containment, exclusive-temp
+   writing, validate-before-rename, index regeneration and the manifest
+   record; duplicating five safety steps here would get one of them wrong.
+   Then continue under the new file. `confirmations.mode: "auto"` does NOT
+   skip this: choosing a process is a class-(c) preference. A decline ("just
+   do it, don't save a file") is recorded as `rulesDeclined: ["commit"]` and
+   never asked again; the run proceeds on the bundled default.
 
    **Decline (the default) → done.** Message only. Never touch git state.
    With `confirmations.mode: "auto"` (or `perSkill.commit: "auto"`), skip

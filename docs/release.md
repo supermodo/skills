@@ -35,14 +35,16 @@ published version.
 3. **Execute (consent-gated, shown-then-run).** The complete command
    sequence is shown first, then run command by command, stopping at the
    first failure with exact state reported — half-done releases are visible,
-   never papered over. Includes the GitHub release (`gh release create` from
-   the changelog entry) when configured, and the required back-merge into
-   dev after a squash release.
+   never papered over. Includes handing the changelog entry to the project's
+   own publish command (written in its rules file) and the required
+   back-merge into dev after a squash release.
+
 
 ## Modes
 
-- **Light** (default): `dev` → `main` squash (or merge), tag, push, GitHub
-  release, back-merge into dev.
+- **Light** (default): `dev` → `main` squash (or merge), tag, push, publish
+  (the project's own command), back-merge into dev.
+
 - **Full git-flow**: adds `release/*` stabilization branches (only fixes
   land while dev keeps moving) and `release --hotfix <slug>` for patching
   production without dragging dev along.
@@ -50,12 +52,21 @@ published version.
 ## Configuration
 
 The `release` section of `skills.config.json` (all optional — defaults
-apply): `mode`, `branches.main`/`branches.dev`, `versionFile` +
-`versionPath` (where the version lives — `package.json:version`, a plugin
-manifest, …), `changelog`, `tagPrefix`, `mergeStrategy`
-(`squash`/`merge`), `githubRelease`. With `confirmations.mode: "auto"` the
-sequence runs without the per-release yes — every command still printed,
-blockers still halt.
+apply): `branches.main`/`branches.dev`, `versionFile` + `versionPath` (where
+the version lives — `package.json:version`, a plugin manifest, …),
+`changelog`, `tagPrefix`, `tagStyle`, `mergeStrategy` (`squash`/`merge`),
+`remote`, `versionPattern` and `alphaPolicy`. No forge and no integration
+mode: how the main branch is written and what publishes the release are
+steps of the process, written into the rules file in the project's own
+words. With `confirmations.mode: "auto"` the sequence runs without the
+
+per-release yes — every command still printed, blockers still halt.
+
+Which workflow you run is NOT config: it lives in
+`.supermodo/rules/release.md`, materialized on first use from a shipped
+template (`light`, `full`, `request`). The old `release.mode` and
+`release.githubRelease` keys are removed; a config still carrying them gets a
+migration error naming the fix.
 
 ## Hard rules
 

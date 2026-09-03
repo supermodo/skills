@@ -6,7 +6,7 @@
 import { esc, attr, slug } from "./html.ts";
 import { THEME } from "./theme.ts";
 import { markdown } from "./markdown.ts";
-import { dateOf, timeOf, type Model, type Run, type Report, type Stage } from "./scan.ts";
+import { dateOf, timeOf, stampMs, type Model, type Run, type Report, type Stage } from "./scan.ts";
 
 const CSS = `
 ${THEME}
@@ -154,6 +154,9 @@ white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis}
 .bcaveat{margin:0 0 18px;padding:10px 12px;border:1px solid var(--warn);border-radius:var(--rs);
 font-size:12.5px;line-height:1.5}
 .bcaveat b{color:var(--warn);font-weight:600}
+.bstale{margin:0 0 18px;padding:10px 12px;border:1px dashed var(--warn);border-radius:var(--rs);
+font-size:12.5px;line-height:1.5}
+.bstale b{color:var(--warn);font-weight:600}
 .bchip.quiet{opacity:.7}
 .bmeta.warnish{color:var(--warn)}
 .donefold{margin-top:6px}
@@ -587,13 +590,32 @@ const tabPanel = (tab: string, entries: readonly Entry[], current: boolean): str
 const boardOf = (model: Model): Report | undefined =>
   model.reports.filter((r) => r.skill === "next")[0];
 
-const boardPanel = (model: Model): string => {
+/**
+ * The board is recomputed from the docs on every `next` run, so it is never
+ * stale as a COMPUTATION — only this projection ages, and it ages silently the
+ * moment librarian writes a triad, a priority or a backlog entry. `docsTouched`
+ * is the newest mtime under the work docs: older board than sources → say so
+ * and name the command. The renderer marks, it never recomputes — selection
+ * stays in `next`.
+ *
+ * The two unknowns resolve in opposite directions, deliberately. No readable
+ * work docs (`docsTouched === 0`) claims nothing: there is no evidence the
+ * board is behind anything. A board with no parseable stamp (`stampMs === 0`)
+ * warns: its age cannot be vouched for, and one re-run costs less than a
+ * snapshot presented as current.
+ */
+const boardPanel = (model: Model, docsTouched: number): string => {
   const b = boardOf(model);
+  const stale = b !== undefined && docsTouched > 0 && docsTouched > stampMs(b.stamp);
   return `<section id="${attr(tabId("Board"))}" data-panel class="on">` +
     `<div class="wrap"><main>` +
     (b === undefined
       ? `<div class="empty">No board yet — run <code>/supermodo:next</code>.</div>`
-      : (b.summary === "" ? "" : `<p class="sub">${esc(b.summary)}</p>`) + markdown(b.body)) +
+      : (stale
+        ? `<p class="bstale"><b>This board is out of date.</b> The work documents ` +
+          `changed after it was computed — run <code>/supermodo:next</code> to recompute it.</p>`
+        : "") +
+        (b.summary === "" ? "" : `<p class="sub">${esc(b.summary)}</p>`) + markdown(b.body)) +
     `</main></div></section>`;
 };
 
@@ -617,7 +639,7 @@ export const navOf = (project: string, model: Model): Nav => ({
   },
 });
 
-export const indexPage = (project: string, model: Model): string => {
+export const indexPage = (project: string, model: Model, docsTouched: number): string => {
   const tabs = tabsOf(model);
   return shell({
     title: `${project} — supermodo`,
@@ -627,7 +649,7 @@ export const indexPage = (project: string, model: Model): string => {
     body:
       `<div data-panels>` +
       chrome(siteHeader(navOf(project, model), "", "Board", true)) +
-      boardPanel(model) +
+      boardPanel(model, docsTouched) +
       tabs.map(([name, list]) => tabPanel(name, list, false)).join("") +
       `</div>`,
   });
