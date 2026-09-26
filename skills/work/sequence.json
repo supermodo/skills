@@ -1,0 +1,35 @@
+{
+  "descriptorVersion": 1,
+  "skill": "work",
+  "default": "standard",
+  "variants": {
+    "standard": {
+      "promises": "cross-lineage",
+      "nodes": [
+        { "id": "implement", "role": "implementer", "class": "code-generation", "inputs": ["brief"], "access": "repo", "host": true, "writes": true },
+        { "id": "review", "role": "reviewer", "class": "adversary", "inputs": ["implement"], "access": "repo", "raw": true,
+          "differentLineageFrom": ["implement"] }
+      ]
+    },
+    "same-lineage": {
+      "promises": "same-lineage",
+      "nodes": [
+        { "id": "implement", "role": "implementer", "class": "code-generation", "inputs": ["brief"], "access": "repo", "host": true, "writes": true },
+        { "id": "review", "role": "reviewer", "class": "adversary", "inputs": ["implement"], "access": "repo", "raw": true,
+          "differentSessionFrom": ["implement"] }
+      ]
+    },
+    "deep": {
+      "promises": "cross-lineage",
+      "nodes": [
+        { "id": "gather", "role": "context-gatherer", "class": "long-context", "inputs": ["brief"], "access": "repo" },
+        { "id": "implement", "role": "implementer", "class": "code-generation", "inputs": ["gather"], "access": "repo", "host": true, "writes": true },
+        { "id": "review", "role": "roster:reviewers", "class": "adversary", "inputs": ["implement"], "access": "repo", "raw": true,
+          "differentLineageFrom": ["implement"] },
+        { "id": "verify", "role": "verifier", "class": "adversary", "inputs": ["implement", "review"], "access": "repo", "raw": true,
+          "differentLineageFrom": ["implement"], "differentSessionFrom": ["review"] },
+        { "id": "match", "role": "matcher", "class": "judgment", "inputs": ["review", "verify"], "access": "text" }
+      ]
+    }
+  }
+}

@@ -163,6 +163,35 @@ Current schema is `configVersion: 1` — the only version.
 
 Always dry-run and back up (manifest) before touching an existing config.
 
+### Role files — independent of `configVersion`
+
+A version match is NOT "nothing to migrate": the engine layer retired every
+engine field from role files (`../../protocols/references/models.md` →
+Migration), and a role that still carries one is invalid whatever
+`configVersion` says. So `--upgrade` ALWAYS runs the roster migration, in
+this order, before reporting "up to date":
+
+1. `node <skills>/config/scripts/roster-migrate.ts scan <root> [agents.dir]`
+   lists every role file (declaring `job:` OR carrying `model:`/`effort:`/
+   `alias:` in a dir that holds roles) with the engine keys it carries, and
+   proposes `job: <class>` per file from its category (implementers →
+   `code-generation`, reviewers / test-quality → `adversary`, infra →
+   `leg-work`; a file with a `job:` already keeps it).
+2. Show ONE numbered table — file · engine keys found · proposed class — and
+   ask the closed menu **approve all / change rows by number / skip**
+   (default skip; a skipped file stays invalid and is named in the report).
+3. `node <skills>/config/scripts/roster-migrate.ts apply <root> <table.json>`
+   rewrites each approved file's frontmatter temp-then-rename: adds or keeps
+   `job:`, deletes `model:`, `effort:`, `alias:`, `provider:`, `reasoning:`,
+   `thinking:`; the body is untouched. Nothing else in the file changes.
+4. When `agents.dir` is a host's native dir (`.claude/agents`,
+   `.codex/agents`) and the config predates the engine layer, propose moving
+   the ROLE files to `.supermodo/agents/` (non-role agents stay where the
+   host finds them) and rewriting `agents.dir`; `agents.hosts`, if present,
+   is deleted with the REMOVED message. Generated mirrors of roles under the
+   other host's dir are listed for deletion, never deleted silently.
+5. Run `roster-check.ts`; the manifest records `rosterMigrated: <date>`.
+
 ## §8 Final report + docs handoff
 
 Report per SKILL.md "Report", after any §6 work. Documentation files noted

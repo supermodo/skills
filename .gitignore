@@ -5,6 +5,7 @@
 /PLAN*.md
 /PLAN-REVIEW-LOG.md
 /NOTICE.md
+/_private/
 .remember/
 
 # local install & test artifacts
@@ -20,3 +21,4 @@ skills-lock.json
 
 # maintainer-only, never published
 CLAUDE.md
+AGENTS.md

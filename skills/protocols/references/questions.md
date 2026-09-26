@@ -29,13 +29,13 @@ pre-fought, each decidable in one read.
   obvious default: "commit this?", "run the release?", "tear these down?",
   "proceed?". These get ONE plain-language line stating what will happen
   and the default (declining unless stated otherwise) — NO ordered list,
-  no `Claude suggests:`/`Codex counters:` framing, no numbered options.
+  no `<seat> suggests:`/`<seat> counters:` framing, no numbered options.
   The user answers in their own words.
 - **Closed menus** — a fixed, small, self-explanatory option set defined
   by a protocol or a skill's own contract (e.g. the tooling master's
   per-tier "set up after / give command / skip", or commit's scope menu).
   Present the domain options directly as the numbered list — the
-  `Claude suggests:`/`Codex counters:` structure does not apply; the
+  `<seat> suggests:`/`<seat> counters:` structure does not apply; the
   other rules (one question per message, recommended option marked,
   default named, answer by number or own words) do.
 
@@ -54,10 +54,16 @@ Per concept-group (related questions may share one explanation):
    as substitutes for explanation.
 2. Per question, an ORDERED list of choices the user answers by number or
    in their own words:
-   1. `Claude suggests: <one-line recommendation>`
-   2. `Codex counters: <one-line adversarial view>` (swap names when Codex
-      is the host; if the adversary is unavailable:
-      `unavailable (single-model)`)
+   1. `<host seat> suggests: <one-line recommendation>` — the label is the
+      registry model id of the seat that produced the recommendation
+      (e.g. `opus5 suggests:`); a seat run by the host itself is labelled by
+      the host's pin (e.g. `claude-fable-5-1 suggests:`), never `host` and
+      never a vendor name
+   2. `<adversary seat> counters: <one-line adversarial view>` — one line
+      per adversary seat in the variant, labelled with its registry model
+      id (e.g. `astra counters:`). A variant with no adversary seat carries
+      no counter line; the question then states "no independent counter —
+      variant promises `none`". A counter is never faked by the host.
    3. `More detail` — expand: a verbose explanation with concrete links
       (file paths, doc sections, code lines, prior decisions), then
       re-present the same choices.

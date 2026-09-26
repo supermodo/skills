@@ -31,10 +31,10 @@ about a stack is hardcoded here.
 > **Cross-tool note (Claude Code ↔ Codex).** Written in Claude Code idioms. Under
 > Codex, translate: `AskUserQuestion` → ask in chat; `Agent`/`subagent_type` →
 > your native delegation; `TaskCreate`/`TaskList`/`TaskUpdate` → your own task
-> tracking. Audit verification uses the OTHER provider as the adversary — under
-> Claude the adversary is `codex exec`, under Codex it is `claude -p` (see
-> `../protocols/references/cross-model.md`). Invert accordingly so the second model is
-> genuinely different.
+> tracking. Audit verification seats (`design`, `cross-check` in
+> `sequence.json`) come from the user's approved assignments through the
+> broker (`../protocols/references/models.md`) — this skill never names a model
+> and never composes a CLI call, on either host.
 
 ## 0. Preflight — config first
 
@@ -169,26 +169,42 @@ skill.
 **Roster:** if `agents.dir` names a project roster, use its reviewers (a
 project-supplied domain reviewer supersedes the derived `DL-` lens). **No roster
 → single-agent fallback:** apply each dimension brief sequentially in one agent
-(or the main context), one dimension at a time. Every prompt includes: the scope
-(test + source files), the coverage map, the findings schema
-(`references/verification.md`), and "return ONLY the JSON array".
+(or the main context), one dimension at a time. The brief is `roles/auditor.md`
+(this skill's folder).
 
 ### 3. Merge and dedupe
 Combine all findings; dedupe by (package, file, theme) keeping the
 highest-severity duplicate. Plain reasoning, no agent needed.
 
-### 4. Adversarial verification — two models, every finding
-Preflight the adversary provider BEFORE spawning the fleet
-(`../protocols/references/cross-model.md`): if the CLI is missing/outdated/unauthenticated —
-at preflight or mid-run — STOP and ask the user (fix and retry / continue
-single-model / abort). **Never downgrade to single-model silently**; single-model
-results are labeled as such.
+### 4. Adversarial verification — two lineages, every finding
+Seats are planned at step 0, BEFORE the fleet:
+`node <skills>/protocols/scripts/broker.ts plan --skill tests --project-root <root> --host <host> --host-pin <your exact model id> [--variant <v>]`
+(`<skills>` = the installed supermodo skills folder). `proposal` non-null →
+ONE approval table (approve all / change rows by number / decline; persist
+with `node <skills>/config/scripts/models.ts approve <proposalFile> --project-root <root>`,
+plan again). `staffed: false` → **staff it / run a fully staffed variant /
+abort**; the `same-lineage` variant reports "reviewed, not independent".
+Unattended → `needs-input`. An audit never runs with a hole and never
+downgrades on its own.
 
-Then verify per `references/verification.md`: host-model skeptics (one per
-finding, every severity) + opposite-provider cross-check over all merged
-findings, merged via the matrix. `CONFIRMED` kept, `REFUTED` dropped to a refuted
-appendix, `OVERSTATED` downgraded, `DISPUTED` kept with both arguments verbatim.
-Persist verdicts to disk as they arrive.
+Two seats judge the fleet's findings and the tests themselves:
+
+- **`design` — the test-designer** (built-in `adversary` role, another lineage
+  than the fleet): knows how a test should be written and identifies WRONG
+  tests — assertions that encode the bug, tests that pass against a wrong
+  implementation, loosened or skipped checks. It emits verdicts and test
+  SPECS (what a correct test asserts); it never writes files.
+  `node <skills>/protocols/scripts/broker.ts dispatch --plan <planFile> --seat design --brief <file> --schema <skills>/protocols/schemas/design-verdict.schema.json`
+- **`cross-check` — the verifier** (another lineage than fleet and skeptics):
+  refutes every merged finding per `references/verification.md`, batched
+  ~12 per dispatch, `--resume` from the second batch on.
+
+Host skeptics (one per finding, every severity) run alongside; the matrix in
+`references/verification.md` merges skeptic × cross-check. `CONFIRMED` kept,
+`REFUTED` dropped to a refuted appendix, `OVERSTATED` downgraded, `DISPUTED`
+kept with both arguments verbatim. Persist verdicts to disk as they arrive. A
+dispatch returning `status: failed` stops the audit (report seat / pin /
+cause); nothing is ever substituted.
 
 ### 5. Mutation probes — ground truth (only if `commands.mutation`)
 When mutation is unconfigured, skip and state "mutation probes unavailable (no

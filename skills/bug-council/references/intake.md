@@ -120,57 +120,53 @@ When enough information is already available, ask no questions and start immedia
 
 After the answers arrive, do not ask for another confirmation unless a later action crosses a previously unspecified safety boundary.
 
-## 3. Detect the available council
+## 3. Seat the council (the broker)
 
-Prefer one independent seat from each available provider:
+The council's seats are the nodes of `../sequence.json`, resolved by the
+broker from the user's approved registry assignments — never detected from
+`command -v`, never composed from `--help`, never assumed. `<skills>` = the
+installed supermodo skills folder; `<host>` = `claude` or `codex`.
 
-- Codex;
-- Claude;
-- Kimi;
-- native subagents exposed by the current host.
-
-Use the current host's native subagent mechanism for its own provider whenever possible. Avoid launching a nested copy of the host CLI merely to create another seat.
-
-For example:
-
-- when running inside Codex, prefer a native Codex subagent for the Codex seat;
-- when running inside Claude Code, prefer a native Claude subagent for the Claude seat;
-- when running inside Kimi Code, prefer a native Kimi subagent for the Kimi seat.
-
-Detect external CLIs without assuming they exist:
-
-```bash
-command -v codex || true
-command -v claude || true
-command -v kimi || true
+```
+node <skills>/protocols/scripts/broker.ts plan --skill bug-council --project-root <root> --host <host> --host-pin <your exact model id> [--variant deep|quick] --run <id>
 ```
 
-Inspect the installed CLI help before constructing a non-interactive command:
-
-```bash
-codex --help
-claude --help
-kimi --help
-```
-
-Use only flags supported by the installed version.
+- `proposal` non-null → show ONE approval table (class · roles it feeds ·
+  proposed model + effort · flags) and ask the closed menu **approve all /
+  change rows by number / decline** (default decline); persist with
+  `node <skills>/config/scripts/models.ts approve <proposalFile> --project-root <root>`
+  and plan again. Unattended → `needs-input`.
+- `staffed: false` → name each unstaffed seat with the broker's reason and ask
+  **staff it / run a fully staffed variant / abort**, with **staff it**
+  recommended for `deep`: the council exists for the bug nobody could pin
+  down, and the third lineage with its falsification round is what makes the
+  answer trustworthy (on a planted shared-blind-spot bug, every `deep` run
+  refuted the user's wrong theory explicitly and gave exact remediation;
+  `quick` runs found the cause but overclaimed or mis-advised). Name what
+  staffing takes — enrol a model of another lineage, or accept a sandboxed
+  one's network-open consent — and say `quick` is the fallback. A council never runs
+  with a hole, never fills a seat with a decorative persona, and never
+  downgrades to fewer lineages on its own.
+- The plan's `seats[]` says which seat is `host` (launched by the coordinator
+  as a native subagent, blind to the others), which are external (dispatched
+  through `broker.ts dispatch --plan <planFile> --seat <id> --brief <file>`),
+  and each seat's lineage. Independence is computed from the ledger, never
+  from an executable's name: a `claude` binary routed to another provider
+  cannot be counted as an Anthropic seat because the registry pin and the
+  effective model reported by the adapter decide.
 
 External investigators must:
 
-- run with the repository as their working directory;
-- receive the same immutable dossier;
-- operate in read-only or approval-restricted mode during diagnosis;
+- run with the repository as their working directory, read-only (the adapter
+  enforces it);
+- receive the same immutable dossier BY PATH;
 - write their response to a separate temporary file;
 - receive no other investigator's initial report;
 - avoid including secrets or unrelated files in their prompts.
 
-A command named `claude` may be configured to route to Kimi or another provider. Do not count it as an independent Anthropic seat unless its configuration actually uses an Anthropic model.
-
-Likewise, identify provider independence by the real model/provider configuration rather than by the executable name alone.
-
-When fewer providers are available, fill the remaining seats with fresh native subagents using distinct evidence scopes.
-
-Do not create decorative personas that all inspect the same evidence.
+A seat that fails at run time (`status: failed` — rate limit, identity
+mismatch, stall) stops the council: report seat / requested pin / cause and
+offer fix and retry / abort. Nothing is substituted.
 
 ## 4. Select the hunt mode
 

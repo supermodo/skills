@@ -122,9 +122,13 @@ never reach a commit.
   navigation, one documentation owner — everyone else reports drift.
 - **`skills.config.json`:** versioned, hard-validated, argv-array commands
   (no shell strings).
-- **Two models, honestly:** the other provider (Codex ⇄ Claude) plans,
-  reviews, and verifies adversarially — read-only, evidence-cited, with
-  loud degradation when unavailable (never a silent single-model result).
+- **Any models, honestly:** enrol the models you have (Claude, Codex,
+  Gemini via Antigravity, HTTP endpoints, a typed-judgment model), approve
+  once which engine class each may hold, and every skill seats them from
+  that — planners, adversaries, finders, verifiers — with independence
+  computed from lineage and reported on every run. Read-only critics,
+  evidence-cited findings, nothing seated without your approval, nothing
+  ever substituted: an unstaffed seat stops the skill and asks.
 - **Questions that earn their interruption:** facts get answered from code
   and docs; tradeoffs get pre-fought between the models; only conflicts and
   product/scope choices reach you — and answers are recorded so they're

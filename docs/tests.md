@@ -36,11 +36,13 @@ The question it answers: **would these tests fail if the code were wrong?**
 - **Mutation probes** give ground truth where configured: deliberately
   broken code that no test catches upgrades a weakness finding to confirmed
   with proof.
-- **Every finding is adversarially verified by two models** — host-model
-  skeptics plus an opposite-provider cross-check. Refuted findings are
-  dropped to an appendix, disputes shown with both arguments verbatim. If
-  the adversary CLI is unavailable it stops and asks — single-model results
-  are always labeled.
+- **Every finding is adversarially verified by two lineages** — host
+  skeptics, a test-designer seat that knows how a test should be written and
+  flags wrong ones, and a cross-check seat of another lineage (models you
+  approved in your registry, see [models](models.md)). Refuted findings are
+  dropped to an appendix, disputes shown with both arguments verbatim. The
+  seats are planned before the fleet; an unstaffed seat stops the audit and
+  asks rather than degrading silently.
 
 The verified report ranks findings by severity; you choose which buckets to
 implement (missing tests first — most protection — then weak assertions).

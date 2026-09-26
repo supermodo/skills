@@ -19,6 +19,13 @@ const absorb = (acc: Acc, line: string): Acc => {
     const list = Array.isArray(prev) ? prev : [];
     return { fm: { ...acc.fm, [acc.key]: [...list, unquote(item[1].trim())] }, key: acc.key };
   }
+  // An indented line without a dash continues the previous list item (a
+  // `- { … }` flow mapping wrapped over several lines, as `seats:` rows are).
+  const cont = line.match(/^\s+([^\s-].*)$/);
+  if (cont !== null && acc.key !== undefined && Array.isArray(acc.fm[acc.key]) && (acc.fm[acc.key] as readonly string[]).length > 0) {
+    const list = acc.fm[acc.key] as readonly string[];
+    return { fm: { ...acc.fm, [acc.key]: [...list.slice(0, -1), `${list[list.length - 1]} ${cont[1].trim()}`] }, key: acc.key };
+  }
   const entry = line.match(/^([A-Za-z_][\w-]*):\s*(.*?)\s*$/);
   if (entry === null) return acc;
   const [, key, rawValue] = entry;

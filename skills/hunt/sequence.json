@@ -1,0 +1,41 @@
+{
+  "descriptorVersion": 1,
+  "skill": "hunt",
+  "default": "standard",
+  "variants": {
+    "standard": {
+      "promises": "cross-lineage",
+      "nodes": [
+        { "id": "find", "role": "finder", "class": "leg-work", "inputs": ["brief"], "access": "repo", "host": true },
+        { "id": "find-x", "role": "finder", "class": "leg-work", "inputs": ["brief"], "access": "repo",
+          "differentLineageFrom": ["find"] },
+        { "id": "skeptic", "role": "skeptic", "class": "adversary", "inputs": ["find", "find-x"], "access": "repo", "host": true, "raw": true },
+        { "id": "cross-check", "role": "verifier", "class": "adversary", "inputs": ["find", "find-x"], "access": "repo", "raw": true,
+          "differentLineageFrom": ["find", "skeptic"] }
+      ]
+    },
+    "same-lineage": {
+      "promises": "same-lineage",
+      "nodes": [
+        { "id": "find", "role": "finder", "class": "leg-work", "inputs": ["brief"], "access": "repo", "host": true },
+        { "id": "skeptic", "role": "skeptic", "class": "adversary", "inputs": ["find"], "access": "repo", "host": true, "raw": true },
+        { "id": "cross-check", "role": "verifier", "class": "adversary", "inputs": ["find"], "access": "repo", "raw": true,
+          "differentSessionFrom": ["find", "skeptic"] }
+      ]
+    },
+    "deep": {
+      "promises": "cross-lineage",
+      "nodes": [
+        { "id": "rank", "role": "ranker", "class": "judgment", "inputs": ["brief"], "access": "text" },
+        { "id": "find", "role": "finder", "class": "leg-work", "inputs": ["brief", "rank"], "access": "repo", "host": true },
+        { "id": "find-x", "role": "finder", "class": "leg-work", "inputs": ["brief", "rank"], "access": "repo",
+          "differentLineageFrom": ["find"] },
+        { "id": "triage", "role": "triager", "class": "judgment", "inputs": ["find", "find-x"], "access": "text" },
+        { "id": "skeptic", "role": "skeptic", "class": "adversary", "inputs": ["find", "find-x"], "access": "repo", "host": true, "raw": true },
+        { "id": "cross-check", "role": "verifier", "class": "adversary", "inputs": ["find", "find-x"], "access": "repo", "raw": true,
+          "differentLineageFrom": ["find", "skeptic"] },
+        { "id": "match", "role": "matcher", "class": "judgment", "inputs": ["skeptic", "cross-check"], "access": "text" }
+      ]
+    }
+  }
+}

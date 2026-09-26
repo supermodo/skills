@@ -11,31 +11,39 @@ description: "Twin-agent adversarial interview that locks a task or design befor
 > `.supermodo/rules/INDEX.md` rows naming `grill` — that file IS this project's
 > grill process and replaces the defaults below wherever they overlap. Contract:
 > `../protocols/references/rules.md`. Never in that file, so never switchable off:
-> two models agreeing never substitutes for the user on a class-(c) question, a second opinion is never faked, disputes surface with both arguments verbatim.
+> two models agreeing never substitutes for the user on a class-(c) question, a second opinion is never faked, disputes surface with both arguments verbatim, nothing is seated without the user's approval.
 
-Moderator skill implementing the grilling protocol. Two planners (host model +
-the OTHER provider) work the same brief independently, attack each other, and
-surface only what genuinely needs the user. Output is the locked **triad**
-(`spec.md`, `plan.md`, `tasks.md`) handed to librarian — **grill never writes
-docs itself**.
+Moderator skill implementing the grilling protocol. Two `lead` planners of
+different lineages work the same brief independently, two `adversary` seats
+attack the plan each did not write, and only what genuinely needs the user
+reaches them. Output is the locked **triad** (`spec.md`, `plan.md`,
+`tasks.md`) handed to librarian — **grill never writes docs itself**.
 
-Read `../protocols/references/grilling.md` (the master), plus `../protocols/references/cross-model.md`,
-`../protocols/references/adversarial-review.md`, `../protocols/references/questions.md`. Follow the master
-exactly; this file adds host mechanics.
+Read `../protocols/references/grilling.md` (the master), plus
+`../protocols/references/models.md` (seats, approval, staffing, independence),
+`../protocols/references/cross-model.md`, `../protocols/references/adversarial-review.md`,
+`../protocols/references/questions.md`, and `../protocols/references/multimodel-knowledge.md`
+(why the rounds are capped and the passes blind). Follow the master exactly;
+this file adds the seating mechanics. The seats live in `sequence.json` beside
+this file (variants `standard`, `same-lineage`, `deep`) — the ONLY home of
+grill's roles and constraints.
 
 Entry points: standalone `/supermodo:grill`, `librarian --task` intake,
 `flow` stage 1 and mid-run `needs-input` escalations.
 
 ## Actors (host-neutral)
 
-- **Moderator = you, main context.** Hold the two threads, route questions per
-  the questions triage, talk to the user, record decisions via librarian. NEVER
-  crawl the codebase yourself — stay tiny.
-- **Local planner** — a persistent agent of the HOST model.
-- **Adversary planner** — a persistent READ-ONLY CLI session of the OTHER
-  provider.
+- **Moderator = you, main context (the coordinator, always the host).** Hold
+  the threads, route questions per the questions triage, talk to the user,
+  record decisions via librarian. NEVER crawl the codebase yourself — stay tiny.
+- **Planners `plan-a` / `plan-b`** — two `lead` seats, `differentLineageFrom`
+  each other, each a persistent read-only session resumed across rounds.
+- **Adversaries `attack-a` / `attack-b`** — two `adversary` seats, each a
+  different lineage from the plan it attacks, receiving that plan RAW.
 
-Either planner unavailable → honest single-model degradation (see bottom).
+Which model sits where comes from the user's approved registry assignments
+through the broker (below). A seat that cannot be staffed stops the grill
+before it starts — there is no degraded mode.
 
 ## Phases (from the master)
 
@@ -93,9 +101,12 @@ Per concept-group:
 <3–4 line plain-language explanation of the actual choice and what's at stake>
 
 Q: <the question>
-  1. Claude suggests: <host recommendation>
-  2. Codex counters: <adversary view>   (swap names when Codex is host;
-                                          "unavailable (single-model)")
+  1. <plan-a model> suggests: <that planner's recommendation>
+  2. <plan-b model> counters: <the other planner's view>
+     (labels are the seated models' registry ids, e.g. `opus5 suggests:` /
+     `astra counters:`, the host seat by its pin — never a vendor name; a
+     `same-lineage` variant adds
+     "(same lineage — reviewed, not independent)" after the counter line)
   3. More detail — verbose, link-rich expansion (files, docs, decisions),
      then this question is asked again
   4. Your own answer
@@ -106,44 +117,58 @@ The user answers by number or free text. Choosing (3) never consumes the
 question; a (4) custom answer re-enters one disprove round before locking.
 Deferred items go to the work-doc Open Questions.
 
-## Host mechanics — Claude Code host
+## Seating and dispatch (host-neutral)
 
-Local planner = a **subagent kept alive** across the whole grill (monitored
-per the liveness rule in `../protocols/references/handoff.md` — a planner
-that stops producing between rounds is stopped and respawned once with the
-transcript so far; waiting on the USER is never a stall):
+Every seat is resolved and run by the broker
+(`../protocols/scripts/broker.ts`); the moderator never composes a CLI call
+and never names a model. `<skills>` = the installed supermodo skills folder
+(under the plugin, `${CLAUDE_PLUGIN_ROOT}/skills`); `<host>` = `claude` or
+`codex`, whichever runs this session.
 
-- Spawn one general subagent with the brief; it returns its plan + question
-  list. Keep it alive and continue it via **SendMessage** to run disprove
-  rounds and fold in user answers — its context stays intact, no rerun.
-
-Adversary = **`codex exec`, read-only**, one persistent thread:
-
-- Preflight first (per cross-model): `codex --version`, auth OK. On failure
-  STOP and ask: fix+retry / continue single-model / abort. Never silently
-  degrade.
-- First call:
-  `codex exec --json -s read-only --skip-git-repo-check "<brief>" < /dev/null`
-  (drop `--skip-git-repo-check` inside a git repo). ALWAYS redirect
-  `< /dev/null` or it hangs. Never pin `-m`. `--json` is REQUIRED on the
-  first call — the `{"type":"thread.started",...}` event that carries
-  `thread_id` only exists in JSON output; capture it there (the planner's
-  prose lands in the `item.completed`/message events).
-- Resume for every later round (SAME thread keeps context):
-  `codex exec resume <thread_id> -c sandbox_mode="read-only" "<next batch>" < /dev/null`
-  (resume rejects `-s`). Batch ~12 items per call. Give each call a 10-min
-  timeout; within it, a call whose output stopped growing at ~0 CPU for ~5
-  consecutive min is hung, not slow — kill early, retry once fresh, second
-  stall → single-model for that batch and record it.
-
-## Host mechanics — Codex host (inverted)
-
-- Local planner = the host's OWN delegation mechanism, kept alive across rounds.
-- Adversary = `claude -p --allowedTools "Read,Grep,Glob"` (read-only enforced
-  by the explicit allowlist, never by trusting user settings), one persistent
-  session, same preflight / batching / hung-detection rules. Never pin a model.
-- Everything else identical; swap the `Claude suggests:` / `Codex counters:`
-  labels so the HOST is the "suggests" line.
+1. **Plan the seats** — before anything launches:
+   `node <skills>/protocols/scripts/broker.ts plan --skill grill --project-root <root> --host <host> --host-pin <your exact model id> [--variant <v>] [--run <id>]`
+   Read the JSON: `staffed`, `seats[]` (id · model · effort · session ·
+   independent), `unstaffed[]` with reasons, `independence`, `proposal`.
+2. **Unapproved classes** (`proposal` is non-null): show ONE numbered table —
+   class · seats the row fills (`detail[].seats`) · proposed model + effort ·
+   flags — and ask the closed menu **approve all / change rows by number /
+   decline** (default decline; `models.md` → Approval). The rows are the set
+   that staffs the whole variant, so a class may take two rows (one per
+   lineage the variant needs); approving them all is one answer. On approval run
+   `node <skills>/config/scripts/models.ts approve <proposalFile> --project-root <root>`,
+   then plan again. Unattended → report `needs-input` with the table and stop.
+3. **Unstaffed seats** (`staffed: false`): show each `unstaffed` id with its
+   reason and ask the closed menu **staff it / run a fully staffed variant /
+   abort**. Never start with a hole; never downgrade automatically.
+4. **Independent plans** — the brief is `roles/planner.md` (this skill's
+   folder) with a `<task>` block prepended: the user's ask verbatim, the
+   project root and the docs router path — nothing else (no hints, no
+   framing: the planners find what matters themselves). Write it
+   under `roundsDir` (from the plan JSON), then for each planner:
+   `node <skills>/protocols/scripts/broker.ts dispatch --plan <planFile> --seat plan-a --brief <file>`
+   (and `plan-b`). Both dispatches go out in the same turn, blind to each other.
+   A seat whose `transport` is `host` or `native` is launched by the moderator
+   itself as a subagent with the same brief (kept alive via SendMessage); when
+   it returns, save its output under `roundsDir` and ledger it with
+   `dispatch --seat <id> --brief <file> --result <output>` (status `host`).
+5. **Disprove rounds** — the brief is `roles/adversary.md` with `<task>` and
+   an `<artefact>` block: `plan-b`'s output file path for `attack-a`, `plan-a`'s
+   for `attack-b` (raw artefact by path plus a verbatim copy, never a summary).
+   Fold the attacks back to the planners with `--resume` so each keeps its
+   context. Batch ~12 items per call. Cap: two disprove rounds, then the
+   settled table.
+6. **Custom answers and reopened rows** re-enter ONE disprove round the same
+   way (`--resume`).
+7. **Run-time failure** — a dispatch returning `status: failed` (rate limit,
+   identity mismatch, stall, retired pin) stops the grill: the round files stay
+   under `roundsDir`, report seat / requested pin / cause, and offer
+   fix and retry / abort. (`status: host` is a ledgered host seat, not a
+   failure.) `unreviewed` output (empty, unparseable) is treated
+   as no verdict, never as agreement. Nothing is ever substituted.
+8. **Record** every round file and the ledger
+   (`broker.ts ledger --project-root <root> --run <id>`) in the grill report:
+   the seating table, independence reached, requested vs effective model per
+   seat.
 
 ## Output — what a successful grill produces
 
@@ -177,9 +202,13 @@ librarian pass, preserving the stages-1-and-7-only docs rule.
 At **five** unresolved rounds on one point, or when a disagreement hinges on
 product intent: present both positions verbatim and the user breaks the tie.
 
-## Degradation (honest, never faked)
+## Staffing gate (never faked)
 
-Adversary CLI absent / unauthenticated / both retries stalled → say so, run
-single-model with explicitly labeled self-adversary lines
-(`Codex counters: unavailable (single-model)`), and mark the whole grill
-single-model in its output. Never pretend a second model reviewed.
+A grill runs only fully staffed. A missing CLI, an unauthenticated adapter, a
+declined class, or a lineage constraint no approved model can satisfy is an
+UNSTAFFED seat: the broker names it and its reason, the moderator asks
+**staff it / run a fully staffed variant / abort**, and nothing starts until
+one is chosen. The `same-lineage` variant exists for a user with one lineage
+enrolled — it promises "reviewed, not independent" and every question and
+report says so. A self-adversary standing in for a second lineage does not
+exist in this skill.

@@ -1,0 +1,20 @@
+{
+  "configVersion": 1,
+  "agents": {
+    "dir": ".supermodo/agents",
+    "hosts": ["claude", "codex"]
+  },
+  "multimodel": {
+    "classes": {
+      "adversary": { "extends": "lead" },
+      "security-audit": { "extends": "adversary" },
+      "s-triage": { "extends": "nope", "kind": "judgment" }
+    },
+    "variants": { "hunt": "Deep" },
+    "forbid": { "reviewer": ["Anthropic"] },
+    "require": { "adversary": [] },
+    "concurrency": 0,
+    "models": { "astra": { "pin": "gpt-6-astra" } },
+    "jobs": { "lead": ["astra"] }
+  }
+}

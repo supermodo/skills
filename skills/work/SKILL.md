@@ -27,16 +27,19 @@ unset). See **Step 3.5** and the worktree-mode contract in
 
 Read `../protocols/references/docs-convention.md`, `../protocols/references/worklist.md`,
 `../protocols/references/questions.md`,
+`../protocols/references/models.md` (seats, approval, staffing, independence),
 `../protocols/references/cross-model.md`, `../protocols/references/adversarial-review.md`,
-`../protocols/references/handoff.md`, `../protocols/references/reports.md`. Validate config FIRST per
+`../protocols/references/handoff.md`, `../protocols/references/reports.md`. The
+reviewer seats live in `sequence.json` beside this file (variants `standard`,
+`same-lineage`, `deep`). Validate config FIRST per
 the config contract — halt on missing/invalid config, naming the field, point
 at `config`. **Never mutate git** (no commit/merge/rebase/push).
 
 > **Cross-tool note (Claude Code ↔ Codex).** Written in Claude Code idioms.
 > Under Codex, translate: `$ARGUMENTS` = the invocation argument; the `Agent`
 > tool with `subagent_type = <file>` = dispatch the matching agent from the
-> config `agents.dir` roster (same roles mirrored per host, e.g.
-> `.codex/agents/*` alongside `.claude/agents/*`); "use AskUserQuestion" = ask
+> config `agents.dir` roster (a role file declares `job: <class>` and never
+> a model; roles are never mirrored into a host's native agents dir); "use AskUserQuestion" = ask
 > in chat. If a role has no host-native agent file, read that role's
 > definition and apply its checklist inline.
 
@@ -128,24 +131,47 @@ inline before considering the task done.
 
 ## Step 6 — adversarially verify
 
-When the task is complete, the implementing provider must NOT verify its own
-work. Per `../protocols/references/cross-model.md` + `../protocols/references/adversarial-review.md`:
+When the task is complete, the implementer never verifies its own work. The
+reviewer is a seat the broker resolves from the user's approved assignments
+(`../protocols/references/models.md`); this skill never names a model and never
+composes a CLI call. `<skills>` = the installed supermodo skills folder;
+`<host>` = `claude` or `codex`.
 
-- Launch the OPPOSITE provider as a **read-only** reviewer (Claude impl →
-  Codex; Codex impl → Claude). Never substitute a same-provider agent. If the
-  opposite CLI is absent/unauthenticated/can't run the proof, stop and ask
-  the user (fix+retry / continue single-model / abort) — never fake a second
-  opinion.
-- Give it the spec, the current diff, the applicable convention constraints,
-  and the exact tier commands. Permit source reads + test runs; forbid edits,
-  commits, implementation.
-- Require a structured `APPROVED` / `REVISE` verdict with findings, evidence,
-  commands run, residual risks. Burden of proof is on the diff; "no material
-  objection found" is a valid, logged outcome.
-- On `REVISE`, fix and resume the SAME reviewer session with the new diff.
-  Loop until agreement or the **five-round cap**; when disagreement hinges on
-  product intent, present both positions verbatim and the user decides.
-  Persist each verdict to disk as it forms.
+1. **Plan the seats at step 0, not here** — the very first thing `work` does
+   after loading context is
+   `node <skills>/protocols/scripts/broker.ts plan --skill work --project-root <root> --host <host> --host-pin <your exact model id> [--variant <v>]`
+   so an unstaffed reviewer is learned at minute 0, never after the
+   implementation. `proposal` non-null → ONE approval table, closed menu
+   **approve all / change rows by number / decline** (default decline), persist
+   via `node <skills>/config/scripts/models.ts approve <proposalFile> --project-root <root>`,
+   plan again. `staffed: false` → **staff it / run a fully staffed variant /
+   abort**; never start with a hole, never downgrade. Unattended → `needs-input`.
+2. **The orchestrator runs the tests** (`commands.test`, `commands.testUnit`,
+   `commands.lint`) and writes command · exit status · output · the reviewed
+   commit/tree hash to a file. The reviewer never executes anything.
+3. **Brief the reviewer**: the brief is `roles/reviewer.md` (this skill's folder). Then
+   `node <skills>/protocols/scripts/broker.ts dispatch --plan <planFile> --seat review --brief <file> --schema <skills>/protocols/schemas/review-verdict.schema.json`.
+   A `deep` variant fans `review` out over the roster's reviewers and adds a
+   fresh-session `verify` seat that checks each finding against the code.
+4. **Dispose of every finding** — accept and change, or rebut with a specific
+   codebase reference; bare disagreement is invalid. A finding the reviewer
+   cannot tie to `file:line` + a quote is `uncertain`, never blocking. The
+   reviewer REPORTS; it never rewrites.
+5. **On REVISE**, fix, re-run the tests, and dispatch the same seat with
+   `--resume` and a DELTA brief (diff since the reviewed snapshot + per-finding
+   dispositions + round number). Cap: **five rounds**, then the user decides
+   with both positions verbatim. Low/informational findings never restart a
+   round. Persist each verdict as it forms.
+6. **Run-time failure** (`status: failed` — rate limit, identity mismatch,
+   stall, retired pin): stop the task here, keep the tree and the verdict
+   files, report seat / requested pin / cause / "verification absent", and
+   offer fix and retry / abort. `unreviewed` output is no verdict, never
+   approval. Nothing is ever substituted — the implementer never grades
+   itself, and a `same-lineage` variant's verdict is reported as "reviewed,
+   not independent".
+7. The report carries the seating table, the independence level reached
+   (`cross-lineage` / `same-lineage` / `none`), requested vs effective model
+   per seat, and the ledger (`broker.ts ledger --project-root <root> --run <id>`).
 
 ## Step 7 — documentation
 

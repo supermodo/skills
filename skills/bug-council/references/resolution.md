@@ -59,55 +59,7 @@ Give the implementer only:
 
 Do not give the implementer the entire debate transcript unless a specific detail is necessary.
 
-Use this prompt:
-
-```text
-You are the sole implementer for a confirmed bug.
-
-CONFIRMED ROOT CAUSE
-
-{{ROOT_CAUSE}}
-
-DECISIVE EVIDENCE
-
-{{EVIDENCE}}
-
-REGRESSION TEST OR OBJECTIVE PROBE
-
-{{REGRESSION_TEST}}
-
-IMPLEMENTATION CONSTRAINTS
-
-{{CONSTRAINTS}}
-
-REPOSITORY INSTRUCTIONS
-
-{{REPOSITORY_INSTRUCTIONS}}
-
-Implement the smallest change that fixes the confirmed cause.
-
-Rules:
-
-- Do not fix unrelated issues.
-- Do not refactor unrelated code.
-- Do not rename unrelated symbols.
-- Do not reformat unrelated files.
-- Do not upgrade dependencies unless the confirmed root cause requires it.
-- Do not suppress or weaken the regression test.
-- Preserve public APIs unless changing one is explicitly required.
-- Remove all temporary diagnostic instrumentation.
-- Run the regression test and relevant targeted checks.
-- Report every changed file and why it was necessary.
-
-Return:
-
-PATCH SUMMARY:
-CHANGED FILES:
-WHY EACH CHANGE IS NECESSARY:
-REGRESSION TEST RESULT:
-TARGETED TEST RESULTS:
-KNOWN LIMITATIONS:
-```
+The brief is `roles/implementer.md` (this skill's folder), with `{{ROOT_CAUSE}}`, `{{EVIDENCE}}`, `{{REGRESSION_TEST}}`, `{{CONSTRAINTS}}` and `{{REPOSITORY_INSTRUCTIONS}}` filled in.
 
 Use a clean worktree or controlled checkout when the existing working tree contains unrelated changes.
 
@@ -118,7 +70,7 @@ Do not overwrite user changes.
 Use a fresh verifier that:
 
 - did not implement the patch;
-- preferably uses another provider;
+- is the `verify` seat of `../sequence.json`: another lineage than the implementer, a fresh session from the judge, resolved by the broker;
 - does not initially receive the implementer's reasoning;
 - receives the original dossier;
 - receives the root-cause statement;
@@ -126,67 +78,7 @@ Use a fresh verifier that:
 - receives the regression test;
 - has permission to run the relevant checks.
 
-Use this prompt:
-
-```text
-You are the independent verifier for a bug fix.
-
-Assume the patch may be wrong, incomplete, overbroad, or merely masking the
-symptom.
-
-ORIGINAL BUG DOSSIER
-
-{{DOSSIER}}
-
-CONFIRMED ROOT CAUSE
-
-{{ROOT_CAUSE}}
-
-PATCH DIFF
-
-{{PATCH}}
-
-REGRESSION TEST OR PROBE
-
-{{REGRESSION_TEST}}
-
-Verify all applicable items:
-
-1. Reproduce the original failure on the buggy revision or state.
-2. Confirm the regression test fails before the patch for the expected reason.
-3. Confirm it passes after the patch.
-4. Run relevant targeted tests.
-5. Run the appropriate broader tests when affordable.
-6. Inspect the diff for unrelated changes.
-7. Test at least one neighboring boundary case or counterexample.
-8. Verify the patch fixes the confirmed causal mechanism.
-9. Search for paths where the original cause may still occur.
-10. Verify public contracts and compatibility.
-11. Confirm temporary instrumentation and files were removed.
-12. Identify unresolved high-severity risks.
-
-In deep mode, perform a mutation check when practical:
-
-- temporarily undo or invert the essential part of the fix;
-- confirm that the regression test fails;
-- restore the patch.
-
-Return:
-
-VERDICT
-
-APPROVED | REJECTED | INCONCLUSIVE
-
-FAIL-BEFORE RESULT:
-PASS-AFTER RESULT:
-TARGETED TEST RESULTS:
-BROADER TEST RESULTS:
-BOUNDARY OR COUNTEREXAMPLE TEST:
-ROOT-CAUSE FIX VERIFICATION:
-UNRELATED DIFF FINDINGS:
-RESIDUAL RISKS:
-REQUIRED FOLLOW-UP:
-```
+The brief is `roles/verifier.md` (this skill's folder), with `{{DOSSIER}}`, `{{ROOT_CAUSE}}`, `{{PATCH}}` and `{{REGRESSION_TEST}}` filled in.
 
 The implementer must address a verifier rejection through evidence or a revised patch.
 
@@ -317,8 +209,8 @@ CONFIDENCE
 - ...
 ```
 
-Mention provider participation only after adjudication and only when useful.
+Mention which model held which seat only after adjudication and only when useful.
 
-Do not claim that several providers worked together unless their independent sessions actually ran successfully.
+Do not claim that several lineages worked together unless the ledger shows their independent sessions actually ran successfully.
 
-When an external provider failed to launch, authenticate, read the repository, or return a valid report, state that clearly and continue with the remaining independent seats when the investigation remains valid.
+A seat that returned `failed` (launch, auth, rate limit, stall, identity mismatch) stopped the council where it happened (`intake.md` §3: fix and retry / abort) — the report names the seat, pin and cause for every attempt. A seat that returned `unreviewed` (ran, but no parseable report) is recorded as "no report from this seat"; the council continues only when the remaining seats still satisfy the variant's independence constraints, and the report says which seat is missing.

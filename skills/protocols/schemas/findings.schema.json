@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "supermodo findings (a finder seat's output)",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "defect",
+              "improvement"
+            ]
+          },
+          "category": {
+            "type": "string",
+            "description": "Layer > Subcategory"
+          },
+          "file": {
+            "type": "string"
+          },
+          "line": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string",
+            "description": "code snippet or explanation"
+          },
+          "impact": {
+            "type": "string",
+            "description": "what breaks and for whom"
+          },
+          "fix": {
+            "type": "string",
+            "description": "suggested approach"
+          },
+          "question": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "severity",
+          "kind",
+          "category",
+          "file",
+          "line",
+          "title",
+          "evidence",
+          "impact",
+          "fix",
+          "question"
+        ]
+      }
+    }
+  },
+  "required": [
+    "findings"
+  ]
+}

@@ -47,11 +47,17 @@
     "mergeStrategy": "squash"
   },
   "agents": {
-    "dir": ".claude/agents",
-    "hosts": [
-      "claude",
-      "codex"
-    ]
+    "dir": ".supermodo/agents"
+  },
+  "multimodel": {
+    "classes": {
+      "s-security-audit": { "extends": "adversary" }
+    },
+    "variants": { "hunt": "deep", "*": "standard" },
+    "forbid": { "reviewer": ["lineage:anthropic", "claude-fable-5-1"] },
+    "require": { "adversary": ["lineage:openai"] },
+    "concurrency": 2,
+    "budget": { "callsPerRun": 40 }
   },
   "vcs": {
     "issueKey": {

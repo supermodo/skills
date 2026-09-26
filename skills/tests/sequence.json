@@ -1,0 +1,121 @@
+{
+  "descriptorVersion": 1,
+  "skill": "tests",
+  "default": "standard",
+  "variants": {
+    "standard": {
+      "promises": "cross-lineage",
+      "nodes": [
+        {
+          "id": "audit",
+          "role": "auditor",
+          "class": "leg-work",
+          "inputs": [
+            "brief"
+          ],
+          "access": "repo",
+          "host": true
+        },
+        {
+          "id": "design",
+          "role": "test-designer",
+          "class": "adversary",
+          "inputs": [
+            "audit"
+          ],
+          "access": "repo",
+          "raw": true,
+          "differentLineageFrom": [
+            "audit"
+          ]
+        },
+        {
+          "id": "skeptic",
+          "role": "skeptic",
+          "class": "adversary",
+          "inputs": [
+            "audit",
+            "design"
+          ],
+          "access": "repo",
+          "host": true,
+          "raw": true
+        },
+        {
+          "id": "cross-check",
+          "role": "verifier",
+          "class": "adversary",
+          "inputs": [
+            "audit",
+            "design"
+          ],
+          "access": "repo",
+          "raw": true,
+          "differentLineageFrom": [
+            "audit",
+            "skeptic"
+          ],
+          "differentSessionFrom": [
+            "design"
+          ]
+        }
+      ]
+    },
+    "same-lineage": {
+      "promises": "same-lineage",
+      "nodes": [
+        {
+          "id": "audit",
+          "role": "auditor",
+          "class": "leg-work",
+          "inputs": [
+            "brief"
+          ],
+          "access": "repo",
+          "host": true
+        },
+        {
+          "id": "design",
+          "role": "test-designer",
+          "class": "adversary",
+          "inputs": [
+            "audit"
+          ],
+          "access": "repo",
+          "raw": true,
+          "differentSessionFrom": [
+            "audit"
+          ]
+        },
+        {
+          "id": "skeptic",
+          "role": "skeptic",
+          "class": "adversary",
+          "inputs": [
+            "audit",
+            "design"
+          ],
+          "access": "repo",
+          "host": true,
+          "raw": true
+        },
+        {
+          "id": "cross-check",
+          "role": "verifier",
+          "class": "adversary",
+          "inputs": [
+            "audit",
+            "design"
+          ],
+          "access": "repo",
+          "raw": true,
+          "differentSessionFrom": [
+            "audit",
+            "design",
+            "skeptic"
+          ]
+        }
+      ]
+    }
+  }
+}

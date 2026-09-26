@@ -10,6 +10,8 @@ Start with the [README](../README.md) for the pitch and the quick start.
   three-step setup
 - [The documentation model](documentation.md) — the docs convention every
   skill navigates by, and the conventions it builds on
+- [Models](models.md) — enrol the engines you have, approve once which
+  class each may hold, and every skill seats them from that
 
 ## The skills
 

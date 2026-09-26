@@ -84,11 +84,23 @@ docs; config fields point at it.
                                             // number governed when a tool prints several.
   },
   "agents": {                               // optional
-    "dir": ".claude/agents",                // CANONICAL roster (single source of truth);
-                                            // absent → single-agent fallback
-    "hosts": ["claude", "codex"]            // optional; hosts whose native agent dirs
-                                            // sync-configs mirrors FROM dir (one-way);
-                                            // requires dir
+    "dir": ".supermodo/agents"              // CANONICAL roster (single source of truth);
+                                            // absent → single-agent fallback. Role files
+                                            // declare `job: <class>` and no engine field
+                                            // (roster-check.ts). "hosts" REMOVED: roles are
+                                            // never mirrored into a host's native agents dir —
+                                            // they run only through the broker (models.md).
+  },
+  "multimodel": {                           // optional; PROJECT POLICY for the engine layer
+                                            // (models.md). Restrict-only: no model records,
+                                            // assignments, pins, effort, endpoints, keys or
+                                            // commands — those live in the per-user registry.
+    "classes":  { "s-security-audit": { "extends": "adversary" } },   // project classes: s-<name>, one field
+    "variants": { "hunt": "deep", "*": "standard" },                  // per-skill sequence variant
+    "forbid":   { "reviewer": ["lineage:anthropic", "claude-fable-5-1"] }, // by role | class | "coordinator";
+    "require":  { "adversary": ["lineage:openai"] },                  // values: "lineage:<slug>" or exact pins
+    "concurrency": 2,                       // 1–8 external seats in flight
+    "budget": { "callsPerRun": 40 }         // external calls per run
   },
   "questions": {                            // optional
     "transport": "chat",                    // "chat" (default) | "tool"
@@ -168,14 +180,16 @@ docs; config fields point at it.
   set, or over SSH without a display — the `file://` link is printed instead,
   whatever the setting says.
 - `agents.dir` absent or empty → skills use their single-agent fallback.
-- `agents.dir` is the CANONICAL roster: supermodo skills read agents from
-  it on every host; edits go there, never to a mirror. `agents.hosts`
-  lists the hosts whose native dirs (`claude` → `.claude/agents/`,
-  `codex` → `.codex/agents/`) `sync-configs` derives one-way from the
-  canonical dir so each host's harness finds them natively — mirrors are
-  generated files, never hand-edited, and a host slug equal to the
-  canonical dir's own host is simply already satisfied. `hosts` absent →
-  no mirroring.
+- `agents.dir` is the CANONICAL roster (default `.supermodo/agents/`):
+  supermodo skills read role files from it on every host and seat them
+  through the broker only (`models.md`). A role file declares `job: <class>`
+  and never an engine field; files without `job:` are not roles and are left
+  alone. Roles are never mirrored into a host's native agents directory
+  (`agents.hosts` is REMOVED and reported as such).
+- `multimodel` absent → no project classes, every skill runs its descriptor's
+  default variant, no forbid/require, concurrency 2, no call budget. The
+  section can only restrict; whether anything is SEATED is decided by the
+  user's approved registry assignments, never by this file.
 - `commands.docsCheck` / `commands.docsGenerate` absent → librarian runs its
   bundled scripts, resolved RELATIVE TO THE INSTALLED SKILL FOLDER (never a
   config-supplied path to the bundle).

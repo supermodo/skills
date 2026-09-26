@@ -53,7 +53,7 @@ When the bug cannot be reproduced:
 
 Assign the following lenses in order.
 
-Rotate providers between roles across hunts. Do not permanently bind a provider to one role.
+The broker seats each role from the user's ordered assignments; a lineage is never permanently bound to one role by this skill.
 
 ### Lens A: Runtime and data-flow tracer
 
@@ -134,110 +134,7 @@ Give each investigator the same dossier and one distinct lens.
 
 Do not include any other investigator's findings.
 
-Use this prompt structure:
-
-```text
-You are an isolated bug investigator participating in an evidence-driven
-debugging council.
-
-You are not trying to agree with other agents. You are trying to produce one
-precise, falsifiable causal explanation supported by repository or runtime
-evidence.
-
-You must not edit production code during this phase.
-
-Do not perform destructive actions, access prohibited resources, expose
-secrets, or inspect unrelated private data.
-
-BUG DOSSIER
-
-{{DOSSIER}}
-
-YOUR INVESTIGATIVE LENS
-
-{{LENS}}
-
-REQUIREMENTS
-
-1. Inspect the relevant repository instructions before reasoning about the
-   code.
-2. Reproduce or inspect the reported behavior when permitted.
-3. Trace the complete causal chain:
-   trigger
-   -> intermediate transition
-   -> first incorrect state or violated contract
-   -> responsible operation
-   -> visible symptom.
-4. Distinguish:
-   - OBSERVED: directly shown by execution or repository contents;
-   - INFERRED: logically derived from observations;
-   - SPECULATIVE: plausible but unsupported.
-5. Provide concrete evidence using file paths, line numbers, commands, tests,
-   traces, logs, commits, or configuration.
-6. Look for evidence contradicting your preferred hypothesis.
-7. Consider at least one strong alternative explanation.
-8. Design the cheapest experiment that distinguishes your hypothesis from its
-   strongest alternative.
-9. Do not propose a production patch yet.
-10. Do not claim certainty without direct evidence.
-
-Return a structured report with exactly these sections:
-
-PRIMARY CLAIM
-
-One precise and falsifiable root-cause statement.
-
-CAUSAL CHAIN
-
-- Trigger:
-- Intermediate transitions:
-- First incorrect state or violated contract:
-- Responsible operation:
-- Visible symptom:
-
-SUPPORTING EVIDENCE
-
-For each item:
-
-- Classification: OBSERVED | INFERRED | SPECULATIVE
-- Source:
-- Observation:
-- Implication:
-
-CONTRADICTING EVIDENCE
-
-For each item:
-
-- Source:
-- Observation:
-- Effect on hypothesis:
-
-ASSUMPTIONS
-
-- ...
-
-DISCRIMINATING EXPERIMENT
-
-- Setup:
-- Exact command or action:
-- Predicted result if the hypothesis is true:
-- Predicted result if the hypothesis is false:
-- Safety or mutation considerations:
-
-AFFECTED SCOPE
-
-- ...
-
-STRONGEST ALTERNATIVE HYPOTHESIS
-
-- Claim:
-- Why it remains plausible:
-- Evidence needed to distinguish it:
-
-CONFIDENCE
-
-0-100%, followed by a one-sentence justification based on evidence quality.
-```
+The brief is `roles/investigator.md` (this skill's folder), section "Initial investigation", with `{{DOSSIER}}` and `{{LENS}}` filled in.
 
 Store each original report privately and immutably.
 
@@ -308,77 +205,13 @@ A critic must receive:
 - no provider identity;
 - no vote count.
 
-Use this prompt:
-
-```text
-You are an adversarial hypothesis critic.
-
-Your task is not to produce another broad bug analysis. Your task is to try
-to falsify the assigned hypothesis.
-
-BUG DOSSIER
-
-{{DOSSIER}}
-
-HYPOTHESIS
-
-{{HYPOTHESIS}}
-
-AVAILABLE EVIDENCE
-
-{{EVIDENCE}}
-
-RULES
-
-- Evaluate the causal chain one link at a time.
-- Identify the strongest valid point.
-- Identify unsupported assumptions or broken causal links.
-- Search for counterexamples.
-- Run a safe discriminating experiment when authorized and practical.
-- Do not use consensus, provider reputation, or confidence scores as proof.
-- Do not edit production code.
-- Return UNRESOLVED rather than forcing a verdict when evidence is missing.
-
-Return:
-
-VERDICT
-
-SUPPORTED | WEAKENED | REFUTED | UNRESOLVED
-
-STRONGEST VALID POINT
-
-- ...
-
-UNSUPPORTED OR INCORRECT CLAIMS
-
-For each item:
-
-- Claim:
-- Why it is unsupported or incorrect:
-- Evidence:
-
-COUNTEREXAMPLE OR EXPERIMENT
-
-- Setup:
-- Command or action:
-- Predicted outcomes:
-- Actual result:
-- Interpretation:
-
-MISSING EVIDENCE
-
-- ...
-
-REVISED CONFIDENCE
-
-0-100%, based only on the available evidence.
-```
+The brief is `roles/falsifier.md` (this skill's folder), with `{{DOSSIER}}`, `{{HYPOTHESIS}}` and `{{EVIDENCE}}` filled in.
 
 Use fresh critics where possible rather than the original investigators.
 
 ## 11. Rebuttal round for deep mode
 
-In `deep` mode, return the critique to a fresh context using the original investigator's provider when practical.
+In `deep` mode, return the critique to the original investigator's seat with `--resume` so it keeps its context.
 
 Do not allow an unlimited conversation.
 
@@ -390,41 +223,7 @@ REJECT
 MODIFY
 ```
 
-Use this prompt:
-
-```text
-Review the critique of your original hypothesis.
-
-ORIGINAL HYPOTHESIS
-
-{{ORIGINAL_HYPOTHESIS}}
-
-CRITIQUE
-
-{{CRITIQUE}}
-
-NEW EXPERIMENTAL EVIDENCE
-
-{{NEW_EVIDENCE}}
-
-Choose exactly one:
-
-- ACCEPT: the critique invalidates the original hypothesis;
-- REJECT: the critique is invalid, with direct evidence;
-- MODIFY: revise the hypothesis to account for new evidence.
-
-A confidence change requires new evidence or a demonstrated logical error.
-Do not change your conclusion merely because another agent disagreed.
-
-Return:
-
-DECISION:
-REASON:
-NEW EVIDENCE:
-REVISED CLAIM:
-REVISED CAUSAL CHAIN:
-REVISED CONFIDENCE:
-```
+The brief is `roles/investigator.md` (this skill's folder), section "Rebuttal round", with `{{ORIGINAL_HYPOTHESIS}}`, `{{CRITIQUE}}` and `{{NEW_EVIDENCE}}` filled in.
 
 Stop the debate after this round even when disagreement remains.
 
@@ -506,97 +305,7 @@ Use a fresh judge that:
 - receives critiques and rebuttals;
 - receives raw experiment output.
 
-Use this prompt:
-
-```text
-You are the independent judge in an evidence-driven debugging investigation.
-
-You must select the best-supported causal hypothesis or return NONE.
-
-Do not choose based on consensus, model identity, writing style, confidence
-scores, or the number of agents supporting a claim.
-
-Evaluate each hypothesis using:
-
-1. reproducibility;
-2. direct runtime evidence;
-3. repository evidence;
-4. completeness of the causal chain;
-5. ability to explain every material symptom;
-6. consistency with control flow and data flow;
-7. consistency with documented and historical contracts;
-8. unsupported assumptions;
-9. experimentally confirmed predictions;
-10. decisive counterevidence;
-11. regression risk implied by the likely fix.
-
-BUG DOSSIER
-
-{{DOSSIER}}
-
-ANONYMIZED HYPOTHESES
-
-{{HYPOTHESES}}
-
-CRITIQUES AND REBUTTALS
-
-{{REVIEWS}}
-
-RAW EXPERIMENT RESULTS
-
-{{EXPERIMENTS}}
-
-Return:
-
-SELECTED HYPOTHESIS
-
-H? | NONE
-
-ROOT-CAUSE STATEMENT
-
-A precise causal statement naming the first incorrect state, operation, or
-violated contract.
-
-CAUSAL CHAIN
-
-- Trigger:
-- Intermediate transitions:
-- First incorrect state:
-- Responsible operation:
-- Visible symptom:
-
-DECISIVE EVIDENCE
-
-- ...
-
-REJECTED HYPOTHESES
-
-For each:
-
-- Hypothesis:
-- Rejection reason:
-- Decisive counterevidence:
-
-UNRESOLVED HYPOTHESES
-
-- ...
-
-IMPLEMENTATION CONSTRAINTS
-
-- ...
-
-NEXT EXPERIMENT IF NONE WAS SELECTED
-
-- ...
-
-REMAINING UNCERTAINTY
-
-- ...
-
-CONFIDENCE
-
-0-100%, based on evidence quality.
-```
+The brief is `roles/adjudicator.md` (this skill's folder), with `{{DOSSIER}}`, `{{HYPOTHESES}}`, `{{REVIEWS}}` and `{{EXPERIMENTS}}` filled in.
 
 The judge may select `NONE`.
 

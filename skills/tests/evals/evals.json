@@ -1,0 +1,43 @@
+{
+  "skill": "tests",
+  "trigger": {
+    "should_trigger": [
+      "/supermodo:tests audit the data package",
+      "audit the tests of the data package",
+      "are these tests actually catching bugs?",
+      "get the suite green",
+      "drive coverage to 80 on the data package"
+    ],
+    "should_not_trigger": [
+      "find bugs in the processors",
+      "implement the next task",
+      "refactor this file",
+      "grill me on the test strategy",
+      "commit these changes"
+    ]
+  },
+  "behavior": [
+    {
+      "id": "audit-seats-then-two-lineage-verify",
+      "setup": "Real registry (audit host, design + cross-check in another lineage). Audit mode on one package.",
+      "prompt": "/supermodo:tests audit the data package",
+      "assert": [
+        "`broker.ts plan --skill tests` runs at step 0, before the coverage map and the fleet",
+        "The `design` seat is a `broker.ts dispatch --seat design` with a verdict schema, given the fleet's findings and the tests BY PATH; it emits verdicts and test SPECS, never files",
+        "Every merged finding gets a host skeptic verdict AND a `cross-check` verdict via broker batches (~12, --resume from the second), merged by the matrix; disputes kept verbatim",
+        "Mutation probes are reported UNAVAILABLE (no commands.mutation), never silently skipped; no `codex exec` / `claude -p` / `agy` is composed",
+        "The report carries the independence level reached and requested vs effective model per seat, with no 'single-model' wording"
+      ]
+    },
+    {
+      "id": "design-seat-failure-stops",
+      "setup": "Registry: the only adversary has a pin the CLI rejects.",
+      "prompt": "/supermodo:tests audit the data package",
+      "assert": [
+        "The `design` dispatch returns status failed and the audit STOPS: no verification claimed, no report shipped as verified",
+        "The stop names seat, requested pin and cause and offers fix and retry / abort",
+        "Nothing is substituted; the fleet's raw findings are not presented as verified"
+      ]
+    }
+  ]
+}

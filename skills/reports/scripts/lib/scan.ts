@@ -17,6 +17,8 @@ export type Stage = {
   readonly body: string;
   readonly unreadable: boolean;
   readonly gate: boolean;
+  readonly independence: string;
+  readonly seats: readonly string[];
 };
 
 export type Run = {
@@ -46,6 +48,8 @@ export type Report = {
   readonly unreadable: boolean;
   readonly needsYou: readonly string[];
   readonly href: string;
+  readonly independence: string;
+  readonly seats: readonly string[];
 };
 
 export type Model = { readonly runs: readonly Run[]; readonly reports: readonly Report[] };
@@ -123,7 +127,7 @@ const stageOf = (dir: string, name: string): Stage => {
   const order = name.match(/^(\d+[a-z]?)-/)?.[1] ?? "";
   const raw = readText(join(dir, name));
   if (raw === undefined) {
-    return { order, skill: name.replace(/\.md$/, ""), status: "unreadable", summary: "", questions: [], drift: [], decisions: [], body: "", unreadable: true, gate: GATES.has(order) };
+    return { order, skill: name.replace(/\.md$/, ""), status: "unreadable", summary: "", questions: [], drift: [], decisions: [], body: "", independence: "", seats: [], unreadable: true, gate: GATES.has(order) };
   }
   const { fm, body, hadFm } = parseFrontmatter(raw);
   const skill = str(fm, "skill") || name.replace(/^\d+[a-z]?-/, "").replace(/\.md$/, "");
@@ -137,6 +141,8 @@ const stageOf = (dir: string, name: string): Stage => {
     questions: list(fm, "questions"),
     drift: list(fm, "drift_notes"),
     decisions: list(fm, "decisions"),
+    independence: str(fm, "independence"),
+    seats: list(fm, "seats"),
     body,
     unreadable: !valid,
     gate: GATES.has(order),
@@ -213,6 +219,8 @@ const readReport = (root: string, skillDir: string, name: string): Report | unde
     // required field above, so a missing `skill` still reads as unreadable.
     skill: str(fm, "skill") || skillDir,
     task: str(fm, "task"),
+    independence: str(fm, "independence"),
+    seats: list(fm, "seats"),
     stamp: stampOf(name),
     status: unreadable ? "unreadable" : status,
     summary: str(fm, "summary"),

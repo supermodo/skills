@@ -1,0 +1,68 @@
+{
+  "skill": "work",
+  "trigger": {
+    "should_trigger": [
+      "/supermodo:work",
+      "implement the next task",
+      "resume roadmap work on the timezone utility",
+      "start task T2 from the close-out triad",
+      "continue the pipeline-ops initiative, next unchecked task",
+      "work on the formatTimestamp helper and get it reviewed",
+      "flow stage 2: implement the locked triad"
+    ],
+    "should_not_trigger": [
+      "grill me on this feature",
+      "find bugs in the pipeline runner",
+      "write the tests for the reconciler first",
+      "refactor this file into pure functions",
+      "commit these changes",
+      "what's next on the board?",
+      "sync the agent configs"
+    ]
+  },
+  "behavior": [
+    {
+      "id": "seats-at-step-0-then-review",
+      "setup": "A project with skills.config.json and an approved registry (code-generation → host, adversary in another lineage). The user names a small task.",
+      "prompt": "/supermodo:work <program>/<initiative> T2 — shared formatTimestamp utility with unit tests",
+      "assert": [
+        "`broker.ts plan --skill work` runs after loading context and BEFORE any project file is changed",
+        "No `codex exec`, `claude -p` or `agy` command is composed by the skill; the review is a `broker.ts dispatch --seat review` with a verdict schema",
+        "The orchestrator runs the configured test tiers itself and writes command · exit status · output · tree hash to an evidence file the reviewer brief references; the reviewer executes nothing",
+        "The reviewer brief carries the raw diff BY PATH and withholds the implementer's own justification",
+        "Every finding is disposed — accepted and changed, or rebutted with a specific codebase reference; a REVISE resumes the same seat with a delta brief",
+        "The report carries the seating table, the independence level reached and requested vs effective model per seat"
+      ]
+    },
+    {
+      "id": "unapproved-reviewer-before-code",
+      "setup": "Same project; the registry has NO assignment for `adversary`.",
+      "prompt": "/supermodo:work <program>/<initiative> T2 — shared formatTimestamp utility with unit tests",
+      "assert": [
+        "ONE approval table with the row(s) that staff the variant and the closed menu approve all / change rows / decline, at step 0",
+        "No project file is changed before the approval is persisted (the tree carries no edit from this run)",
+        "Unattended → `needs-input`; nothing is implemented, no self-review, no 'single-model' wording"
+      ]
+    },
+    {
+      "id": "unstaffed-stops-before-code",
+      "setup": "Registry: adversary approved only in the host's own lineage.",
+      "prompt": "/supermodo:work <program>/<initiative> T2 — shared formatTimestamp utility with unit tests",
+      "assert": [
+        "The unstaffed seat is named by id with the broker's reason (shares lineage …)",
+        "Exactly the menu staff it / run a fully staffed variant / abort is offered",
+        "No project file is changed; the task is not started in any degraded form"
+      ]
+    },
+    {
+      "id": "reviewer-failure-keeps-tree",
+      "setup": "Registry: the only adversary is a model whose pin the CLI rejects.",
+      "prompt": "/supermodo:work <program>/<initiative> T1 — the path-date helper",
+      "assert": [
+        "The implementation and the test tiers complete; the review dispatch returns status failed and the task STOPS there",
+        "The tree and the evidence/verdict files are kept; the report names seat, requested pin, cause and says verification is absent",
+        "Nothing is substituted: no other model reviews, the implementer does not grade itself, the task is not reported as verified or done; the menu is fix and retry / abort"
+      ]
+    }
+  ]
+}

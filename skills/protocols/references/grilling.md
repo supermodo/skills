@@ -14,17 +14,20 @@ moderator; heavy work happens off-main.
 - **Moderator** (main context): holds the threads, routes questions per the
   questions-protocol triage, talks to the user, records decisions via
   librarian. NEVER crawls the codebase itself — stays tiny.
-- **Local planner**: a persistent agent of the host model. Under Claude
-  Code: a subagent, continued via SendMessage so answers land in its intact
-  context (keep it alive until the grill ends). Under Codex: the host's own
-  delegation mechanism.
-- **Adversary planner**: a persistent READ-ONLY CLI session of the OTHER
-  provider (Claude host → `codex exec` thread; Codex host → `claude -p`).
-  Operations per the cross-model protocol.
+- **Planners**: two `lead`-class seats from the grill descriptor
+  (`skills/grill/sequence.json`), staffed by the broker from the user's
+  approved assignments (`models.md`), with `differentLineageFrom` between
+  them so the two plans are independent. A planner may be a native subagent
+  of the host (continued via SendMessage so answers land in its intact
+  context — keep it alive until the grill ends) or an external read-only
+  seat resumed across rounds (`cross-model.md`).
+- **Adversaries**: `adversary`-class seats that attack the plan they did
+  not write, each a different lineage from that plan's author.
 
-Either planner unavailable → honest degradation per cross-model protocol:
-single-model grill with explicitly labeled self-adversary lines; never
-pretend there was a second model.
+An unstaffed seat → the grill does not start (staffing gate in `models.md`):
+staff it, run a fully staffed variant, or abort. A grill never runs with a
+self-adversary standing in for a second lineage; a variant that promises
+`same-lineage` or `none` says so in every question and in the record.
 
 ## Phases
 

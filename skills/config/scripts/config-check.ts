@@ -5,6 +5,7 @@
 import { readFileSync } from "node:fs";
 import { DEFAULTS, at, floorViolations, resolve } from "./grammar.ts";
 import { parseJsonc } from "./jsonc.ts";
+import { checkMultimodel } from "./multimodel.ts";
 import { dangerousPattern } from "./regex-safety.ts";
 
 
@@ -92,21 +93,20 @@ const checkCoverage = (v: Json): string[] =>
       ? ["coverage.target: integer 1-100"] : []),
   ];
 
-const isHostSlug = (v: Json): v is string =>
-  isStr(v) && /^[a-z][a-z0-9-]*$/.test(v);
+// `agents.hosts` USED to list the hosts whose native agent dirs sync-configs
+// mirrored the roster into. Roster roles are never mirrored any more: a role
+// runs only through the broker, so nothing can launch it on the harness
+// default model behind the user's approvals (models.md → Migration).
+const REMOVED_AGENTS: readonly (readonly [string, string])[] = [
+  ["hosts",
+    "agents.hosts is removed. Roster roles are no longer mirrored into a host's native agents directory — a role declares the engine class it needs (`job:`) and runs only through the broker, so nothing can run it on a harness default model behind your approvals. Delete this key; sync-configs still syncs instructions, skills, MCP servers, hooks and non-role agents. Run `config --upgrade` to migrate role files."],
+];
 
 const checkAgents = (v: Json): string[] =>
   v === undefined ? [] : !isObj(v) ? ["agents: object expected"] : [
+    ...REMOVED_AGENTS.filter(([k]) => v[k] !== undefined).map(([, msg]) => msg),
     ...unknownKeys(v, ["dir", "hosts"], "agents"),
     ...(v.dir !== undefined && !isPath(v.dir) ? ["agents.dir: project-root-relative path"] : []),
-    ...(v.hosts === undefined ? []
-      : !Array.isArray(v.hosts) || v.hosts.length === 0 || !v.hosts.every(isHostSlug)
-        ? ['agents.hosts: non-empty array of host slugs (lowercase, e.g. ["claude", "codex"])']
-      : new Set(v.hosts).size !== v.hosts.length
-        ? ["agents.hosts: duplicate host slugs"]
-      : v.dir === undefined
-        ? ["agents.hosts: requires agents.dir (the canonical roster to mirror from)"]
-        : []),
   ];
 
 const TRANSPORTS = ["chat", "tool"] as const;
@@ -455,7 +455,7 @@ const checkGrammar = (c: Obj): string[] => {
 const ROOT_KEYS = [
   "configVersion", "project", "docs", "commands", "workspace", "coverage",
   "agents", "questions", "output", "confirmations", "reports", "changelog",
-  "release", "vcs",
+  "release", "vcs", "multimodel",
 ] as const;
 
 const validate = (c: Obj): string[] => [
@@ -474,6 +474,7 @@ const validate = (c: Obj): string[] => [
   ...checkChangelog(c.changelog),
   ...checkRelease(c.release),
   ...checkVcs(c.vcs),
+  ...checkMultimodel(c.multimodel),
   ...checkGrammar(c),
 ];
 

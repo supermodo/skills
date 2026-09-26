@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "supermodo review verdict (a review/critique seat's output); APPROVED with no findings is valid",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "APPROVED",
+        "REVISE"
+      ]
+    },
+    "checked": {
+      "type": "string",
+      "description": "what was verified"
+    },
+    "not_checked": {
+      "type": "string",
+      "description": "what was not verified"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "file": {
+            "type": "string"
+          },
+          "line": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "quote": {
+            "type": "string",
+            "description": "verbatim quote at file:line"
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "FACT",
+              "INFERENCE"
+            ]
+          },
+          "failure_scenario": {
+            "type": "string",
+            "description": "concrete input or state -> wrong outcome"
+          },
+          "fix": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "severity",
+          "file",
+          "line",
+          "quote",
+          "basis",
+          "failure_scenario",
+          "fix"
+        ]
+      }
+    }
+  },
+  "required": [
+    "verdict",
+    "checked",
+    "not_checked",
+    "findings"
+  ]
+}

@@ -9,6 +9,104 @@ contracts), **PATCH** = fixes and wording. `1.0.0` will mean the config
 schema (`configVersion`), the docs convention, and the protocol contracts
 are stable — from then on breaking those is a MAJOR with a migration path.
 
+## [0.8.0] - 2026-09-25
+
+### Added
+- **Any models, honestly.** supermodo no longer hard-codes "the other
+  provider". Enrol the engines you actually have — Claude, Codex, Gemini
+  through Antigravity, an OpenAI-compatible endpoint, a typed-judgment model
+  such as TypeSafe's Jev — with an exact model pin each, in a per-user
+  registry (`config --models`, `~/.config/supermodo/`), and approve once which
+  **engine class** each may hold: `lead`, `adversary`, `leg-work`,
+  `long-context`, `code-generation`, `judgment` (a project may add `s-*`
+  classes of its own). Every skill now ships a **sequence descriptor**
+  (`sequence.json`: roles, variants, per-seat constraints such as
+  "different lineage from the planner"), and a deterministic **broker**
+  (`skills/protocols/scripts/broker.ts`) seats the whole variant BEFORE
+  anything runs, shows one approval table the first time a class is needed,
+  executes every external seat itself with read-only enforced by the
+  adapter's own flags, verifies the effective model from the CLI's or API's
+  structured metadata, and writes a ledger (host seats are ledgered too, via
+  `dispatch --result`). Built-in role briefs ship with each skill
+  (`skills/<skill>/roles/<role>.md`). Nothing is seated without your
+  approval; nothing is ever substituted; a seat that cannot be staffed stops
+  the skill and asks (staff it / run a fully staffed variant / abort).
+- **Three independence levels on every run** — `cross-lineage` (independent
+  verification), `same-lineage` (reviewed, not independent: versions and
+  effort levels of one model never count as independent), `none`
+  (verification absent) — plus a seating table with requested vs effective
+  model per seat, in every report (`reports.md`: `independence`, `seats`).
+- Judgment seats (`router`, `ranker`, `matcher`, `sentinel`, and a `triager`
+  pilot whose agreement with your later promote/dismiss decisions is
+  recorded and measured — `broker.ts triage-agreement`) in the skills' `deep` variants: typed questions the package authors,
+  whose answers may only escalate, order or flag — never suppress a finding
+  or skip a gate (`protocols/references/judgment-roles.md`; wire format
+  verified live against `jev-1.13.0`).
+- A broker-applied **patch path**: an external `code-generation` seat may
+  author a patch as text; the broker dry-runs every block, applies
+  atomically, journals pre-images and reverse-applies on REVISE — the host
+  model never touches the patch.
+- `config --upgrade` migrates role files onto the engine layer regardless of
+  `configVersion`: it proposes `job: <class>` per file, removes `model:` /
+  `effort:` and moves the roster to `.supermodo/agents/`
+  (`config/scripts/roster-migrate.ts`, `roster-check.ts`).
+- **Antigravity (`agy`) can hold repository seats — sandboxed, with your
+  consent.** agy has no native read-only mode, so a repo seat runs
+  `--sandbox` in a disposable copy of your committable files (no `.git`, no
+  ignored files such as `.env`, no symlinks); the OS denies every read and
+  write outside it, and any change inside it voids the verdict. The network
+  stays open, so the seat is used only after you accept that once per model
+  (approve the row flagged `network open`, or `config --models consent <id>`;
+  `--revoke` undoes it). This staffs a third lineage for `bug-council`'s
+  `deep` council and the second-lineage finders of `hunt`/`flow`.
+- The broker retries a provider that is out of capacity (`503`, "high
+  demand", "overloaded") after a 1/2/4-minute backoff before failing the
+  seat; a usage-limit or quota error still fails at once.
+- **Shipped output schemas** for external seats
+  (`protocols/schemas/`: `findings`, `finding-verdicts`, `review-verdict`,
+  `design-verdict`), strict so Codex `--output-schema` accepts them; every
+  dispatch line names its schema, and `check.ts` fails when a referenced
+  schema is missing or not strict.
+- New protocol masters: `models.md` (the contract), `judgment-roles.md`, and
+  `multimodel-knowledge.md` — what the evidence says about multi-model work
+  and the ten hard rules every seat obeys. User doc: `docs/models.md`.
+
+### Changed
+- **`cross-model.md` v2.** "The OTHER provider" and "never pin a model" are
+  gone: seats come from approved assignments, pins come only from the
+  registry, independence is a per-seat `differentLineageFrom` constraint.
+- **Rules templates (public interface):** `work/standard.md` — step 6 now
+  reads "adversarially verify the diff through the broker's reviewer seat"
+  instead of "the opposite provider"; `bug-council/deep.md` — council
+  composition comes from the skill's `deep` variant and the user's approved
+  assignments instead of "detect what is available". Both are wording of the
+  same step, not a new sequence.
+- The Codex effort vocabulary includes `max` (and `ultra`, documented as
+  also delegating to Codex's own sub-agents, which multiplies cost — never a
+  default). Every skill's `broker.ts plan` passes `--host-pin`, so the host
+  seat is ledgered and labelled with its exact model id.
+- Question labels in every skill are the seated models' registry ids
+  (`opus5 suggests:` / `astra counters:`), never a vendor name.
+- `grill`, `work`, `hunt`, `tests`, `refactor`, `sync-configs`, `flow` and
+  `bug-council` dispatch every non-host seat through the broker; `flow`
+  seats the whole pipeline at step 0, so an unstaffed stage-6 reviewer is
+  learned at minute 0. `hunt`'s finder lanes no longer name a model.
+- The Claude adapter runs `claude -p --restricted --tools Read,Grep,Glob …`:
+  the canary test showed `--allowedTools` alone does not remove write tools.
+  Antigravity (`agy`) is admitted as a text-only seat (print mode denies every
+  tool); Kimi and Gemini CLI are not admitted until they pass the canary.
+
+### Removed
+- **`agents.hosts`** (config error with the migration message) and the
+  mirroring of roster roles into a host's native agents dir: a role declares
+  the engine class it needs and runs only through the broker, so nothing can
+  run it on a harness default model behind your approvals. `sync-configs`
+  still syncs instructions, skills, MCP servers, hooks and non-role agents.
+- The "single-model" mode, the "continue single-model" escape, the
+  self-adversary labels (`Codex counters: unavailable`), the automatic
+  Claude↔Codex pairing, every hand-written `codex exec` / `claude -p` recipe
+  in skill prose, and `model:` / `effort:` in role files.
+
 ## [0.7.0] - 2026-09-03
 
 ### Added

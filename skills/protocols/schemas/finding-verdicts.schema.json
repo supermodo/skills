@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "supermodo per-finding verdicts (a cross-check seat's output)",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "verdicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "verdict": {
+            "type": "string",
+            "description": "CONFIRMED | OVERSTATED: <severity> | REFUTED | DOCUMENTED | DOC-DRIFT | ANSWERED | OPEN"
+          },
+          "evidence": {
+            "type": "string",
+            "description": "citation (path:line + quote) or reasoning"
+          }
+        },
+        "required": [
+          "id",
+          "verdict",
+          "evidence"
+        ]
+      }
+    }
+  },
+  "required": [
+    "verdicts"
+  ]
+}

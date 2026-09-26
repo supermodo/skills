@@ -1,6 +1,6 @@
 ---
 name: bug-council
-description: Last resort for ONE stubborn bug the ordinary attempts already failed on — a blind, evidence-driven council of Codex, Claude, Kimi, or available native subagents that falsifies competing hypotheses, implements the smallest causal fix, and verifies it independently. EXPLICIT INVOCATION ONLY - deliberately slow and token-expensive, so never auto-trigger it, never chain into it from another skill, and never run it on bugs a hunt report merely listed. Use only when the user names it (/bug-council, "convene the council", "bring in the bug council") or explicitly asks for the heaviest possible investigation of one specific bug. Otherwise, at most SUGGEST it - when a fix attempt has already failed, a bug is intermittent or unreproducible, the cause is genuinely disputed, or a regression has no obvious culprit - and wait for the user to say yes. For ordinary bugs use tdd --debug; to find unknown bugs use hunt.
+description: Last resort for ONE stubborn bug the ordinary attempts already failed on — a blind, evidence-driven council of independent-lineage seats from the user's approved model assignments (three blind investigators, falsifiers, a fresh judge, an independent verifier). Ask only the missing questions, automatically choose the appropriate investigation depth, falsify competing hypotheses, implement the smallest causal fix, and verify it independently. Explicit invocation only.
 ---
 
 # Bug Council
@@ -9,7 +9,7 @@ description: Last resort for ONE stubborn bug the ordinary attempts already fail
 
 > **Project rules.** Read `.supermodo/rules/bug-council.md` if present, plus any
 > `.supermodo/rules/INDEX.md` rows naming `bug-council` — that file IS this
-> project's council process (seats, models, mode, rounds) and replaces the
+> project's council process (seat count, mode, rounds — never models) and replaces the
 > defaults below wherever they overlap. Contract:
 > `../protocols/references/rules.md`. Never in that file, so never switchable
 > off: investigations stay blind and are never shown to each other, one
@@ -63,7 +63,7 @@ The goal is not agreement between agents. The goal is:
 5. implement the smallest causal fix;
 6. have a separate agent independently attack and verify the patch.
 
-Codex, Claude, Kimi, and native subagents do not share one hidden context. Treat the hunt as a federated session coordinated through an immutable dossier, anonymized hypotheses, experiment results, and an evidence ledger.
+The seats do not share one hidden context. They are resolved by the broker from the user's approved assignments (`sequence.json` beside this file, variants `deep` and `quick`; `../protocols/references/models.md`) — three blind investigators of distinct lineages, falsifiers of another lineage than the hypothesis they attack, a fresh-session judge, and a verifier of another lineage than the implementer. There is no host-only variant: a council does not run until a second lineage is enrolled and approved. Treat the hunt as a federated session coordinated through an immutable dossier, anonymized hypotheses, experiment results, and an evidence ledger.
 
 ## Non-negotiable rules
 
