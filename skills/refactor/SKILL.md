@@ -156,6 +156,10 @@ stalls at stage 6 with the tests gate already spent. See "Flow integration"
 below — this is the same `needs-input` routing every other stage uses, applied
 to the approval gate.
 
+**Critique before approval** → `references/seats.md`: an `adversary` seat of
+another lineage attacks the written plan through the broker; surviving
+objections are folded in, each with a disposition, BEFORE the user sees it.
+
 Then wait for explicit approval before touching code.
 
 ### Plan Format
@@ -355,6 +359,12 @@ When analysis reveals circular imports:
 3. Break the cycle — neither file should import from the other
 
 ---
+
+## Phase 4z: Independent review of the diff
+
+→ `references/seats.md`: the `review` seat (another lineage, read-only)
+reviews the whole diff against the approved plan with the orchestrator's test
+evidence; at most two REVISE rounds, then the user decides.
 
 ## Phase 5: Verification & Summary
 

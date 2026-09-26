@@ -185,7 +185,7 @@ show anything was lost.
 ### The questions
 
 At most THREE closed questions, presented as closed menus per `questions.md`
-(fixed self-explanatory option sets — no `Claude suggests:`/`Codex counters:`
+(fixed self-explanatory option sets — no `<seat> suggests:`/`<seat> counters:`
 framing):
 
 1. **Driver** — defect / commitment-blocker / capability / improvement

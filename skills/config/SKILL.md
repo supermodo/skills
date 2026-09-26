@@ -75,6 +75,7 @@ version.
 | `config --edit [field]` | Change fields — "Edit" below |
 | `config --upgrade` | Migrate config version — procedures §7 |
 | `config --rules [target] [--accept-defaults]` | Materialize a project process file into `.supermodo/rules/` — procedures §9 |
+| `config --models <op>` | The ONLY writer of the per-user model registry (`../protocols/references/models.md`) — "Models" below |
 
 Never re-scaffold over a configured project: with a valid config present,
 report and offer edits — bootstrap runs only when `skills.config.json` is
@@ -106,8 +107,9 @@ Bootstrap
 ### The wizard — one step per message
 
 Discover candidates BEFORE asking: `package.json` scripts,
-`deno.json`/`deno.jsonc` tasks, `Makefile` targets, agent dirs
-(`.claude/agents`, `.codex/agents`).
+`deno.json`/`deno.jsonc` tasks, `Makefile` targets, a roster dir
+(`.supermodo/agents`, or a legacy `.claude/agents` / `.codex/agents` holding
+role files that still carry `model:` — those need `config --upgrade`).
 
 **These 8 steps and NOTHING else** — never add, remove, or reorder (rule 1).
 `M` = how many apply; announce it at step 1, drop inapplicable steps
@@ -152,19 +154,20 @@ Default: <value>
    | No roster, ANY project evidence | PROPOSE roles immediately (filename + one-line each, grounded only in evidence), then ONE yes/no: create these? Default no. Never ask permission to propose; never invent an evidence-free role. |
    | No roster, no evidence | State single-agent fallback in one line, next step. No question. |
 
-   Accepted → files join the dry-run. Then, still inside this step, ask
-   ONE closed menu: **which hosts do you use?** (1) current host only —
-   default; (2) claude + codex; (3) name them. `agents.dir` = the
-   CANONICAL roster, defaulting to the current host's native dir
-   (`.claude/agents/` on Claude Code, `.codex/agents/` on Codex; any
-   path is a valid own answer); the chosen hosts land in `agents.hosts`
-   and `sync-configs` mirrors the roster one-way from canonical to each
-   other host's native dir — the user edits only the canonical dir,
-   never a mirror. More than one host chosen → close the step by naming
-   the mirror command (`/supermodo:sync-configs`). Declined →
-   single-agent fallback, recorded as default suggestion, re-asked only on
-   `config --edit agents` or materially changed evidence (class-(c),
-   never auto-resolved).
+   Every proposed role names the ENGINE CLASS it needs — `job: <class>`
+   in its frontmatter (`lead` · `adversary` · `leg-work` · `long-context`
+   · `code-generation` · `judgment`, or a project `s-*` class; the
+   category decides the default: implementers → `code-generation`,
+   reviewers / test-quality → `adversary`, infra → `leg-work`) — and
+   NEVER a model: which model runs a role is the user's approved
+   assignment, resolved by the broker at run time
+   (`../protocols/references/models.md`). Accepted → files join the
+   dry-run. `agents.dir` = the CANONICAL roster, default
+   `.supermodo/agents/` (any path is a valid own answer); roles are never
+   mirrored into a host's native agents dir, so there is no host menu and
+   no `agents.hosts`. Declined → single-agent fallback, recorded as
+   default suggestion, re-asked only on `config --edit agents` or
+   materially changed evidence (class-(c), never auto-resolved).
 6. **Question transport** — default `chat`; offer `tool` only on Claude
    Code (overrides apply uniformly to every skill).
 7. **Verbosity** — default `concise`; `standard` for fuller chat reporting.
@@ -226,6 +229,32 @@ Lives in ONE place: `../protocols/references/config.md`. Read it — never a
 remembered copy — whenever you need field names or values. A field not in
 that file does not exist (rule 1).
 
+## Models (`config --models`)
+
+The per-user registry (`~/.config/supermodo/registry.json` + `guides/`) is
+written by `scripts/models.ts` and by nothing else — skills that need an
+approval persisted (the broker's first-run table, a decline, an enrolment)
+call this mode; they never write the file. Every op validates the registry
+as untrusted input before and after; writes are strict JSON, temp-then-rename,
+inside the registry dir only (the one write allowed OUTSIDE the project
+root — see Guardrails).
+
+| Op | Effect |
+| --- | --- |
+| `show` | models, assignments (global + this project's `s-*`), declines |
+| `enrol <id> --lineage --transport adapter\|http-chat\|http-typed\|native …` | add a model definition (exact `--pin` required except `native`) |
+| `edit <id> --pin\|--lineage\|--endpoint\|--key-env` · `remove <id>` | change or drop a definition (remove also drops its assignments) |
+| `assign <class> <id> [--effort]` | approve ONE row (an `s-*` class is scoped to this project's id) |
+| `unassign` · `decline <class> <id> [--effort]` | drop a row · record a decline (never re-suggested while the pool is unchanged) |
+| `approve <proposal.json>` · `--accept-proposed <proposal.json>` | approve a whole first-run table (rows `{class, model, effort?}`) |
+| `guide <id> [<file>\|-]` | show or write the ≤ 4 KB per-model guide |
+| `project-id` | the id `s-*` assignments are scoped by (`project.name`, else a path hash) |
+
+Enrolment of an `http-*` model shows, in fixed wording, what leaves the
+machine (task text, file paths, code snippets, diffs, seat outputs) and asks
+one plain confirmation. Nothing here seats a model: assignments are eligibility
+the broker still solves against every variant's constraints.
+
 ## Guardrails
 
 - No git operations (rule 7); the user (or the `commit` skill) handles git.
@@ -233,7 +262,8 @@ that file does not exist (rule 1).
   from an approved plan or the fast path's create-only exception: docs
   scaffold, `skills.config.json`, `.gitignore`, `.skills/supermodo/`,
   `.supermodo/rules/`, accepted `<agents.dir>/` files, approved tooling-phase
-  targets. Nothing else, ever.
+  targets. The single exception is `--models`, whose target is the per-user
+  registry dir (never a project path). Nothing else, ever.
 - Halt-and-report on any conflict without an approved resolution.
 
 ## Report

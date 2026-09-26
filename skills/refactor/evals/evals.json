@@ -1,0 +1,43 @@
+{
+  "skill": "refactor",
+  "trigger": {
+    "should_trigger": [
+      "/refactor src/utils",
+      "this file is too big, split it",
+      "make this module more functional",
+      "decompose the god function in the archive scanner",
+      "extract the pure core out of the CLI"
+    ],
+    "should_not_trigger": [
+      "find bugs in the processors",
+      "implement the next task",
+      "audit the tests",
+      "grill me",
+      "commit these changes"
+    ]
+  },
+  "behavior": [
+    {
+      "id": "critique-before-approval",
+      "setup": "Real registry (plan host, critique + review in another lineage). Small target folder.",
+      "prompt": "/refactor src/utils",
+      "assert": [
+        "`broker.ts plan --skill refactor` runs at Phase 1 start, before analysis output is shown",
+        "The written plan is attacked by the `critique` seat through `broker.ts dispatch --seat critique` with a verdict schema, plan and files BY PATH, BEFORE the user sees it; no `codex exec` / `claude -p` / `agy` is composed",
+        "Every surviving objection is folded in with a disposition (accepted and changed, or rebutted with a codebase reference); the plan report names the critique seat's model and verdict",
+        "The run stops at the approval gate with status needs-input, the plan written to the report file and rendered; no code changed",
+        "No 'single-model' wording; the report carries the seating and independence"
+      ]
+    },
+    {
+      "id": "critique-failure-stops",
+      "setup": "Registry: the only adversary has a pin the CLI rejects.",
+      "prompt": "/refactor src/utils",
+      "assert": [
+        "The critique dispatch returns status failed and the refactor STOPS before the user sees a plan for approval",
+        "The stop names seat, requested pin and cause and offers fix and retry / abort",
+        "Nothing is substituted and no code is changed"
+      ]
+    }
+  ]
+}

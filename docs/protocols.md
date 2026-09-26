@@ -27,7 +27,10 @@ All live in `skills/protocols/references/`:
 | `promotion.md` | How findings and pre-existing documents become work items: opt-in promotion, severity ownership, one item one priority, cohesion grouping, tracked evidence, idempotent retries |
 | `reports.md` | Where and how skills persist output: run dirs, stage report frontmatter, run-state hashes, containment, the HTML projection and its visual-block grammar |
 | `handoff.md` | Subagent stages: file-based handoff, needs-input escalation, liveness checks, failure protocol |
-| `cross-model.md` | Running the other provider as adversary: read-only sandboxes, preflight, batching, hung-detection, honest degradation |
+| `models.md` | The multi-model engine layer: sequence descriptors, roles, engine classes, the per-user model registry, the broker, approval and staffing, independence levels, adapters, judgment seats, the patch path, project policy |
+| `cross-model.md` | Operating an external seat: adapter safety flags, pins from the registry, preflight, batching and sessions, hung-detection, honesty |
+| `judgment-roles.md` | The typed-judgment roles (router, ranker, matcher, sentinel, triager): their question sets and what the code may do with each answer |
+| `multimodel-knowledge.md` | What the evidence says about multi-model work — lineages and independence, blind passes and rounds, findings as hypotheses, loop divergence, headless CLI traps — and the ten hard rules every seat obeys |
 | `adversarial-review.md` | The review stance: burden of proof, evidence-cited attacks, valid "no objection", dispute surfacing |
 | `questions.md` | Asking the user: three-class triage, three question kinds (ordered-choice decisions, simple confirmations, closed menus), transport, answer recording & auto-resolution |
 | `grilling.md` | The twin-agent adversarial interview: actors, independent plans, disprove rounds, routing, recording |

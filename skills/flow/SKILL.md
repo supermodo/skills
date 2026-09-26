@@ -120,8 +120,19 @@ run gets a new run dir with its baseline recorded at entry time. Rules:
    **inline sequential execution** (each stage runs in the main context) only
    with explicit user consent. No continuation → record the rerun-with-answers
    fallback. Record all capability findings in `state.json`.
-4. **Adversary preflight** is deferred to the stages that use it (hunt, tests
-   audit, grill) per `../protocols/references/cross-model.md` — flow does not pin it globally.
+4. **Seat the WHOLE pipeline here, once.** For every stage skill this run
+   will invoke that ships a `sequence.json` (grill, work, hunt, tests,
+   refactor, sync-configs), run
+   `node <skills>/protocols/scripts/broker.ts plan --skill <stage> --project-root <root> --host <host> --host-pin <your exact model id> --run <run id>`
+   and keep the plan files. Merge every `proposal` into ONE approval table
+   (approve all / change rows by number / decline; persist via
+   `node <skills>/config/scripts/models.ts approve <file> --project-root <root>`,
+   then plan again). Any stage `staffed: false` → the run does NOT start:
+   show each unstaffed seat with its reason and ask **staff it / run a fully
+   staffed variant / abort**. An unstaffed stage-6 reviewer is learned at
+   minute 0, never after the implementation. Unattended → `needs-input` with
+   the table (`../protocols/references/models.md`). Stage subagents receive
+   their plan file path in the spawn prompt and dispatch only through it.
 5. **Resolve project rules for the WHOLE pipeline, here, once.** For flow and
    every stage skill this run will invoke, check whether
    `.supermodo/rules/<skill>.md` exists and whether the manifest
@@ -259,8 +270,9 @@ concrete `questions`:
 
 1. **Triage** per `../protocols/references/questions.md`: (a) discoverable facts — answer from
    docs/code without the user; (b) technical tradeoffs — the moderator may
-   consult the adversary model (`../protocols/references/cross-model.md`) and surface to the
-   user only on unresolved conflict; (c) product/scope/preference — always reach
+   consult an approved `adversary` seat (grill's `attack-a`, dispatched through
+   the run's grill plan file per `../protocols/references/models.md`) and
+   surface to the user only on unresolved conflict; (c) product/scope/preference — always reach
    the user, in the mandatory format.
 2. **Deliver answers by continuing the SAME live agent** via `SendMessage` so
    they land in its intact context — no rerun, no lost work. Keep the agent alive

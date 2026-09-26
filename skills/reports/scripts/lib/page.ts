@@ -172,6 +172,9 @@ letter-spacing:.07em;font-size:10.5px}
 .chip.ok{color:var(--ok);border-color:var(--ok)}
 .chip.failed,.chip.unreadable{color:var(--bad);border-color:var(--bad)}
 .chip.running,.chip.needs-input,.chip.partial{color:var(--warn);border-color:var(--warn)}
+.chip.cross-lineage{color:var(--ok);border-color:var(--ok)}
+.chip.same-lineage{color:var(--warn);border-color:var(--warn)}
+.chip.none{color:var(--dim);border-color:var(--line)}
 .wrap{display:flex;align-items:flex-start;gap:0;max-width:var(--page);margin:0 auto;padding:0 var(--gutter)}
 .wrap.split{align-items:stretch}
 nav.rail{position:sticky;top:var(--chrome-h,0px);align-self:flex-start;width:240px;flex:none;padding:16px 14px 40px 0;border-right:1px solid var(--line);max-height:calc(100vh - var(--chrome-h,0px) - 42px);overflow-y:auto}
@@ -403,6 +406,30 @@ ${s.body}
 const chip = (status: string): string =>
   `<span class="chip ${attr(status)}">${esc(status)}</span>`;
 
+// The independence a run REACHED (reports.md: `independence`), beside the status.
+const INDEPENDENCE_LABEL: Readonly<Record<string, string>> = {
+  "cross-lineage": "independent verification", "same-lineage": "reviewed, not independent", none: "verification absent",
+};
+const independenceChip = (level: string): string =>
+  level === "" ? "" : ` <span class="chip ${attr(level)}" title="${attr(INDEPENDENCE_LABEL[level] ?? level)}">${esc(level)}</span>`;
+
+// A `seats:` row is a `{ k: v, k: v }` flow mapping kept as a raw string by the
+// frontmatter parser; split it into cells here. Unparseable rows show verbatim.
+const SEAT_COLS = ["id", "role", "class", "model", "effort", "requested", "effective", "lineage", "status"] as const;
+const seatCells = (row: string): Readonly<Record<string, string>> =>
+  Object.fromEntries([...row.replace(/^\{|\}$/g, "").matchAll(/([a-z]+):\s*("(?:[^"\\]|\\.)*"|'[^']*'|[^,]+)/g)]
+    .map((m) => [m[1], m[2].trim().replace(/^["']|["']$/g, "")]));
+const seatsTable = (seats: readonly string[]): string =>
+  seats.length === 0 ? "" :
+    `<div class="card"><h3>Seats</h3><div class="table-wrap"><table><thead><tr>${SEAT_COLS.map((c) => `<th>${c}</th>`).join("")}</tr></thead><tbody>` +
+    seats.map((row) => {
+      const cells = seatCells(row);
+      return Object.keys(cells).length === 0
+        ? `<tr><td colspan="${SEAT_COLS.length}">${esc(row)}</td></tr>`
+        : `<tr>${SEAT_COLS.map((c) => c === "status" ? `<td>${chip((cells[c] ?? "").split(":")[0] || "")}${cells[c]?.includes(":") ? ` <span class="meta">${esc(cells[c].slice(cells[c].indexOf(":") + 1).trim())}</span>` : ""}</td>` : `<td>${esc(cells[c] ?? "")}</td>`).join("")}</tr>`;
+    }).join("") +
+    `</tbody></table></div></div>`;
+
 const navButton = (target: string, status: string, label: string, current: boolean): string =>
   `<button data-nav data-target="${attr(target)}" data-sig="${attr(status)}" aria-current="${current}">` +
   `<span class="dot ${attr(status)}"></span><span class="grow">${esc(label)}</span></button>`;
@@ -462,9 +489,10 @@ const stageId = (st: Stage): string => `stage-${slug(`${st.order}-${st.skill}`)}
 
 const stageSection = (st: Stage, current: boolean): string =>
   `<section id="${attr(stageId(st))}" data-panel class="${current ? "on" : ""}">` +
-  `<h2>${esc(st.order)} · ${esc(st.skill)}${st.gate ? " ⛔" : ""} ${chip(st.status)}</h2>` +
+  `<h2>${esc(st.order)} · ${esc(st.skill)}${st.gate ? " ⛔" : ""} ${chip(st.status)}${independenceChip(st.independence)}</h2>` +
   `<p class="sub">${esc(st.summary)}</p>` +
   card("Open questions", st.questions) +
+  seatsTable(st.seats) +
   card("Drift notes", st.drift) +
   card("Decisions", st.decisions) +
   markdown(st.body) +
@@ -527,8 +555,9 @@ export const reportPage = (r: Report, nav: Nav): string => {
         `${dateOf(r.stamp)} ${timeOf(r.stamp)}${r.task === "" ? "" : ` · ${r.task}`}`,
       )) +
       `<div class="wrap"><main>` +
-      `<p class="sub">${esc(r.summary)}</p>` +
+      `<p class="sub">${esc(r.summary)}${independenceChip(r.independence)}</p>` +
       card("Open questions", r.questions) +
+      seatsTable(r.seats) +
       markdown(r.body) +
       `</main></div>`,
   });

@@ -84,8 +84,9 @@ Three sources feed it:
 2. Run the grilling protocol (invoke `grill`, or follow
    `../protocols/references/grilling.md` directly): twin-agent adversarial interview —
    independent plans, disprove rounds, class-scoped question routing, custom
-   answers re-fought once. If the opposite provider is unavailable, degrade
-   honestly (labeled single-model), never fake a second opinion.
+   answers re-fought once. Seats come from the user's approved assignments
+   (`../protocols/references/models.md`); an unstaffed seat stops the grill
+   before it starts — a second opinion is never faked.
 3. On user sign-off, create the triad from the convention:
    - `spec.md` — goal, non-goals, scope, acceptance evidence, plus the work
      metadata from the docs convention: `Created: YYYY-MM-DD`, a `Priority:`
@@ -253,6 +254,12 @@ is the tool's until someone confirms it.
 8. Touch `BACKLOG.md` only when the user asked for an entry by name.
 9. Run docs-generate, then docs-check. Report per finding: which item it
    became, or why it did not.
+10. **Record the user's choice** (only when a person chose — never on derived
+   selections): for every finding offered at step 3 run
+   `node <skills>/protocols/scripts/broker.ts disposition --project-root <root> --finding <id> --decision promoted|dismissed`
+   — `promoted` when it became or extended an item, `dismissed` when the
+   user left it out. This is what measures the triager pilot
+   (`../protocols/references/judgment-roles.md` → `triager`).
 
 ## `--absorb` — sweep pre-existing documentation (explicit flag only)
 

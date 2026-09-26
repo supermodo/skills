@@ -1,0 +1,29 @@
+{
+  "descriptorVersion": 1,
+  "skill": "refactor",
+  "default": "standard",
+  "variants": {
+    "standard": {
+      "promises": "cross-lineage",
+      "nodes": [
+        { "id": "plan", "role": "planner", "class": "lead", "inputs": ["brief"], "access": "repo", "host": true },
+        { "id": "critique", "role": "adversary", "class": "adversary", "inputs": ["plan"], "access": "repo", "raw": true,
+          "differentLineageFrom": ["plan"] },
+        { "id": "implement", "role": "implementer", "class": "code-generation", "inputs": ["plan", "critique"], "access": "repo", "host": true, "writes": true },
+        { "id": "review", "role": "reviewer", "class": "adversary", "inputs": ["implement"], "access": "repo", "raw": true,
+          "differentLineageFrom": ["implement"] }
+      ]
+    },
+    "same-lineage": {
+      "promises": "same-lineage",
+      "nodes": [
+        { "id": "plan", "role": "planner", "class": "lead", "inputs": ["brief"], "access": "repo", "host": true },
+        { "id": "critique", "role": "adversary", "class": "adversary", "inputs": ["plan"], "access": "repo", "raw": true,
+          "differentSessionFrom": ["plan"] },
+        { "id": "implement", "role": "implementer", "class": "code-generation", "inputs": ["plan", "critique"], "access": "repo", "host": true, "writes": true },
+        { "id": "review", "role": "reviewer", "class": "adversary", "inputs": ["implement"], "access": "repo", "raw": true,
+          "differentSessionFrom": ["implement"] }
+      ]
+    }
+  }
+}

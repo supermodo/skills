@@ -1,0 +1,40 @@
+{
+  "skill": "sync-configs",
+  "trigger": {
+    "should_trigger": [
+      "/supermodo:sync-configs .claude/agents/reviewer.md",
+      "sync the agent configs between claude and codex",
+      "mirror this subagent to codex",
+      "are my claude and codex configs in sync?"
+    ],
+    "should_not_trigger": [
+      "configure supermodo",
+      "set up the project config",
+      "find bugs",
+      "commit these changes"
+    ]
+  },
+  "behavior": [
+    {
+      "id": "targeted-sync-then-verify-seat",
+      "setup": "Real registry (sync host, verify in another lineage). Targeted mode on one project subagent file.",
+      "prompt": "/supermodo:sync-configs .claude/agents/reviewer.md",
+      "assert": [
+        "`broker.ts plan --skill sync-configs` runs before any surface is scanned",
+        "Only the named pair is diffed and applied (project scope; nothing written under the home directory); the backup rule is honoured for any overwrite",
+        "Phase 6 dispatches the `verify` seat through `broker.ts dispatch --seat verify` with the applied diff BY PATH; findings are disposed; no `codex exec` / `claude -p` / `agy` is composed",
+        "The report carries the seating, independence reached and requested vs effective model per seat"
+      ]
+    },
+    {
+      "id": "verify-failure-stops",
+      "setup": "Registry: the only adversary has a pin the CLI rejects.",
+      "prompt": "/supermodo:sync-configs .claude/agents/operator.md",
+      "assert": [
+        "After the apply, the verify dispatch returns status failed and the run STOPS with 'verification absent'",
+        "The stop names seat, requested pin and cause and offers fix and retry / abort",
+        "Nothing is substituted; the applied change is left in place and named"
+      ]
+    }
+  ]
+}

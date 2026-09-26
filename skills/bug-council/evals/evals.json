@@ -1,0 +1,39 @@
+{
+  "skill": "bug-council",
+  "trigger": {
+    "should_trigger": [
+      "/supermodo:bug-council",
+      "convene the bug council on this flaky failure",
+      "this one keeps resisting, bring in the council"
+    ],
+    "should_not_trigger": [
+      "find bugs in the processors",
+      "fix this failing test",
+      "tdd --debug the reconciler",
+      "hunt the dashboard"
+    ]
+  },
+  "behavior": [
+    {
+      "id": "quick-council-two-lineages",
+      "setup": "Real registry; quick variant (two lineages). One confirmed bug from the hunt.",
+      "prompt": "/supermodo:bug-council --variant quick — the anomaly detector reports a 'missing file' anomaly for every day whose file stat fails for ANY reason (permission denied, EIO), not just not-found: src/processors/anomaly-detector.processor.ts, fileExists() around line 51",
+      "assert": [
+        "`broker.ts plan --skill bug-council --variant quick` runs at intake step 3 before any seat; the plan names which seats are host and which are external",
+        "Investigators of two lineages run blind (host inline, the other via `broker.ts dispatch --seat investigate-b`); the judge is a fresh session of another lineage than investigate-a; no `codex exec` / `claude -p` / `agy` is composed",
+        "The smallest causal patch is implemented by the host with a regression test, then attacked by the `verify` seat (another lineage, fresh session) through the broker; its verdict is recorded",
+        "The final report carries the seating table, independence reached and requested vs effective model per seat; no 'single-model' wording"
+      ]
+    },
+    {
+      "id": "deep-unstaffed-offers-quick",
+      "setup": "The user's real registry (two repo-capable lineages) with the default deep variant.",
+      "prompt": "/supermodo:bug-council — the anomaly detector reports a 'missing file' anomaly for every day whose file stat fails for ANY reason: src/processors/anomaly-detector.processor.ts fileExists()",
+      "assert": [
+        "The unstaffed seat (investigate-c, third lineage) is named with the broker's reason",
+        "The menu staff it / run a fully staffed variant / abort is offered and names `quick` as the staffable variant",
+        "No investigator runs; nothing is substituted or downgraded silently"
+      ]
+    }
+  ]
+}

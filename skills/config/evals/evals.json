@@ -59,13 +59,13 @@
       ]
     },
     {
-      "id": "agent-multi-host",
-      "setup": "Repo with source files and tests, no agents dir; user accepts the proposed roles and says they use both Claude Code and Codex.",
-      "prompt": "/supermodo:config — agent-team step, accept proposal, choose both hosts",
+      "id": "agent-roles-declare-class",
+      "setup": "Repo with source files and tests, no agents dir; user accepts the proposed roles.",
+      "prompt": "/supermodo:config — agent-team step, accept proposal",
       "assert": [
-        "agents.dir written once (canonical, current host's native dir by default)",
-        "agents.hosts contains both host slugs",
-        "Mirroring routed to /supermodo:sync-configs — config itself writes role files only into the canonical dir",
+        "agents.dir written once, default .supermodo/agents",
+        "Every proposed role file carries `job: <class>` and no `model:` or `effort:`",
+        "No host menu is asked and no agents.hosts key is written",
         "No second roster dir created by config"
       ]
     },

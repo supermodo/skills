@@ -34,7 +34,7 @@ duplicated — editing a master here changes behavior everywhere.
 3. **Doctor** — the user wants their installation checked: verify all 13
    skill folders are present as siblings of this one (a missing sibling
    means a partial install — recommend installing the full package), that
-   `references/` here contains the 12 masters, and, inside a project, that
+   `references/` here contains the 15 masters, and, inside a project, that
    `skills.config.json` validates (defer to the `config` skill) and the
    docs convention is in place (`docs-check`, via `librarian`). Report
    findings; fix nothing yourself.
@@ -50,11 +50,14 @@ duplicated — editing a master here changes behavior everywhere.
 | `references/promotion.md` | How findings and pre-existing documents become work items: opt-in promotion, severity ownership, one item one priority, cohesion grouping, tracked evidence, idempotent retries |
 | `references/reports.md` | Where and how skills persist output: run dirs, stage report frontmatter, run-state hashes, symlink containment |
 | `references/handoff.md` | Subagent stages: file-based handoff, needs-input escalation, liveness (periodic progress checks on every delegated agent), failure protocol |
-| `references/cross-model.md` | Running the other provider as adversary: read-only sandboxes, preflight, batching, hung-detection, degradation honesty |
+| `references/models.md` | The multi-model engine layer: the four layers (descriptor · roles · engine classes · models), the per-user registry, the broker, approval and staffing, independence levels, seat classes and adapters, judgment seats, the patch path, project policy, ledger, invariants, migration |
+| `references/cross-model.md` | Operating an external seat: adapter safety flags, pins from the registry, preflight, batching and sessions, hung-detection, honesty |
 | `references/adversarial-review.md` | The review stance: burden of proof, evidence-cited attacks, valid "no objection", dispute surfacing |
 | `references/questions.md` | Asking the user: three-class triage, three question kinds (ordered-choice decisions, simple confirmations, closed menus), transport, answer recording & auto-resolution |
 | `references/grilling.md` | Twin-agent adversarial interview: actors, independent plans, disprove rounds, routing, recording |
 | `references/tooling.md` | Command tiers as quality gates: gap surfacing, decline memory, runtime freshness method (local truth → live docs → verify), aggregator rule |
+| `references/judgment-roles.md` | The built-in `judgment`-class roles (router · ranker · matcher · sentinel · triager pilot): their typed question sets, what the code does with each answer, what each never does, and the `http-typed` wire format |
+| `references/multimodel-knowledge.md` | Base knowledge for any seat beyond the host: what the evidence says about lineages and independence, roles, blind first passes and rounds, findings as hypotheses, loop divergence, typed-judgment seats, briefing other models, headless CLI traps, measurement — and the ten hard rules every seat obeys |
 
 ## Communication rule (package-wide)
 

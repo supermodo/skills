@@ -94,6 +94,12 @@ Markdown, YAML frontmatter + system-prompt body. Required: `name`,
 
 ### Codex: `~/.codex/agents/*.toml` (auto-discovered recursively) + `[agents.<role>]` in config.toml
 
+> **Supermodo roles are never mirrored.** A file in `agents.dir` that declares
+> `job: <class>` is a supermodo ROLE: it runs only through the broker from the
+> user's approved assignments (`../../protocols/references/models.md`), so no
+> `.codex/agents/*.toml` or `.claude/agents/*.md` derivative is ever generated
+> for it. Only agents WITHOUT `job:` take the paths below.
+
 TOML: `name`, `description`, `sandbox_mode`, `developer_instructions`
 (triple-quoted body), optional `config_file` (role-specific config layer),
 `nickname_candidates`. Multi-agent gated by `[features].multi_agent`.

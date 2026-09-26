@@ -1,0 +1,68 @@
+{
+  "skill": "hunt",
+  "trigger": {
+    "should_trigger": [
+      "/hunt src/processors --bugs",
+      "find bugs in the pipeline runner",
+      "audit this module for race conditions",
+      "are there security issues in the API handlers?",
+      "scan the data layer for integrity problems before the release",
+      "what's wrong with this file, anything broken?",
+      "smell check the dashboard routes"
+    ],
+    "should_not_trigger": [
+      "refactor this file into pure functions",
+      "implement the next task",
+      "write the tests for the reconciler",
+      "grill me on this design",
+      "review this PR for style",
+      "commit these changes",
+      "explain how the hunt protocol works"
+    ]
+  },
+  "behavior": [
+    {
+      "id": "seats-then-two-lineage-hunt",
+      "setup": "Registry approves leg-work in a second repo-capable lineage and adversary in another lineage; small target, one layer.",
+      "prompt": "/hunt src/processors --bugs",
+      "assert": [
+        "`broker.ts plan --skill hunt` runs at Phase 0, before any finder is dispatched",
+        "Every `find-x` finder is a `broker.ts dispatch --seat find-x` with a findings schema, launched in the same wave as the native finders; no `codex exec`, `claude -p` or `agy` command is composed",
+        "Native finders and find-x seats are blind to `docs/`; dedup records corroboration when two lineages found the same file:line",
+        "Every merged finding gets a skeptic verdict AND a cross-check verdict via `broker.ts dispatch --seat cross-check` batches (~12 per call, --resume from the second batch), merged by the matrix; disputes are kept verbatim",
+        "The report carries the independence level reached, the seats with requested vs effective model, and no 'single-model' wording",
+        "Open questions left OPEN by both legs are shown to the user in the question format before the report (or deferred to the report's Open Questions only when the user defers)"
+      ]
+    },
+    {
+      "id": "unapproved-adversary-asks-once",
+      "setup": "Same registry but no assignment for `adversary`.",
+      "prompt": "/hunt src/processors --bugs",
+      "assert": [
+        "ONE approval table with the row(s) that staff the variant (no row for the host-only skeptic) and the closed menu approve all / change rows / decline",
+        "No finder runs and no automated scan is dispatched to a seat before the approval is persisted",
+        "Unattended → `needs-input`; nothing is substituted"
+      ]
+    },
+    {
+      "id": "unstaffed-second-lineage-finder",
+      "setup": "The user's real registry: leg-work holds only a text-only model and the host, so `find-x` cannot be staffed.",
+      "prompt": "/hunt src/processors --bugs",
+      "assert": [
+        "The unstaffed seat `find-x` is named with the broker's reason (text-only adapter / shares lineage)",
+        "Exactly the menu staff it / run a fully staffed variant / abort is offered, naming `same-lineage` as the staffable variant",
+        "No finder runs; the hunt is not started in a degraded form"
+      ]
+    },
+    {
+      "id": "find-x-failure-stops",
+      "setup": "Registry: the only second-lineage leg-work model has a pin the CLI rejects.",
+      "prompt": "/hunt src/processors --bugs",
+      "assert": [
+        "The find-x dispatch returns status failed and the hunt STOPS (no verification, no report shipped as verified)",
+        "The stop report names seat, requested pin and cause and offers fix and retry / abort",
+        "No other model is substituted for the failed seat and no 'single-model hunt' is run"
+      ]
+    }
+  ]
+}

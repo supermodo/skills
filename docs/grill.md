@@ -49,8 +49,10 @@ at stake, then ordered choices:
 
 ```
 Q: <the question>
-  1. Claude suggests: <host recommendation>
-  2. Codex counters: <adversary view>
+  1. <planner model> suggests: <that planner's recommendation>
+  2. <other planner model> counters: <the other planner's view>
+     (labels are the seated models' ids from your registry, e.g.
+     `opus5 suggests:` / `astra counters:`)
   3. More detail — verbose expansion, then the question is asked again
   4. Your own answer
   5. Defer — leave open   (only where deferral is acceptable)
@@ -60,8 +62,10 @@ Q: <the question>
 
 - Ties (five unresolved rounds, or product-intent disagreements) are broken
   by you, with both positions shown verbatim.
-- If the adversary CLI is absent or unauthenticated, the grill runs
-  single-model and **says so** in its output — a second opinion is never
-  faked.
+- The planners and adversaries are seats you approved once in your model
+  registry (see [models](models.md)); two lineages are required for the
+  default variant. A seat that cannot be staffed stops the grill before it
+  starts — you choose to staff it, run the `same-lineage` variant (labelled
+  "reviewed, not independent"), or abort. A second opinion is never faked.
 
 Requires: `protocols`; uses `skills.config.json` when present.

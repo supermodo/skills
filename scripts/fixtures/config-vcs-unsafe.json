@@ -47,11 +47,7 @@
     "mergeStrategy": "squash"
   },
   "agents": {
-    "dir": ".claude/agents",
-    "hosts": [
-      "claude",
-      "codex"
-    ]
+    "dir": ".supermodo/agents"
   },
   "vcs": {
     "issueKey": {

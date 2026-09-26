@@ -1,0 +1,23 @@
+{
+  "descriptorVersion": 1,
+  "skill": "sync-configs",
+  "default": "standard",
+  "variants": {
+    "standard": {
+      "promises": "cross-lineage",
+      "nodes": [
+        { "id": "sync", "role": "implementer", "class": "code-generation", "inputs": ["brief"], "access": "repo", "host": true, "writes": true },
+        { "id": "verify", "role": "reviewer", "class": "adversary", "inputs": ["sync"], "access": "repo", "raw": true,
+          "differentLineageFrom": ["sync"] }
+      ]
+    },
+    "same-lineage": {
+      "promises": "same-lineage",
+      "nodes": [
+        { "id": "sync", "role": "implementer", "class": "code-generation", "inputs": ["brief"], "access": "repo", "host": true, "writes": true },
+        { "id": "verify", "role": "reviewer", "class": "adversary", "inputs": ["sync"], "access": "repo", "raw": true,
+          "differentSessionFrom": ["sync"] }
+      ]
+    }
+  }
+}

@@ -1,7 +1,7 @@
 # work — the lead implementer
 
 Picks up the next task, builds the right team, drives it to completion, and
-gets it independently verified by the other provider. Project constraints
+gets it independently verified by a model of another lineage. Project constraints
 come from your docs, not from the skill.
 
 ## When to use
@@ -30,13 +30,17 @@ come from your docs, not from the skill.
    commands at each tier (fast suite after every change, unit + lint at
    completion). Zero tolerance for failures at every tier. Prefers
    [tdd](tdd.md) to drive each behavior.
-6. **Adversarial verification.** The implementing provider never verifies
-   its own work: the opposite provider (Claude impl → Codex; Codex impl →
-   Claude) reviews the diff read-only against the spec and must return a
-   structured APPROVED/REVISE verdict with evidence. On REVISE, work fixes
-   and resumes the same reviewer session — up to five rounds, then you
-   decide. If the opposite CLI is unavailable, it stops and asks — never a
-   silently single-model result.
+6. **Adversarial verification.** The implementer never verifies its own
+   work: a reviewer seat of another lineage — a model you approved in your
+   registry (see [models](models.md)) — reviews the diff read-only against
+   the spec and the test evidence `work` produced, and returns a structured
+   APPROVED/REVISE verdict with `file:line` evidence. `work` disposes of
+   every finding (accept, or rebut with a codebase reference); on REVISE it
+   fixes and resumes the same reviewer session — up to five rounds, then you
+   decide. The reviewer seat is planned at step 0, so an unstaffed reviewer
+   is learned before any code is written, never after; a seat that fails at
+   run time stops the task with "verification absent" — nothing is
+   substituted.
 7. **Documentation.** Standalone: offers the librarian closeout. In flow:
    emits drift notes only — doc mutation stays with librarian.
 

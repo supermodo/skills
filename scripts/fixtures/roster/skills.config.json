@@ -1,0 +1,1 @@
+{ "configVersion": 1, "multimodel": { "classes": { "s-security-audit": { "extends": "adversary" } } } }

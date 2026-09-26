@@ -1,6 +1,6 @@
 ---
 rule: work
-description: Docs-routed implementation with a teammate roster and cross-provider verify
+description: Docs-routed implementation with a teammate roster and an independent-lineage review
 default: true
 template: standard
 summary: >
@@ -9,7 +9,8 @@ summary: >
   Teammates come from the configured agent roster; without one, run single-agent
   and apply each role's checklist inline.
   Configured test tiers run after every change and again at task completion.
-  When the task is done, the OTHER provider reviews the diff read-only.
+  When the task is done, an adversary seat of another lineage reviews the
+  diff read-only, from the user's approved model assignments.
 ---
 
 ## Process
@@ -25,7 +26,9 @@ summary: >
 5. Implement. `commands.test` after every change; `commands.testUnit` plus
    `commands.lint` at task completion; `commands.testAll` for
    integration-sensitive work.
-6. Adversarially verify the diff with the opposite provider, read-only.
+6. Adversarially verify the diff through the broker's reviewer seat
+   (`review` in `sequence.json`), read-only, with test evidence the
+   orchestrator produced.
 7. Hand over a clean working tree.
 
 ## Where project constraints come from

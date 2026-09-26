@@ -1,0 +1,45 @@
+{
+  "descriptorVersion": 1,
+  "skill": "grill",
+  "default": "standard",
+  "variants": {
+    "standard": {
+      "promises": "cross-lineage",
+      "nodes": [
+        { "id": "plan-a", "role": "planner", "class": "lead", "inputs": ["brief"], "access": "repo" },
+        { "id": "plan-b", "role": "planner", "class": "lead", "inputs": ["brief"], "access": "repo",
+          "differentLineageFrom": ["plan-a"] },
+        { "id": "attack-a", "role": "adversary", "class": "adversary", "inputs": ["plan-b"], "access": "repo", "raw": true,
+          "differentLineageFrom": ["plan-b"] },
+        { "id": "attack-b", "role": "adversary", "class": "adversary", "inputs": ["plan-a"], "access": "repo", "raw": true,
+          "differentLineageFrom": ["plan-a"] }
+      ]
+    },
+    "same-lineage": {
+      "promises": "same-lineage",
+      "nodes": [
+        { "id": "plan-a", "role": "planner", "class": "lead", "inputs": ["brief"], "access": "repo" },
+        { "id": "plan-b", "role": "planner", "class": "lead", "inputs": ["brief"], "access": "repo",
+          "differentSessionFrom": ["plan-a"] },
+        { "id": "attack-a", "role": "adversary", "class": "adversary", "inputs": ["plan-b"], "access": "repo", "raw": true,
+          "differentSessionFrom": ["plan-b"] },
+        { "id": "attack-b", "role": "adversary", "class": "adversary", "inputs": ["plan-a"], "access": "repo", "raw": true,
+          "differentSessionFrom": ["plan-a"] }
+      ]
+    },
+    "deep": {
+      "promises": "cross-lineage",
+      "nodes": [
+        { "id": "route", "role": "router", "class": "judgment", "inputs": ["brief"], "access": "text" },
+        { "id": "plan-a", "role": "planner", "class": "lead", "inputs": ["brief"], "access": "repo" },
+        { "id": "plan-b", "role": "planner", "class": "lead", "inputs": ["brief"], "access": "repo",
+          "differentLineageFrom": ["plan-a"] },
+        { "id": "attack-a", "role": "adversary", "class": "adversary", "inputs": ["plan-b"], "access": "repo", "raw": true,
+          "differentLineageFrom": ["plan-b"] },
+        { "id": "attack-b", "role": "adversary", "class": "adversary", "inputs": ["plan-a"], "access": "repo", "raw": true,
+          "differentLineageFrom": ["plan-a"] },
+        { "id": "match", "role": "matcher", "class": "judgment", "inputs": ["attack-a", "attack-b"], "access": "text" }
+      ]
+    }
+  }
+}

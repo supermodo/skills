@@ -14,9 +14,10 @@ summary: >
 
 ## Council composition
 
-Detect what is available and seat it: the host model, the other provider's CLI,
-and native subagents. Name the seats that actually ran in the report — a seat
-that failed to launch is its own bar in the chart, never folded into another.
+The seats are the `deep` variant of the skill's `sequence.json`, staffed
+through the broker from the user's approved model assignments. Name the seats
+that actually ran in the report, with their models — a seat that failed to
+launch is its own bar in the chart, never folded into another.
 
 ## Mode
 

@@ -798,7 +798,312 @@ const checkFixtures = (root: string, skillsDir: string): Result => {
     runFixture(script, join(root, "scripts/fixtures/config-vcs-unsafe.json"))
       ? fail("config-check ACCEPTED an issueKey template carrying a quote — it would close the single-quoted `git commit -m '…'` line the commit skill executes verbatim")
       : ok("config-check rejects a shell-unsafe issueKey template (the check can fail)"),
+    checkMultimodelFixture(root, script),
   );
+};
+
+// The multimodel policy fixture is valid EXCEPT for one defect per rule, and
+// every rule must name its field: a validator that merely says "invalid" would
+// leave the user hunting through a policy for which of eight keys it meant.
+const MULTIMODEL_EXPECTED = [
+  "agents.hosts is removed",
+  "multimodel.models: not a policy key",
+  "multimodel.jobs: not a policy key",
+  'multimodel.classes.adversary: "adversary" is a shipped class',
+  "multimodel.classes.security-audit: project class names match",
+  'multimodel.classes.s-triage: unknown key "kind"',
+  "multimodel.classes.s-triage.extends: one of",
+  "multimodel.variants.hunt: variant name",
+  "multimodel.forbid.reviewer[0]",
+  "multimodel.require.adversary: non-empty array",
+  "multimodel.concurrency: integer 1–8",
+] as const;
+
+// The roster validator has a pass set (a role, a project-class role, and a
+// user's unrelated agent that keeps its `model:`) and a fail set (engine keys
+// in a role, a misspelt class). Both must behave, and the fail messages must
+// name the file and the key.
+const checkRosterFixtures = (root: string, skillsDir: string): Result => {
+  const script = join(skillsDir, "config/scripts/roster-check.ts");
+  const fixtureRoot = join(root, "scripts/fixtures/roster");
+  const run = (dir: string): { okRun: boolean; stderr: string } => {
+    try {
+      execFileSync("node", [script, fixtureRoot, dir, "skills.config.json"], { stdio: "pipe" });
+      return { okRun: true, stderr: "" };
+    } catch (e) {
+      return { okRun: false, stderr: String((e as { stderr?: Buffer }).stderr ?? "") };
+    }
+  };
+  const pass = run("pass");
+  const failed = run("fail");
+  const expected = ['fail/implementer.md: "model:" is not allowed', 'fail/implementer.md: "effort:" is not allowed', "fail/implementer.md: category", 'fail/typo.md: job "advesary" is not a shipped class'];
+  const missing = expected.filter((n) => !failed.stderr.includes(n));
+  return merge(
+    pass.okRun ? ok("roster-check accepts roles, project-class roles and unrelated agents (the check can fail)")
+      : fail(`roster-check REJECTED scripts/fixtures/roster/pass: ${pass.stderr.trim()}`),
+    failed.okRun ? fail("roster-check ACCEPTED scripts/fixtures/roster/fail (engine keys in a role, misspelt class)")
+      : missing.length === 0 ? ok("roster-check names every role-file defect (the check can fail)")
+      : fail(`roster-check did not report: ${missing.join(" | ")}`),
+  );
+};
+
+// The registry writer is exercised end to end in a throwaway registry dir:
+// enrol the five transports, assign, then every rule that must refuse — a
+// judgment-only model in a generative class, effort on a native alias, an
+// unadmitted adapter, an undeclared project class — must refuse BY NAME, and
+// the registry on disk must still validate afterwards.
+const checkRegistryCli = (root: string, skillsDir: string): Result => {
+  const script = join(skillsDir, "config/scripts/models.ts");
+  const dir = mkdtempSync(join(tmpdir(), "supermodo-registry-"));
+  const env = { ...process.env, SUPERMODO_REGISTRY_DIR: dir };
+  const run = (args: readonly string[]): { okRun: boolean; out: string } => {
+    try {
+      return { okRun: true, out: String(execFileSync("node", [script, ...args], { stdio: "pipe", env, cwd: root })) };
+    } catch (e) {
+      return { okRun: false, out: String((e as { stderr?: Buffer }).stderr ?? "") };
+    }
+  };
+  const setup = [
+    ["enrol", "astra", "--lineage", "openai", "--transport", "adapter", "--adapter", "codex", "--pin", "gpt-6-astra"],
+    ["enrol", "opus5", "--lineage", "anthropic", "--transport", "adapter", "--adapter", "claude", "--pin", "claude-opus-5"],
+    ["enrol", "jev", "--lineage", "typesafe", "--transport", "http-typed", "--endpoint", "https://api.typesafe.ai/v1/systemone", "--key-env", "TYPESAFE_API_KEY", "--pin", "jev-1.13.0"],
+    ["enrol", "flash", "--lineage", "google", "--transport", "http-chat", "--endpoint", "https://example.invalid/v1/chat/completions", "--key-env", "GEMINI_API_KEY", "--pin", "gemini-3.8-flash"],
+    ["enrol", "sonnet-native", "--lineage", "anthropic", "--transport", "native", "--host", "claude", "--alias", "sonnet"],
+    ["enrol", "gem", "--lineage", "google", "--transport", "adapter", "--adapter", "agy", "--pin", "gemini-3.8-flash-medium"],
+    ["consent", "gem"],
+    ["consent", "gem", "--revoke"],
+    ["assign", "lead", "opus5", "--effort", "medium"],
+    ["assign", "adversary", "astra", "--effort", "xhigh"],
+    ["assign", "judgment", "jev"],
+    ["assign", "leg-work", "sonnet-native"],
+    ["assign", "lead", "host"],
+    ["assign", "code-generation", "host"],
+    ["decline", "lead", "astra", "--effort", "high"],
+    ["assign", "s-security-audit", "astra", "--effort", "xhigh", "--project-root", join(root, "scripts/fixtures/roster")],
+  ] as const;
+  const setupFailures = setup.map((args) => run(args)).filter((r) => !r.okRun).map((r) => r.out.trim());
+  const refusals: readonly (readonly [readonly string[], string])[] = [
+    [["assign", "lead", "jev"], "typed-judgment model"],
+    [["assign", "judgment", "host"], "the host cannot hold a judgment class"],
+    [["assign", "lead", "host", "--effort", "high"], "the host seat runs at the session's effort"],
+    [["assign", "leg-work", "sonnet-native", "--effort", "high"], "native alias cannot be pinned to an effort"],
+    [["enrol", "kimi", "--lineage", "moonshot", "--transport", "adapter", "--adapter", "kimi", "--pin", "k2"], "not admitted until they pass the canary-write test"],
+    [["assign", "s-security-audit", "astra"], "not a shipped class nor a project class"],
+    [["consent", "astra"], "not a sandboxed adapter"],
+    [["enrol", "bad", "--lineage", "x", "--transport", "http-chat", "--endpoint", "https://e.invalid/v1", "--key-env", "MY_SECRET", "--pin", "m"], "never an arbitrary env var name"],
+  ];
+  const wrongRefusals = refusals
+    .map(([args, needle]) => ({ needle, r: run(args) }))
+    .filter(({ needle, r }) => r.okRun || !r.out.includes(needle))
+    .map(({ needle }) => needle);
+  const finalShow = run(["show", "--project-root", join(root, "scripts/fixtures/roster")]);
+  rmSync(dir, { recursive: true, force: true });
+  return merge(
+    setupFailures.length === 0 ? ok("config --models enrols five transports, assigns (incl. the host row), declines and scopes a project class (the check can fail)")
+      : fail(`config --models setup failed: ${setupFailures.join(" | ")}`),
+    wrongRefusals.length === 0 ? ok("config --models refuses every invalid write by name (the check can fail)")
+      : fail(`config --models did not refuse by name: ${wrongRefusals.join(" | ")}`),
+    finalShow.okRun && finalShow.out.includes("s-security-audit") && finalShow.out.includes("lead|astra|high")
+      ? ok("config --models show lists project-scoped assignments and declines")
+      : fail("config --models show is missing the project-scoped assignment or the decline"),
+  );
+};
+
+// A sandboxed seat reads a disposable copy: committable files and the files
+// its brief names, never .git, .env or node_modules; any write in the copy is
+// seen. Probed on a non-git tree (the fallback exclude list).
+const checkSandboxCopy = (skillsDir: string): Result => {
+  const src = mkdtempSync(join(tmpdir(), "supermodo-sbx-src-"));
+  const files: Readonly<Record<string, string>> = {
+    "src/a.ts": "export const a = 1;\n", ".env": "TOKEN=x\n", "node_modules/m/i.js": "x\n", ".git/config": "[core]\n", "keys/id_rsa": "k\n", ".skills/r/plan.md": "plan\n",
+  };
+  Object.entries(files).forEach(([f, body]) => { mkdirSync(dirname(join(src, f)), { recursive: true }); writeFileSync(join(src, f), body); });
+  const script = join(skillsDir, "protocols/scripts/sandbox-copy.ts");
+  const probe = `import { makeCopy, changesIn, removeCopy } from ${JSON.stringify(script)};
+import { existsSync, mkdirSync, writeFileSync } from "node:fs"; import { join } from "node:path";
+const c = makeCopy(${JSON.stringify(src)}, "review ${src}/.skills/r/plan.md");
+const seen = ["src/a.ts", ".skills/r/plan.md", ".env", "node_modules/m/i.js", ".git/config", "keys/id_rsa"].map((f) => existsSync(join(c.dir, f)));
+const before = changesIn(c).length; mkdirSync(join(c.dir, "node_modules/.deno"), { recursive: true }); writeFileSync(join(c.dir, "node_modules/.deno/lock"), "x"); writeFileSync(join(c.dir, "src/a.ts"), "changed"); const after = changesIn(c);
+removeCopy(c); console.log(JSON.stringify({ seen, before, after, gone: !existsSync(c.dir) }));`;
+  const out = ((): string => { try { return String(execFileSync("node", ["--input-type=module", "-e", probe], { stdio: "pipe" })); } catch (e) { return String((e as { stderr?: Buffer }).stderr ?? e); } })();
+  rmSync(src, { recursive: true, force: true });
+  const r = ((): { seen: boolean[]; before: number; after: string[]; gone: boolean } | undefined => { try { return JSON.parse(out); } catch { return undefined; } })();
+  return r !== undefined && JSON.stringify(r.seen) === JSON.stringify([true, true, false, false, false, false]) && r.before === 0
+    && r.after.length === 1 && r.after[0] === "src/a.ts" && r.gone
+    ? ok("sandbox copy holds committable + brief-named files only (no .git/.env/keys/node_modules), sees a source write but not an experiment's node_modules, and is removed (the check can fail)")
+    : fail(`sandbox copy probe: ${out.trim().slice(0, 300)}`);
+};
+
+// The engine layer's pure logic is probed by two .mjs scripts under fixtures/:
+// the descriptor schema (a valid descriptor passes, ten defects are named,
+// every shipped skills/*/sequence.json loads) and the whole-variant solver
+// (backtracking, lineage/session constraints, policy, roster fan-out).
+const checkEngineProbes = (root: string): Result =>
+  merge(...(["descriptor-probe.mjs", "solver-probe.mjs", "patch-probe.mjs"] as const).map((probe) => {
+    const file = join(root, "scripts/fixtures", probe);
+    try {
+      const out = String(execFileSync("node", [file], { stdio: "pipe" })).trim();
+      return ok(`${out} (the check can fail)`);
+    } catch (e) {
+      return fail(`${probe}: ${String((e as { stderr?: Buffer }).stderr ?? "").trim() || "exited non-zero"}`);
+    }
+  }));
+
+// The broker's host-seat path: a seat the moderator runs itself is ledgered with
+// status "host" (never "failed"), with its output when --result is passed.
+const checkBrokerHostSeat = (root: string, skillsDir: string): Result => {
+  const broker = join(skillsDir, "protocols/scripts/broker.ts");
+  const dir = mkdtempSync(join(tmpdir(), "supermodo-broker-"));
+  const project = join(dir, "project");
+  mkdirSync(project, { recursive: true });
+  writeFileSync(join(dir, "registry.json"), JSON.stringify({
+    registryVersion: 1,
+    models: {
+      astra: { lineage: "openai", transport: "adapter", adapter: "codex", pin: "gpt-6-astra" },
+      opus5: { lineage: "anthropic", transport: "adapter", adapter: "claude", pin: "claude-opus-5" },
+    },
+    jobs: { lead: [{ model: "astra", effort: "xhigh" }, { model: "host" }], adversary: [{ model: "astra", effort: "xhigh" }, { model: "opus5", effort: "medium" }] },
+    projects: {}, decisions: {},
+  }));
+  writeFileSync(join(dir, "out.md"), "the host seat's plan\n");
+  const env = { ...process.env, SUPERMODO_REGISTRY_DIR: dir };
+  const run = (args: readonly string[]): Record<string, unknown> | undefined => {
+    try { return JSON.parse(String(execFileSync("node", [broker, ...args], { stdio: "pipe", env, cwd: root }))) as Record<string, unknown>; } catch { return undefined; }
+  };
+  const plan = run(["plan", "--skill", "grill", "--project-root", project, "--host", "claude", "--host-pin", "claude-fable-5-1", "--run", "probe", "--skills-dir", skillsDir]);
+  const planFile = plan?.planFile as string | undefined;
+  const withResult = planFile ? run(["dispatch", "--plan", planFile, "--seat", "plan-b", "--brief", join(dir, "out.md"), "--result", join(dir, "out.md")]) : undefined;
+  const without = planFile ? run(["dispatch", "--plan", planFile, "--seat", "plan-b", "--brief", join(dir, "out.md")]) : undefined;
+  writeFileSync(join(dir, "empty.md"), "  \n");
+  const empty = planFile ? run(["dispatch", "--plan", planFile, "--seat", "plan-b", "--brief", join(dir, "empty.md")]) : undefined;
+  rmSync(dir, { recursive: true, force: true });
+  return merge(
+    plan?.staffed === true && (plan?.seats as { id: string; model: string }[]).some((s) => s.id === "plan-b" && s.model === "host") && typeof plan?.roundsDir === "string"
+      ? ok("broker plan seats the host row and returns roundsDir (the check can fail)")
+      : fail(`broker plan did not seat the host row: ${JSON.stringify(plan ?? "no output").slice(0, 300)}`),
+    withResult?.status === "host" && withResult?.effectiveModel === "claude-fable-5-1" && withResult?.text === "the host seat's plan\n"
+      ? ok("broker dispatch --result ledgers a host seat as status host with its output and pin (the check can fail)")
+      : fail(`broker dispatch --result on a host seat: ${JSON.stringify(withResult ?? "no output").slice(0, 300)}`),
+    without?.status === "host" && String(without?.cause ?? "").includes("--result")
+      ? ok("broker dispatch on a host seat without --result is status host and names the flag (the check can fail)")
+      : fail(`broker dispatch on a host seat without --result: ${JSON.stringify(without ?? "no output").slice(0, 300)}`),
+    empty === undefined
+      ? ok("broker dispatch refuses an empty brief (the check can fail)")
+      : fail(`broker dispatch ran a seat on an empty brief: ${JSON.stringify(empty).slice(0, 200)}`),
+  );
+};
+
+// A provider out of capacity (503 / high demand) is retried after a backoff;
+// a usage-limit failure is not. Probed with a fake agy on PATH: 503, 503, then
+// success → ok after three calls; "usage limit" → failed after one call.
+const checkCapacityRetry = (root: string, skillsDir: string): Result => {
+  const broker = join(skillsDir, "protocols/scripts/broker.ts");
+  const dir = mkdtempSync(join(tmpdir(), "supermodo-capacity-"));
+  const project = join(dir, "project"), bin = join(dir, "bin");
+  mkdirSync(project, { recursive: true }); mkdirSync(bin, { recursive: true });
+  writeFileSync(join(project, "a.ts"), "export const a = 1;\n");
+  writeFileSync(join(dir, "registry.json"), JSON.stringify({
+    registryVersion: 1,
+    models: { flash: { lineage: "google", transport: "adapter", adapter: "agy", pin: "gemini-probe", sandbox: "network-open" } },
+    jobs: { "leg-work": [{ model: "flash" }, { model: "host" }], adversary: [{ model: "flash" }, { model: "host" }] },
+    projects: {}, decisions: {},
+  }));
+  // Fake agy: FAKE_MODE=capacity answers 503 until its third call; FAKE_MODE=quota always fails on a usage limit.
+  writeFileSync(join(bin, "agy"), `#!/bin/sh
+cat > /dev/null
+n=$(( $(cat "${dir}/count" 2>/dev/null || echo 0) + 1 )); echo $n > "${dir}/count"
+if [ "$FAKE_MODE" = quota ]; then echo '{"status":"ERROR","error":"You have hit your usage limit"}'; exit 0; fi
+if [ $n -lt 3 ]; then echo '{"status":"ERROR","error":"Error 503, Message: This model is currently experiencing high demand"}'; exit 0; fi
+echo '{"status":"SUCCESS","response":"reviewed"}'
+`, { mode: 0o755 });
+  writeFileSync(join(dir, "brief.md"), "review a.ts\n");
+  const env = (mode: string) => ({ ...process.env, SUPERMODO_REGISTRY_DIR: dir, SUPERMODO_CAPACITY_BACKOFF_MS: "0,0,0", FAKE_MODE: mode, PATH: `${bin}:${process.env.PATH}` });
+  const run = (args: readonly string[], mode: string): Record<string, unknown> | undefined => {
+    try { return JSON.parse(String(execFileSync("node", [broker, ...args], { stdio: "pipe", env: env(mode), cwd: root }))) as Record<string, unknown>; } catch { return undefined; }
+  };
+  const plan = run(["plan", "--skill", "hunt", "--project-root", project, "--host", "claude", "--host-pin", "claude-probe", "--run", "cap", "--skills-dir", skillsDir], "capacity");
+  const planFile = plan?.planFile as string | undefined;
+  const calls = (): number => Number(existsSync(join(dir, "count")) ? readFileSync(join(dir, "count"), "utf8").trim() : 0);
+  const capacity = planFile ? run(["dispatch", "--plan", planFile, "--seat", "find-x", "--brief", join(dir, "brief.md")], "capacity") : undefined;
+  const capacityCalls = calls();
+  rmSync(join(dir, "count"), { force: true });
+  const quota = planFile ? run(["dispatch", "--plan", planFile, "--seat", "find-x", "--brief", join(dir, "brief.md")], "quota") : undefined;
+  const quotaCalls = calls();
+  rmSync(dir, { recursive: true, force: true });
+  return merge(
+    capacity?.status === "ok" && capacityCalls === 3
+      ? ok("broker retries a provider out of capacity (503 / high demand) after a backoff (the check can fail)")
+      : fail(`capacity retry: status ${String(capacity?.status)} after ${capacityCalls} call(s): ${JSON.stringify(capacity ?? plan ?? "no output").slice(0, 300)}`),
+    quota?.status === "failed" && quotaCalls === 1
+      ? ok("broker fails a usage-limit error at once, without retrying (the check can fail)")
+      : fail(`usage-limit: status ${String(quota?.status)} after ${quotaCalls} call(s)`),
+  );
+};
+
+// Triager pilot: agreement joins the triager's materiality answers with the
+// user's later dispositions; uncertain answers are counted but not scored.
+const checkTriageAgreement = (skillsDir: string): Result => {
+  const script = join(skillsDir, "protocols/scripts/broker.ts");
+  const probe = `import { triageAgreement } from ${JSON.stringify(script)};
+console.log(JSON.stringify(triageAgreement([
+  { role: "triager", answers: { "materiality:H1": { choice: "material" }, "materiality:H2": { choice: "nit" }, "materiality:H3": { choice: "uncertain" }, "materiality:H4": { choice: "material" } } },
+  { event: "disposition", finding: "H1", decision: "promoted" }, { event: "disposition", finding: "H2", decision: "promoted" },
+  { event: "disposition", finding: "H3", decision: "dismissed" }, { event: "disposition", finding: "H9", decision: "dismissed" },
+])));`;
+  const out = ((): string => { try { return String(execFileSync("node", ["--input-type=module", "-e", probe], { stdio: "pipe" })); } catch (e) { return String((e as { stderr?: Buffer }).stderr ?? e); } })();
+  const r = ((): Record<string, unknown> | undefined => { try { return JSON.parse(out.trim().split("\n").pop() ?? ""); } catch { return undefined; } })();
+  return r?.pairs === 2 && r?.agree === 1 && r?.disagree === 1 && r?.uncertain === 1 && r?.rate === 0.5
+    ? ok("triage-agreement joins triager answers with user dispositions, uncertain unscored (the check can fail)")
+    : fail(`triage-agreement probe: ${out.trim().slice(0, 300)}`);
+};
+
+// roster-migrate: scan must find exactly the two legacy role files in the
+// fixture (not the user's own agent, not the already-migrated role) and apply
+// must leave them with `job:` and no engine key, body untouched.
+const checkRosterMigrate = (root: string, skillsDir: string): Result => {
+  const script = join(skillsDir, "config/scripts/roster-migrate.ts");
+  const src = join(root, "scripts/fixtures/roster-migrate");
+  const tmp = mkdtempSync(join(tmpdir(), "supermodo-migrate-"));
+  cpSync(src, tmp, { recursive: true });
+  try {
+    const scan = JSON.parse(String(execFileSync("node", [script, "scan", tmp, "agents"], { stdio: "pipe" }))) as { rows: { file: string; job: string; engineKeys: string[] }[] };
+    const files = scan.rows.map((r) => r.file).sort();
+    const table = join(tmp, "table.json");
+    writeFileSync(table, JSON.stringify(scan));
+    execFileSync("node", [script, "apply", tmp, table], { stdio: "pipe" });
+    const after = readFileSync(join(tmp, "agents/api-reviewer.md"), "utf8");
+    const untouched = readFileSync(join(tmp, "agents/notes.md"), "utf8") === readFileSync(join(src, "agents/notes.md"), "utf8");
+    const roster = ((): boolean => { try { execFileSync("node", [join(skillsDir, "config/scripts/roster-check.ts"), tmp, "agents"], { stdio: "pipe" }); return true; } catch { return false; } })();
+    return merge(
+      files.join(",") === "agents/api-reviewer.md,agents/pipeline-engineer.md" && scan.rows.every((r) => r.engineKeys.length > 0)
+        ? ok("roster-migrate scan finds exactly the legacy role files (the check can fail)")
+        : fail(`roster-migrate scan returned ${files.join(",")}`),
+      /^---\n[\s\S]*job: adversary\n---\n/.test(after) && !/^(model|effort):/m.test(after) && after.includes("Check every changed handler")
+        ? ok("roster-migrate apply adds job:, removes engine keys, keeps the body (the check can fail)")
+        : fail("roster-migrate apply produced an unexpected file"),
+      untouched ? ok("roster-migrate leaves non-role agents untouched") : fail("roster-migrate touched a non-role agent"),
+      roster ? ok("migrated roster passes roster-check") : fail("migrated roster fails roster-check"),
+    );
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+};
+
+const checkMultimodelFixture = (root: string, script: string): Result => {
+  const fixture = join(root, "scripts/fixtures/config-multimodel-invalid.json");
+  const stderr = ((): string => {
+    try {
+      execFileSync("node", [script, fixture], { stdio: "pipe" });
+      return "";
+    } catch (e) {
+      return String((e as { stderr?: Buffer }).stderr ?? "");
+    }
+  })();
+  if (stderr === "") return fail("config-check ACCEPTED scripts/fixtures/config-multimodel-invalid.json (should fail)");
+  const missing = MULTIMODEL_EXPECTED.filter((needle) => !stderr.includes(needle));
+  return missing.length === 0
+    ? ok(`config-check names every multimodel policy defect (${MULTIMODEL_EXPECTED.length} rules; the check can fail)`)
+    : fail(`config-check did not report: ${missing.join(" | ")}`);
 };
 
 // The grammar layer's fixtures live in DIRECTORIES, not as named files: adding
@@ -1227,6 +1532,67 @@ const checkReleaseState = (root: string): Result => {
 // changes.
 const SEQUENCE_MARKERS: readonly string[] = ["git merge --squash", "git tag ", "git push origin"];
 
+// A dispatch brief that names an output schema must name one that ships and is
+// strict (every property required, no extra keys): a missing file made every
+// run improvise its own shape, so verdicts stopped being comparable.
+const strictSchema = (s: unknown): boolean => {
+  const o = s as { type?: unknown; properties?: Record<string, unknown>; required?: readonly string[]; additionalProperties?: unknown; items?: unknown };
+  const props = o.properties ?? {};
+  const selfOk = o.type !== "object" ||
+    (o.additionalProperties === false && Object.keys(props).every((k) => (o.required ?? []).includes(k)));
+  return selfOk && Object.values(props).every(strictSchema) && (o.items === undefined || strictSchema(o.items));
+};
+
+const checkSchemaRefs = (skillsDir: string, found: readonly string[]): Result => {
+  const refs = [...new Set(found.flatMap((slug) => mdFilesOf(skillsDir, slug)
+    .flatMap((f) => [...readFileSync(f, "utf8").matchAll(/protocols\/schemas\/([a-z0-9-]+\.schema\.json)/g)].map((m) => m[1]))))];
+  const bad = refs.flatMap((name) => {
+    const f = join(skillsDir, "protocols/schemas", name);
+    if (!existsSync(f)) return [`${name}: referenced but missing`];
+    try { return strictSchema(JSON.parse(readFileSync(f, "utf8"))) ? [] : [`${name}: not strict (every property required, additionalProperties false)`]; }
+    catch { return [`${name}: invalid JSON`]; }
+  });
+  return bad.length === 0 ? ok(`output schemas: ${refs.length} referenced, all shipped and strict`) : fail(`output schemas: ${bad.join("; ")}`);
+};
+
+// A rules template selects a descriptor variant and refers to seats by node
+// id, never restating the graph (models.md → Sequence descriptors). So every
+// template of a skill with a sequence.json names an existing variant, and any
+// node id it quotes exists in that variant.
+const checkTemplateVariants = (skillsDir: string, found: readonly string[]): Result => {
+  const bad = found.flatMap((skill) => {
+    const seq = join(skillsDir, skill, "sequence.json"), dir = join(skillsDir, skill, "rules-templates");
+    if (!existsSync(seq) || !existsSync(dir)) return [];
+    const variants = (JSON.parse(readFileSync(seq, "utf8")) as { variants: Record<string, { nodes: { id: string }[] }> }).variants;
+    const allIds = new Set(Object.values(variants).flatMap((v) => v.nodes.map((n) => n.id)));
+    return readdirSync(dir).filter((f) => f.endsWith(".md")).flatMap((f) => {
+      const text = readFileSync(join(dir, f), "utf8");
+      const variant = /^template:\s*(\S+)/m.exec(text)?.[1] ?? f.replace(/\.md$/, "");
+      if (variants[variant] === undefined) return [`${skill}/rules-templates/${f}: variant "${variant}" is not in sequence.json (${Object.keys(variants).join(", ")})`];
+      const ids = new Set(variants[variant].nodes.map((n) => n.id));
+      const stale = [...text.matchAll(/`([a-z][a-z0-9-]*)`/g)].map((m) => m[1]).filter((id) => allIds.has(id) && !ids.has(id));
+      return stale.length ? [`${skill}/rules-templates/${f}: quotes node id(s) ${[...new Set(stale)].join(", ")} not in variant "${variant}"`] : [];
+    });
+  });
+  return bad.length === 0 ? ok("rules templates select an existing descriptor variant and quote only its node ids (the check can fail)") : fail(bad.join("; "));
+};
+
+// Every role a descriptor seats ships its brief as skills/<skill>/roles/<role>.md
+// (used unless a project roster file with `job:` overrides it). Judgment roles
+// live in protocols/references/judgment-roles.md; `roster:*` roles are the
+// project's own files.
+const JUDGMENT_ROLES = new Set(["router", "ranker", "matcher", "sentinel", "triager"]);
+const checkRoleBriefs = (skillsDir: string, found: readonly string[]): Result => {
+  const missing = found.flatMap((skill) => {
+    const seq = join(skillsDir, skill, "sequence.json");
+    if (!existsSync(seq)) return [];
+    const roles = new Set(Object.values((JSON.parse(readFileSync(seq, "utf8")) as { variants: Record<string, { nodes: { role: string }[] }> }).variants)
+      .flatMap((v) => v.nodes.map((n) => n.role)).filter((r) => !JUDGMENT_ROLES.has(r) && !r.startsWith("roster:")));
+    return [...roles].filter((r) => !existsSync(join(skillsDir, skill, "roles", `${r}.md`))).map((r) => `${skill}/roles/${r}.md`);
+  });
+  return missing.length === 0 ? ok("every descriptor role ships its brief in roles/<role>.md (the check can fail)") : fail(`missing role briefs: ${missing.join(", ")}`);
+};
+
 const checkSequenceSingleSource = (skillsDir: string): Result => {
   const f = join(skillsDir, "release/SKILL.md");
   if (!existsSync(f)) return fail("skills/release/SKILL.md is missing");
@@ -1403,6 +1769,11 @@ const main = (): number => {
     checkRulesTemplates(skillsDir, found),
     checkTemplateDefaults(skillsDir, found),
     checkFixtures(root, skillsDir),
+    checkRosterFixtures(root, skillsDir),
+    checkRegistryCli(root, skillsDir),
+    checkRosterMigrate(root, skillsDir),
+    checkEngineProbes(root),
+    checkBrokerHostSeat(root, skillsDir),
     checkGrammarFixtures(root, skillsDir),
     checkDocsTree(root, skillsDir),
     checkRenamedGrammar(root, skillsDir),
@@ -1412,6 +1783,12 @@ const main = (): number => {
     checkReleaseState(root),
 
     checkSequenceSingleSource(skillsDir),
+    checkSchemaRefs(skillsDir, found),
+    checkSandboxCopy(skillsDir),
+    checkTemplateVariants(skillsDir, found),
+    checkRoleBriefs(skillsDir, found),
+    checkTriageAgreement(skillsDir),
+    checkCapacityRetry(root, skillsDir),
     checkNoForgeCliInGuide(root, skillsDir),
     checkJsoncPositions(),
     checkNoTemplateCopy(skillsDir, found),

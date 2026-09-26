@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "supermodo test-design verdict: per-finding verdicts plus specs of correct tests",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "verdicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "verdict": {
+            "type": "string",
+            "description": "CONFIRMED | OVERSTATED: <severity> | REFUTED | DOCUMENTED | DOC-DRIFT | ANSWERED | OPEN"
+          },
+          "evidence": {
+            "type": "string",
+            "description": "citation (path:line + quote) or reasoning"
+          }
+        },
+        "required": [
+          "id",
+          "verdict",
+          "evidence"
+        ]
+      }
+    },
+    "test_specs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "type": "string",
+            "description": "finding id or behaviour under test"
+          },
+          "asserts": {
+            "type": "string",
+            "description": "what a correct test asserts"
+          },
+          "wrong_test": {
+            "type": "string",
+            "description": "path:line of an existing wrong test, or empty"
+          }
+        },
+        "required": [
+          "target",
+          "asserts",
+          "wrong_test"
+        ]
+      }
+    }
+  },
+  "required": [
+    "verdicts",
+    "test_specs"
+  ]
+}

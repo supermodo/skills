@@ -1,0 +1,68 @@
+{
+  "skill": "grill",
+  "trigger": {
+    "should_trigger": [
+      "/supermodo:grill",
+      "grill me on this feature before I build it",
+      "stress-test this plan with two models",
+      "run a design interview for the new export pipeline",
+      "lock the spec for the reconciliation task",
+      "new task intake: add CSV export to the admin app",
+      "have two models argue about this architecture",
+      "flow escalated needs-input, grill the open questions"
+    ],
+    "should_not_trigger": [
+      "review this diff for bugs",
+      "implement the export pipeline",
+      "write the tests for the reconciler",
+      "what's next on the board?",
+      "commit these changes",
+      "explain how the grilling protocol works",
+      "refactor this file into pure functions"
+    ]
+  },
+  "behavior": [
+    {
+      "id": "seats-before-anything",
+      "setup": "A project with skills.config.json, the user's registry has lead and adversary approved for two lineages; ask to grill a small feature.",
+      "prompt": "/supermodo:grill add a --dry-run flag to the import command",
+      "assert": [
+        "The first action is `broker.ts plan --skill grill` — before any planner brief is written",
+        "The transcript contains no `codex exec`, `claude -p` or `agy` command composed by the skill",
+        "Both planner dispatches (plan-a, plan-b) go out in the same turn, blind to each other",
+        "Question labels use the seated models' registry ids (e.g. `astra counters:`), never `Claude suggests:` / `Codex counters:`",
+        "The settled table is shown before any individual question"
+      ]
+    },
+    {
+      "id": "unapproved-class-asks-once",
+      "setup": "Same project; the user's registry has models enrolled but NO assignment for `adversary`.",
+      "prompt": "/supermodo:grill add a --dry-run flag to the import command",
+      "assert": [
+        "Exactly ONE approval table is shown, with a row per unapproved class and a closed menu approve all / change rows / decline",
+        "No planner is dispatched before the approval is persisted via `models.ts approve`",
+        "Declining leaves the grill not started — no self-adversary, no 'single-model' wording anywhere"
+      ]
+    },
+    {
+      "id": "unstaffed-stops",
+      "setup": "Registry: only one lineage approved for both lead and adversary (e.g. two Codex models).",
+      "prompt": "/supermodo:grill add a --dry-run flag to the import command",
+      "assert": [
+        "The skill reports the unstaffed seat by id with the broker's reason (shares lineage …)",
+        "It offers exactly: staff it / run a fully staffed variant / abort",
+        "It does not start the grill in any degraded form"
+      ]
+    },
+    {
+      "id": "runtime-failure-stops",
+      "setup": "A planner dispatch returns status failed (identity mismatch).",
+      "prompt": "(continuation of a running grill)",
+      "assert": [
+        "The grill stops and reports seat, requested pin and cause",
+        "No other model is substituted for the failed seat",
+        "The report states verification/independence as not reached"
+      ]
+    }
+  ]
+}

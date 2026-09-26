@@ -16,8 +16,8 @@ description: Systematic bug hunting across a full-stack TypeScript application. 
 > finders stay blind to `docs/`, no unverified finding reaches the report, no evidence means no finding, report-only — never a code change.
 
 Systematic bug hunting: automated scans → parallel blind finders → gap sweep →
-adversarial verification (Claude skeptics × Codex cross-check × docs
-adjudication) → open questions answered by the user (transport per config) →
+adversarial verification (host skeptics × a cross-check seat of another
+lineage × docs adjudication) → open questions answered by the user (transport per config) →
 verified report at the location the repo's docs contract dictates →
 teardown (ask, then clean up).
 Report-only — never code changes.
@@ -166,19 +166,24 @@ lane uses `general-purpose`. The "skill to invoke first" column is optional
 polish — invoke it only if it's in the session's skill list, otherwise skip
 it and rely on the reference file; never guess skill names.
 
-| Finder | subagent_type | model | Skill to invoke first (optional) |
-|--------|---------------|-------|------------------------|
-| semantic | `general-purpose` | inherit | — |
-| async | `general-purpose` | inherit | — |
-| error-handling | `general-purpose` | inherit | — |
-| structure | `general-purpose` | `sonnet` | a YAGNI/duplication-audit skill, if available, on top of structure.md |
-| comparison | `general-purpose` | inherit | — (no reference file; lens described below) |
-| data-integrity | `general-purpose` (or a domain-data reviewer from `agents.dir`) | inherit | — (read-only; its checklist + data-integrity.md) |
-| type-safety | `general-purpose` | `sonnet` | — |
-| perf | `general-purpose` | inherit | — |
-| security | `general-purpose` | inherit | — |
-| frontend | `general-purpose` (or a UI reviewer from `agents.dir`) | inherit | a UI/UX audit skill, if available |
-| browser | `general-purpose` (or a UI reviewer from `agents.dir`) | inherit | a browser-automation skill (`claude-in-chrome` or equivalent); an accessibility skill for a11y items |
+Every finder is a `leg-work` seat of the `find` node in `sequence.json`: the
+native fleet runs in the host (the `find` node is `host: true`), so a finder's
+model is whatever the user approved for `leg-work` — never named here. A
+finder never carries a `model:` of its own.
+
+| Finder | subagent_type | Skill to invoke first (optional) |
+|--------|---------------|------------------------|
+| semantic | `general-purpose` | — |
+| async | `general-purpose` | — |
+| error-handling | `general-purpose` | — |
+| structure | `general-purpose` | a YAGNI/duplication-audit skill, if available, on top of structure.md |
+| comparison | `general-purpose` | — (no reference file; lens described below) |
+| data-integrity | `general-purpose` (or a domain-data reviewer from `agents.dir`) | — (read-only; its checklist + data-integrity.md) |
+| type-safety | `general-purpose` | — |
+| perf | `general-purpose` | — |
+| security | `general-purpose` | — |
+| frontend | `general-purpose` (or a UI reviewer from `agents.dir`) | a UI/UX audit skill, if available |
+| browser | `general-purpose` (or a UI reviewer from `agents.dir`) | a browser-automation skill (`claude-in-chrome` or equivalent); an accessibility skill for a11y items |
 
 **Comparison finder** (part of `--bugs`): group sibling functions (similar
 names, shared config types, same module) and hunt divergence — same formula
@@ -187,44 +192,14 @@ respects a config field its twin hardcodes, different assumptions about shared
 mutable state. These bugs live between functions; per-file finders miss them.
 Feed it the Phase 2 math-operation grep locations.
 
-**Dual-model finders**: run a Codex finder alongside the Claude one for five
-layers — semantic, async, data-integrity (where semantic blind spots cost
-most), plus structure and perf (single-finder lanes get out-sampled when only
-the loud layers are doubled: their long tail of duplication and constant-factor
-findings is a lottery draw one finder can't cover). One batched read-only CLI
-call per layer, in the same parallel wave:
-
-```bash
-codex exec -s read-only --json -o "$D/codex-<layer>.json" "
-Hunt for <layer> bugs in these files: <file list>.
-Checklist: <paste the layer's reference file content>.
-Report ONLY a JSON array of findings:
-[{\"severity\": \"...\", \"kind\": \"defect|improvement\", \"category\": \"...\",
-  \"file\": \"...\", \"line\": N,
-  \"title\": \"...\", \"evidence\": \"...\", \"impact\": \"...\", \"fix\": \"...\",
-  \"question\": false}]
-Every finding needs file:line + evidence. No evidence = don't report it."
-```
-
-Codex and Claude findings merge identically in Phase 4. If `codex --version`
-fails, skip the Codex finders and note "single-model hunt" in the report —
-never silently degrade.
+**Second-lineage finders and Phase 0 seating** → `references/seating.md`:
+five layers get a `find-x` finder of another lineage in the same parallel
+wave, dispatched through the broker; the seats are planned (and approved,
+once) at Phase 0 before the fleet, and an unstaffed seat stops the hunt.
 
 ### Finder dispatch prompt (every finder)
 
-Finders don't inherit this conversation. Every dispatch prompt carries:
-
-1. The ABSOLUTE path of its ONE reference file, with the instruction to follow
-   ONLY that checklist
-2. The target file list + Phase 2 automated results
-3. The skill invocation from the dispatch table (invoke FIRST, then apply the
-   checklist) — if the skill isn't in the session's skill list, skip it and
-   rely on the reference file; never guess skill names
-4. The finding format below — WITHOUT ids (ids are assigned at merge)
-5. The blindness rule: do not read `docs/`; uncertain → `"question": true`
-6. Never create or remove git worktrees; work read-only in the run's
-   designated tree — the main tree, or the task worktree the orchestrator
-   passed in (its path is in the dispatch prompt when worktree mode is on)
+The brief is `roles/finder.md` (this skill's folder), section "Native finder (`find`)".
 
 **Fallbacks** (user-level skill — environments differ): unregistered
 subagent_type → `general-purpose` with the same prompt. Agents with restricted
@@ -255,19 +230,13 @@ user. Follow `references/browser.md`.
 
 ## Phase 4: Merge, Gap Sweep & Dedup
 
-1. Collect all finder outputs (Claude + Codex)
+1. Collect all finder outputs (the native fleet and every `find-x` seat)
 2. Deduplicate: same file:line → keep the most specific finding; note when
-   both models found it independently (that's corroboration — record it)
+   two lineages found it independently (that's corroboration — record it)
 3. **Gap sweep** — blind parallel finders converge on the loudest code;
    mechanisms in quiet corners, and the polish tail of loud files, go
-   unclaimed. Dispatch ONE more finder (`general-purpose`, inherit) carrying:
-   - the deduped findings as a coverage map — `file:line — title` only,
-     never docs content (blindness holds: it sees findings, not docs)
-   - the in-scope file list annotated with per-file finding counts
-   - the instruction: hunt where the map is thin — zero-finding files first,
-     then the quiet corners of claimed files (duplication, hygiene,
-     constant-factor perf that behavioral finders deprioritize). Report only
-     mechanisms absent from the map. Same finding format, same blindness rule.
+   unclaimed. Dispatch ONE more finder (`general-purpose`, inherit) carrying
+   the gap-sweep brief in `roles/finder.md` (this skill's folder).
    Merge and dedup its output like any finder's.
 4. Assign ids: `HNT-<run-stamp>-<seq>` in severity order, sequential. Ids are
    final from here — verification annotates them, never renumbers
@@ -276,13 +245,14 @@ user. Follow `references/browser.md`.
 ## Phase 5: Verify — no finding skips this
 
 Read `references/verification.md` and follow it. Summary: every finding
-(every severity) gets an adversarial Claude skeptic — one per finding for
-small lists, subsystem clusters of 6-12 above ~25 — attacking it: not
-reproducible / impossible by construction / documented-intentional /
-severity inflated. Each skeptic's verdicts are persisted to a file the
-moment they return. A batched Codex cross-check attacks the same list
-independently. Questions get answered from `docs/` with citations. Verdicts
-merge mechanically; disputes are kept and shown, never silently resolved.
+(every severity) gets an adversarial `skeptic` seat (the host, per
+`sequence.json`) — one per finding for small lists, subsystem clusters of
+6-12 above ~25 — attacking it: not reproducible / impossible by construction
+/ documented-intentional / severity inflated. Each skeptic's verdicts are
+persisted to a file the moment they return. The batched `cross-check` seat,
+of another lineage through the broker, attacks the same list independently.
+Questions get answered from `docs/` with citations. Verdicts merge
+mechanically; disputes are kept and shown, never silently resolved.
 
 **Open questions are answered live, not shipped.** After both verify legs
 return and the merge matrix leaves questions OPEN (docs silent on both sides),
@@ -291,7 +261,8 @@ ask the user — batched, max 4 questions per call — on the configured transpo
 writing the report. First present each question per the mandatory format in
 `references/verification.md` (which defers to `../protocols/references/questions.md`): a
 plain-words explanation (max 4 lines, no doc/id/phase references), a one-line
-Claude suggestion, a one-line Codex adversarial counter. Each answer: (a) is
+suggestion and a one-line adversarial counter, each labelled by its seat's
+model id (the host seat by its pin). Each answer: (a) is
 recorded via the librarian in the project's `decisions/` convention so the
 next hunt resolves it from docs, and (b) becomes the citation that re-resolves the
 finding (Documented / Confirmed / Refuted per the answer). Only questions the
@@ -375,7 +346,7 @@ skipping it ships the inflation to the user.
 ## Phase 7: Teardown
 
 After the report ships, inventory what the hunt left running: background
-subagents still alive, background Bash shells (Codex `exec` calls, log tails,
+subagents still alive, background Bash shells (broker dispatches, log tails,
 dev servers started for --browser), browser tabs opened by the browser finder.
 Then ask the user (transport per `questions.transport`/`perSkill.hunt`) — one
 question listing exactly what is still up — whether to tear it all down. On yes: stop background tasks
@@ -408,8 +379,9 @@ Generated: YYYY-MM-DD HH:MM
 Open questions: N
 
 ## Automated Results
-Tests / lint / type-check / dead-export counts. "Single-model hunt" note if
-Codex was unavailable.
+Tests / lint / type-check / dead-export counts. The independence level
+reached and, per seat, requested vs effective model; "verification absent"
+for any batch whose cross-check seat failed.
 
 ## Confirmed
 ### HNT-<run-stamp>-<seq>: <title>

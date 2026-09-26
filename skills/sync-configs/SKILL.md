@@ -51,22 +51,21 @@ and derive tool-specific files from it.
 | User instructions | `~/.codex/AGENTS.md` | `~/.claude/CLAUDE.md` (mirror shared content; Claude-only extras stay) |
 | Skills (user) | `~/.agents/skills/<name>/` | `~/.claude/skills/<name>` → symlink into canonical |
 | Skills (project) | `.agents/skills/<name>/` | `.claude/skills/<name>` → symlink; Codex reads `.agents/skills/` natively |
-| Subagents | `.claude/agents/*.md` (richer format) | `.codex/agents/*.toml` and/or `~/.codex/agents/*.toml` generated via translation table |
+| Subagents (NOT supermodo roles) | `.claude/agents/*.md` (richer format) | `.codex/agents/*.toml` and/or `~/.codex/agents/*.toml` generated via translation table. A supermodo ROLE (a file declaring `job:` in `agents.dir`) is never mirrored: it runs only through the broker (`../protocols/references/models.md`) |
 | MCP (project) | `.mcp.json` | `[mcp_servers.*]` in Codex `config.toml` |
 | Hooks | report-first; sync only the ~10 shared events on request | — |
 | Permissions | no canonical — semantic report only | — |
 | Model/effort/env | report intent drift only (values are provider-specific) | — |
 
 **`skills.config.json` overrides the subagent row.** When the project config
-defines `agents.dir` (+ optional `agents.hosts` — see
-`../protocols/references/config.md`), that dir IS the canonical subagent
-roster, whatever its path: mirror one-way from it to the native agent dir
-of every host listed in `agents.hosts` (`claude` → `.claude/agents/*.md`,
-`codex` → `.codex/agents/*.toml` via the translation table). Mirrors are
-generated derivatives — never treat an edit in a mirror as canonical;
-report it as drift to fold back into `agents.dir` (with the user's
-approval) or overwrite (backup first, as always). A host slug whose native
-dir equals the canonical dir is already satisfied — skip it.
+defines `agents.dir`: that is the canonical roster of supermodo ROLES (files
+declaring `job: <class>`), and roles are never mirrored into a host's native
+agent dir — the broker seats them from the user's approved assignments, so a
+mirror would let the harness run a role on its default model behind the
+user's approvals. Sync only the agents in that dir that are NOT roles (no
+`job:`), through the translation table, and report a `model:`/`effort:` in a
+role file as a defect to fix with `config --upgrade`, never as content to
+translate. (`agents.hosts` is removed from the config contract.)
 
 Conflict rule when both sides changed independently: show the diff, prefer the
 newer file, but always ask before overwriting content that exists only on the
@@ -165,52 +164,45 @@ For each approved action:
    `references/translations.md`.
 3. Re-run the Phase 2 check for that surface and confirm the drift is gone.
 
-### Phase 6 — Adversarial cross-verification (opposite provider)
+### Phase 6 — Adversarial cross-verification (another lineage)
 
-After applying changes, have the *other* tool's model try to refute the work.
-The same model that wrote a translation will overlook its own mistakes; a
-different provider reading the same files has no such blind spot — and it is
-also the tool that will actually *consume* the derived config, so it verifies
-from the consumer's seat.
+After applying changes, a reviewer seat of another lineage tries to refute the
+work. The same model that wrote a translation overlooks its own mistakes; a
+different lineage reading the same files has no such blind spot. The seat is
+`verify` in `sequence.json` (`adversary`, `differentLineageFrom` the host that
+synced), resolved by the broker from the user's approved assignments — this
+skill never names a model and never composes a CLI call, on either host.
 
-Pick the verifier by where you are running:
-
-- Running inside **Claude Code** → verify with Codex. Write the prompt to a
-  temp file first, then invoke with stdin explicitly closed — `codex exec`
-  falls back to reading the prompt from stdin and will hang forever if the
-  harness leaves stdin open:
-  ```bash
-  PROMPT_FILE="$(mktemp)"   # never a fixed /tmp path: predictable names can
-                            # be pre-created as hostile symlinks and collide
-                            # across concurrent runs
-  cat > "$PROMPT_FILE" <<'EOF'
-  You are an adversarial reviewer. Configuration for Claude Code and Codex
-  CLI in this repo was just synced. Try to REFUTE that the sync is correct
-  and complete. Check: <list the surfaces and files changed in Phase 5>.
-  Look for: content lost relative to backups, reworded (not verbatim)
-  names/descriptions/bodies, invalid TOML/JSON, broken symlinks, drift the
-  sync missed on any surface, Claude-only constructs that Codex will
-  misread. Report each finding with file and evidence, or state explicitly
-  that you could not refute the sync.
-  EOF
-  codex exec --sandbox read-only "$(cat "$PROMPT_FILE")" </dev/null; rm -f "$PROMPT_FILE"
-  ```
-  If it produces no output within ~2 minutes, kill it and use the fallback
-  below rather than waiting.
-- Running inside **Codex** → verify with Claude Code:
-  ```bash
-  claude -p --permission-mode plan "<same adversarial prompt>"
-  ```
+1. At step 0 (before Phase 1): `node <skills>/protocols/scripts/broker.ts plan --skill sync-configs --project-root <root> --host <host> --host-pin <your exact model id>`
+   (`<skills>` = the installed supermodo skills folder). `proposal` non-null →
+   ONE approval table (approve all / change rows by number / decline; persist
+   with `node <skills>/config/scripts/models.ts approve <proposalFile> --project-root <root>`,
+   plan again). `staffed: false` → **staff it / run a fully staffed variant /
+   abort**. Unattended → `needs-input`.
+2. After Phase 5 has applied the approved actions, ledger the host `sync`
+   seat with its applied diff:
+   `node <skills>/protocols/scripts/broker.ts dispatch --plan <planFile> --seat sync --brief <file> --result <applied diff>`
+   (status `host`), so the report's seating table and independence come from
+   the ledger like every other seat.
+3. Write the brief to a file (the surfaces and files changed in Phase 5 BY
+   PATH, the backups' paths, the refutation stance in `roles/reviewer.md`), then
+   `node <skills>/protocols/scripts/broker.ts dispatch --plan <planFile> --seat verify --brief <file>`.
+   The brief is `roles/reviewer.md` (this skill's folder) with the
+   `<surfaces and files changed in Phase 5>` placeholder filled in.
+4. A dispatch returning `status: failed` (CLI missing, unauthenticated,
+   identity mismatch, stall) STOPS here: report seat / requested pin / cause,
+   offer fix and retry / abort. Never fall back to a same-provider subagent
+   presented as verification; a `same-lineage` variant's verdict is reported
+   as "reviewed, not independent".
 
 Practical notes:
 
 - These commands can take several minutes — run with a generous timeout and
   in the background if available. Read-only mode is mandatory: the verifier
   reviews, it never fixes.
-- If the opposite CLI is missing or not authenticated, fall back to a fresh
-  subagent of the current tool with **no conversation context** and the same
-  refutation prompt — independence matters more than provider diversity, so
-  say in the summary which verifier was actually used.
+- The summary names the verifier seat's model (from the ledger,
+  `broker.ts ledger --project-root <root> --run <id>`) and the independence
+  level reached.
 - Triage findings: real defects → fix and re-run Phase 5 verification for
   that surface (one re-verify round; if the verifier still objects, surface
   the disagreement to the user instead of looping); style opinions or

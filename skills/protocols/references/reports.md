@@ -138,6 +138,12 @@ decisions:              # decisions taken mid-stage, queued for stage-7 libraria
 questions:              # anything the run needs a human to answer
   - "Should X apply to Y? Context: ..."
 task: csv-export        # the work item this report is about
+independence: cross-lineage   # any run that seated a model: cross-lineage | same-lineage | none
+seats:                  # the seating table, from the broker plan + ledger
+  - { id: review, role: reviewer, class: adversary, model: astra, effort: xhigh,
+      requested: gpt-6-astra, effective: gpt-6-astra, lineage: openai, status: ok }
+  - { id: find-x, role: finder, class: leg-work, model: flash, requested: gemini-3.8-flash-high,
+      effective: gemini-3.8-flash-high, lineage: google, status: "failed: rate limit" }
 ---
 ```
 
@@ -153,6 +159,7 @@ decoration: each one drives something the reader sees.
 | `task` | any run scoped to a work item | links the report to its triad in the index. Set it to the triad slug (`csv-export`, `auth/02-refresh-flow`) whenever the run was about one — from `--job`, from the run id, from the file paths touched. Absent means unlinked; it is never inferred for you. |
 | `findings` `run_stamp` | any run shipping machine-readable findings | `findings` is the run-scoped shard directory; `run_stamp` is the stamp this run's finding ids embed. A consumer that has to guess which shards belong to a report will eventually guess wrong, silently, and promote another run's evidence under this one's ids. The run's IDENTITY is its allocated report stem, which is the path a consumer already holds. |
 | `drift_notes` `decisions` | flow stages | the stage-7 librarian pass |
+| `independence` `seats` | **any run that seated a model** (`models.md`) | the page's independence chip (`cross-lineage` = independent verification · `same-lineage` = reviewed, not independent · `none` = verification absent) and the seating table: one row per seat with the registry model id, requested vs EFFECTIVE model, lineage, and status (`ok` · `unreviewed` · `failed: <cause>`). Both come from the broker's plan and ledger, never from the plan alone: a seat that failed shows as failed, and `independence` is what was REACHED. Absent ⇒ the run seated nothing beyond the host. |
 
 **`status` vocabulary**, the same four values everywhere:
 
@@ -257,7 +264,10 @@ HTML is a **projection**, regenerable and never load-bearing.
   ```
 
   That is the whole duty — no skill generates HTML, formats a page, or decides
-  when to open a browser; `render.ts` opens it per `reports.open`.
+  when to open a browser; `render.ts` opens it per `reports.open`. A run
+  nobody is watching — a subagent, a flow stage, a `needs-input` stop written
+  from a non-interactive session — passes `--no-open`: a tab that pops up
+  into an empty room is noise the user finds later.
 
   **Exception — inside a flow run:** a stage skill writes its
   `<NN>-<skill>.md` and stops there. It does NOT render and does NOT open

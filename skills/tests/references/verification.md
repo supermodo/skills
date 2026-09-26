@@ -7,8 +7,10 @@ live in the shared protocol masters (sibling `protocols` skill) and this file de
 - **Adversarial stance** (burden on the claim, attacks cite evidence, "no
   material objection" is valid, disputes surface, persist immediately):
   `../../protocols/references/adversarial-review.md`.
-- **Running the opposite-provider adversary** (read-only, no `-m` pin,
-  preflight, hung≠slow, batching, honest degradation): `../../protocols/references/cross-model.md`.
+- **Seats and independence** (which model sits where, approval, the staffing
+  gate): `../../protocols/references/models.md`; operating an external seat
+  (read-only flags, batching, resumed sessions, hung≠slow, honesty):
+  `../../protocols/references/cross-model.md`.
 
 Read both before running this pass. What follows is tests-specific only.
 
@@ -42,31 +44,20 @@ orders the report; it never gates verification: a LOW missed-boundary finding
 can hide a bug as costly as any CRITICAL. Each skeptic gets exactly one finding
 plus its scope files. Prompt frame (stance from `adversarial-review.md`):
 
-> You are verifying ONE test-quality finding. REFUTE it — the burden is on the
-> finding. Read the actual test file, the source it covers, and the governing
-> contract resolved through the docs router before judging.
->
-> Finding: [paste full JSON]
->
-> Attacks: (1) **already covered** — an existing test (this file or a sibling)
-> exercises it; cite file:line. (2) **impossible by construction** — types,
-> schemas, or upstream guards make the alleged input unrepresentable; cite the
-> guard. (3) **spec disagrees** — the routed contract says the alleged intended
-> behavior is not intended; quote it (file + section). (4) **severity inflated**
-> — real gap, overstated consequence; give the honest consequence.
->
-> Verdict: `CONFIRMED` (survived all four; give strongest evidence) /
-> `OVERSTATED: <new severity>` / `REFUTED` (give the killing citation).
-> Return JSON: `{"id":"...","verdict":"...","evidence":"..."}`
+`../roles/skeptic.md` (this skill's folder).
 
-## Cross-model pass
+## Cross-check pass (the `cross-check` seat)
 
-Run the opposite provider over ALL merged findings per `cross-model.md`
-(read-only, batched ~12/call, same scope as the host skeptics). Same four
+Dispatch the `cross-check` seat (`adversary`, another lineage than the fleet
+and the skeptics, from `../sequence.json`) over ALL merged findings —
+`node <skills>/protocols/scripts/broker.ts dispatch --plan <planFile> --seat cross-check --brief <batch file> --schema <skills>/protocols/schemas/finding-verdicts.schema.json [--resume]`
+— read-only, batched ~12/call, same scope as the host skeptics. Same four
 attacks. The point is an independent jury: host skeptics share blind spots with
-the host reviewers that produced the findings.
+the host reviewers that produced the findings. A `failed` dispatch stops the
+audit (seat / pin / cause); `unreviewed` output is "no verdict from this
+seat", never approval.
 
-## Merge matrix (host skeptic × cross-model)
+## Merge matrix (host skeptic × cross-check)
 
 | Host verdict            | Cross verdict | Result                                                              |
 | ----------------------- | ------------- | ------------------------------------------------------------------ |

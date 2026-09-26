@@ -1,0 +1,39 @@
+{
+  "descriptorVersion": 1,
+  "skill": "bug-council",
+  "default": "deep",
+  "variants": {
+    "deep": {
+      "promises": "cross-lineage",
+      "nodes": [
+        { "id": "investigate-a", "role": "investigator", "class": "lead", "inputs": ["brief"], "access": "repo", "host": true },
+        { "id": "investigate-b", "role": "investigator", "class": "lead", "inputs": ["brief"], "access": "repo",
+          "differentLineageFrom": ["investigate-a"] },
+        { "id": "investigate-c", "role": "investigator", "class": "lead", "inputs": ["brief"], "access": "repo",
+          "differentLineageFrom": ["investigate-a", "investigate-b"] },
+        { "id": "falsify-a", "role": "falsifier", "class": "adversary", "inputs": ["investigate-b", "investigate-c"], "access": "repo", "raw": true,
+          "differentLineageFrom": ["investigate-b"] },
+        { "id": "falsify-b", "role": "falsifier", "class": "adversary", "inputs": ["investigate-a", "investigate-c"], "access": "repo", "raw": true,
+          "differentLineageFrom": ["investigate-a"] },
+        { "id": "judge", "role": "adjudicator", "class": "adversary", "inputs": ["falsify-a", "falsify-b"], "access": "repo", "raw": true,
+          "differentLineageFrom": ["investigate-a"], "differentSessionFrom": ["falsify-a", "falsify-b"] },
+        { "id": "implement", "role": "implementer", "class": "code-generation", "inputs": ["judge"], "access": "repo", "host": true, "writes": true },
+        { "id": "verify", "role": "verifier", "class": "adversary", "inputs": ["implement", "judge"], "access": "repo", "raw": true,
+          "differentLineageFrom": ["implement"], "differentSessionFrom": ["judge"] }
+      ]
+    },
+    "quick": {
+      "promises": "cross-lineage",
+      "nodes": [
+        { "id": "investigate-a", "role": "investigator", "class": "lead", "inputs": ["brief"], "access": "repo", "host": true },
+        { "id": "investigate-b", "role": "investigator", "class": "lead", "inputs": ["brief"], "access": "repo",
+          "differentLineageFrom": ["investigate-a"] },
+        { "id": "judge", "role": "adjudicator", "class": "adversary", "inputs": ["investigate-a", "investigate-b"], "access": "repo", "raw": true,
+          "differentLineageFrom": ["investigate-a"], "differentSessionFrom": ["investigate-b"] },
+        { "id": "implement", "role": "implementer", "class": "code-generation", "inputs": ["judge"], "access": "repo", "host": true, "writes": true },
+        { "id": "verify", "role": "verifier", "class": "adversary", "inputs": ["implement", "judge"], "access": "repo", "raw": true,
+          "differentLineageFrom": ["implement"], "differentSessionFrom": ["judge"] }
+      ]
+    }
+  }
+}

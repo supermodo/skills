@@ -40,13 +40,14 @@ No flag → layers are auto-detected from the code type.
   knows "this is documented as intentional" stops reporting real bugs hiding
   behind stale docs. The verify phase reads everything and must cite
   evidence to kill or resolve a finding.
-- **Two models.** Codex finders run alongside the Claude finders on the
-  highest-value layers; findings that both models hit independently are
-  marked corroborated. Codex unavailable → the report says "single-model
-  hunt", never silently.
+- **Two lineages.** Finders of another lineage — a model you approved for
+  `leg-work` in your registry (see [models](models.md)) — run alongside the
+  native finders on the highest-value layers; findings both hit independently
+  are marked corroborated. The seats are planned before the fleet; an
+  unstaffed seat stops the hunt rather than degrading it silently.
 - **Every finding is adversarially verified.** Skeptics attack each finding
   (not reproducible / impossible / documented-intentional / severity
-  inflated); a cross-check by the other provider attacks the same list.
+  inflated); a cross-check seat of another lineage attacks the same list.
   Disputes are shown with both arguments verbatim, never silently resolved.
 - **Open questions are answered live.** Where docs are silent, you're asked
   before the report is written; answers are recorded in your `decisions/`
