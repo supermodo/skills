@@ -58,7 +58,7 @@ before it starts — there is no degraded mode.
    - **(a) discoverable facts** — planners answer from code/docs; never reach
      the user.
    - **(b) technical tradeoffs** — adversary consulted first; asked
-     individually ONLY on unresolved model conflict; agreed → settled table.
+     individually ONLY on unresolved model conflict; agreed → settled decisions.
    - **(c) product / scope / business logic / preference** — ALWAYS an
      individual question with explicit user confirmation, even when both
      models agree (agreement ≠ consent); model agreement there only makes
@@ -69,27 +69,43 @@ before it starts — there is no degraded mode.
 5. **Record.** Everything logged with both positions — including agent-to-agent
    resolutions. Durable decisions → ADRs; scope/plan → the triad. Via librarian.
 
-### Settled table first (mandatory, before the individual questions)
+### Settled decisions first (mandatory, before the individual questions)
 
 Every TECHNICAL (class-b) point the two models settled between themselves
-goes into ONE numbered table — never a per-item question parade:
+goes into ONE report of numbered cards, grouped by area — never a per-item
+question parade:
 
 ```
-Settled between the models (technical; reopen any by number):
+### Task: <task name>
+<2–3 sentences: what this work is, what is wrong today, what it achieves.>
+**N technical decisions settled, in M areas.**
 
-| # | Question                          | Agreed answer                    |
-|---|-----------------------------------|----------------------------------|
-| 1 | <the question, 1–2 lines>         | <agreed answer, one line>        |
-| 2 | …                                 | …                                |
+---
 
-N technical points settled. Reopen any by number — otherwise they lock as shown.
+#### Area: <area name>
+<1–2 sentences: what this part of the work is and why it needs decisions.>
+
+**1. <title, 4–5 words>**
+**Problem:** <what goes wrong without a decision, and who feels it; 1–2 lines>
+**Decision:** <the concrete choice and how it solves the problem; 1–2 lines>
+**Rejected:** <the main alternative and why it lost; 1–2 lines>
+**Cost:** <what this choice gives up or risks, and when that matters; 1–2 lines>
+
+---
+
+*Reopen any by number; otherwise all lock.*
 ```
 
-Reopening a row re-presents it in the full question format below.
+Write for a reader who saw none of the rounds: plain language, no seat ids,
+no round references. Number cards continuously across areas. Never invent a
+field: with no serious alternative, write `Rejected: none considered — <why>`;
+with no real downside, write `Cost: none found`.
+
+Reopening a card re-presents it in the full question format below.
 Confirmation (or moving on) locks the rest. Then ask the individual
 questions: unresolved technical conflicts AND every business-logic /
 product / scope / preference call — those are never batched. 30 questions
-with 2 in those buckets = 2 questions asked, 28 rows reviewed.
+with 2 in those buckets = 2 questions asked, 28 cards reviewed.
 
 ### Question format to the user (individual questions only, mandatory)
 
@@ -156,8 +172,8 @@ and never names a model. `<skills>` = the installed supermodo skills folder
    for `attack-b` (raw artefact by path plus a verbatim copy, never a summary).
    Fold the attacks back to the planners with `--resume` so each keeps its
    context. Batch ~12 items per call. Cap: two disprove rounds, then the
-   settled table.
-6. **Custom answers and reopened rows** re-enter ONE disprove round the same
+   settled decisions.
+6. **Custom answers and reopened cards** re-enter ONE disprove round the same
    way (`--resume`).
 7. **Run-time failure** — a dispatch returning `status: failed` (rate limit,
    identity mismatch, stall, retired pin) stops the grill: the round files stay

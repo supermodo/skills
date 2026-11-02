@@ -31,7 +31,8 @@
         "The transcript contains no `codex exec`, `claude -p` or `agy` command composed by the skill",
         "Both planner dispatches (plan-a, plan-b) go out in the same turn, blind to each other",
         "Question labels use the seated models' registry ids (e.g. `astra counters:`), never `Claude suggests:` / `Codex counters:`",
-        "The settled table is shown before any individual question"
+        "The settled decisions are shown before any individual question, as numbered cards grouped by area, under a task intro",
+        "Each settled card has a short title and separate Problem, Decision, Rejected and Cost lines"
       ]
     },
     {
