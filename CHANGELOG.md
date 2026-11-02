@@ -9,6 +9,15 @@ contracts), **PATCH** = fixes and wording. `1.0.0` will mean the config
 schema (`configVersion`), the docs convention, and the protocol contracts
 are stable — from then on breaking those is a MAJOR with a migration path.
 
+## [0.9.0] - 2026-11-02
+
+### Changed
+- **Grill decisions you can actually read.** Grill now presents the technical
+  decisions both models settled as a short report instead of a
+  question-and-answer table: a task intro, then numbered cards grouped by area,
+  each stating the problem, the decision, what was rejected and what it costs.
+  You can still reopen any card by number.
+
 ## [0.8.0] - 2026-09-25
 
 ### Added

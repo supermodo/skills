@@ -42,7 +42,7 @@ self-adversary standing in for a second lineage; a variant that promises
 3. **Question routing.** Merge both question lists; triage per the
    questions protocol: facts get answered from code/docs by the planners.
    TECHNICAL tradeoffs (class b) the models agree on after the disprove
-   rounds are NOT asked one by one: they go into the settled table
+   rounds are NOT asked one by one: they go into the settled decisions
    (below). Individual questions — in the mandatory questions-protocol
    format (3–4 line explanation + the ordered choice list: both models'
    suggestions, `More detail`, own answer), on the transport the
@@ -53,15 +53,19 @@ self-adversary standing in for a second lineage; a variant that promises
    there, their position becomes the recommended option, never the
    answer.
 
-   **The settled table — one batch review before the questions.** A
-   single numbered table of the agreed technical items, two columns:
-   (1) the question in 1–2 lines, (2) the agreed answer (one line; the
-   deciding reason when it fits). Close it with ONE confirmation: "N
-   technical points settled this way — reopen any by number; otherwise
-   they lock as shown." Reopening a row turns it back into a full
+   **The settled decisions — one batch review before the questions.** A
+   single report of the agreed technical items, readable by someone who
+   saw none of the rounds: a task intro (what the work is, what is wrong
+   today, what it achieves), then the items grouped by area, each area
+   opening with 1–2 sentences of context. Each item is a card numbered
+   continuously across areas: a 4–5 word title, then `Problem`, `Decision`,
+   `Rejected` and `Cost`, on their own lines and 1–2 lines each. A field is
+   never invented: no serious alternative or no real downside is stated
+   as such. Close it with ONE confirmation: "Reopen any by number;
+   otherwise all lock." Reopening a card turns it back into a full
    questions-protocol question; confirmation locks the rest. If 30
    questions exist and 2 are conflicts or business calls, the user
-   answers 2 and reviews a table of 28.
+   answers 2 and reviews 28 cards.
 4. **Custom answers** from the user re-enter one disprove round before
    locking.
 5. **Record.** Everything is recorded — including questions resolved
@@ -78,6 +82,6 @@ self-adversary standing in for a second lineage; a variant that promises
 - Two models agreeing is never a substitute for the user on class-(c)
   questions: business logic, product, scope, and preference calls are
   ALWAYS individual questions with explicit confirmation — only agreed
-  TECHNICAL (class-b) items batch into the settled table.
+  TECHNICAL (class-b) items batch into the settled decisions.
 - At five unresolved rounds on one point, or when disagreement hinges on
   product intent: present both positions, the user breaks the tie.

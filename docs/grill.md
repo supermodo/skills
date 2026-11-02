@@ -33,14 +33,16 @@ docs itself.
    are shown, you confirm or amend.
 5. **Everything recorded** with both positions, durable decisions as ADRs.
 
-## The settled table
+## The settled decisions
 
-Every TECHNICAL point the two models agreed on arrives as ONE numbered
-table — question in 1–2 lines, agreed answer — closed by a single
-confirmation: reopen any row by number, otherwise all lock as shown.
-Business-logic and product calls are never in the table — those are always
+Every TECHNICAL point the two models agreed on arrives in ONE report: a short
+intro to the task, then numbered cards grouped by area, each area opening with
+a line or two of context. Each card has a short title, then what the problem
+is, what was decided, what was rejected, and what the decision costs. A single
+confirmation closes it: reopen any card by number, otherwise all lock as shown.
+Business-logic and product calls are never in the report — those are always
 asked. 30 questions with 2 conflicts/business calls = you answer 2 and
-review a table of 28.
+review 28 cards.
 
 ## The question format (individual questions)
 

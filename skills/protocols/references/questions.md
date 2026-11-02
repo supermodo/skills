@@ -15,7 +15,7 @@ pre-fought, each decidable in one read.
   the user as an individual question, even when both models agree. Two
   models agreeing is not user consent; agreement only makes their position
   the recommended option. (Batching via the grilling protocol's settled
-  table applies ONLY to agreed class-(b) technical items.)
+  decisions applies ONLY to agreed class-(b) technical items.)
 
 ## Three kinds of question — don't over-format
 
