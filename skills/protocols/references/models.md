@@ -256,7 +256,11 @@ delegate's argv; it calls the broker and reads its structured result.
   malformed output after bounded retries of the same assignment) stops the
   run: resumable artefacts are preserved, the report names seat / requested
   pin / cause / missing verification. It is never a revoked approval and
-  never a substitution; a retired pin needs explicit reassignment.
+  never an automatic substitution; a retired pin needs explicit reassignment.
+  A skill may then OFFER a replacement as a closed menu the user answers
+  (flow's plan review does): an equivalent model first, a weaker variant
+  only labelled as weaker in plain words — the user's explicit pick, never a
+  default that runs on its own.
 - A `router` judgment may raise depth only to a variant that is already
   staffed; the step-0 table lists the raise target's classes marked "only if
   raised"; an unstaffed target → the run continues at the chosen depth and

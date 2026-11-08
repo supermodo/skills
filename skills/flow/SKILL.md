@@ -6,8 +6,9 @@ description: >
   the user wants to run the whole pipeline, "take this task from spec to
   commit", orchestrate a feature end-to-end, run the full flow (or the flow
   from a given stage), or drive a task through the complete dev-to-commit
-  process — anything that means coordinating grill → work → hunt →
-  tdd → tests → refactor → librarian → commit rather than a single stage.
+  process — anything that means coordinating grill → plan review → work →
+  hunt → tdd → tests → refactor → librarian → commit rather than a single
+  stage.
 allowed-tools: >
   Read, Write, Edit, Grep, Glob, Bash, Agent, AskUserQuestion, TaskCreate,
   TaskList, TaskUpdate, TaskGet, SendMessage
@@ -23,7 +24,7 @@ allowed-tools: >
 > `.supermodo/rules/INDEX.md` rows naming `flow` — that file IS this project's
 > flow process and replaces the defaults below wherever they overlap. Contract:
 > `../protocols/references/rules.md`. Never in that file, so never switchable off:
-> the fail-closed preflight, mandatory gates (5 and 6b) never move, a skipped gate can never report pipeline success, docs mutate only at stages 1 and 7.
+> the fail-closed preflight, mandatory gates (1b, 5 and 6b) never move, a skipped gate can never report pipeline success, docs mutate only at stages 1 and 7.
 
 A THIN orchestrator. It runs stages, validates their reports, routes questions,
 and keeps run state — it never implements, tests, or edits docs itself. All real
@@ -75,7 +76,8 @@ Flow adds no selection rules of its own. The suggestion is a default, never
 a decision — nothing auto-picks.
 
 **Entry stage** (`--from <stage>`) — start a FRESH run at a later stage.
-Valid: `work`, `hunt`, `tests`, `refactor`, `librarian`, `commit`; `tdd`
+Valid: `plan-review`, `work`, `hunt`, `tests`, `refactor`, `librarian`,
+`commit`; `tdd`
 only when pointed at an existing hunt report or a named bug (its input).
 This is not resume (resume revalidates an existing run's hashes); an entry
 run gets a new run dir with its baseline recorded at entry time. Rules:
@@ -91,7 +93,9 @@ run gets a new run dir with its baseline recorded at entry time. Rules:
   light convention check of the named triad; the named triad missing or
   broken → halt (it is the run's input, not a residual risk).
 - **Gates never move.** Every mandatory stage AT or downstream of the entry
-  runs: `--from refactor` still runs 6b, 7, 8; `--from tests` runs 5→8.
+  runs: `--from refactor` still runs 6b, 7, 8; `--from tests` runs 5→8;
+  `--from plan-review` runs 1b→8. An entry past 1b leaves the plan
+  unreviewed by this run, and the final report says so in those words.
 - **Two grades of success.** **Pipeline success** may be claimed only when
   the verification gates (5, or 6b for post-refactor entries) actually ran
   green IN THIS RUN — i.e. entry at or before `refactor`. An entry AFTER
@@ -121,16 +125,16 @@ run gets a new run dir with its baseline recorded at entry time. Rules:
    with explicit user consent. No continuation → record the rerun-with-answers
    fallback. Record all capability findings in `state.json`.
 4. **Seat the WHOLE pipeline here, once.** For every stage skill this run
-   will invoke that ships a `sequence.json` (grill, work, hunt, tests,
-   refactor, sync-configs), run
+   will invoke that ships a `sequence.json` (flow itself for the stage-1b
+   plan reviewer, grill, work, hunt, tests, refactor, sync-configs), run
    `node <skills>/protocols/scripts/broker.ts plan --skill <stage> --project-root <root> --host <host> --host-pin <your exact model id> --run <run id>`
    and keep the plan files. Merge every `proposal` into ONE approval table
    (approve all / change rows by number / decline; persist via
    `node <skills>/config/scripts/models.ts approve <file> --project-root <root>`,
    then plan again). Any stage `staffed: false` → the run does NOT start:
    show each unstaffed seat with its reason and ask **staff it / run a fully
-   staffed variant / abort**. An unstaffed stage-6 reviewer is learned at
-   minute 0, never after the implementation. Unattended → `needs-input` with
+   staffed variant / abort**. An unstaffed plan reviewer or stage-6 reviewer
+   is learned at minute 0, never after the plan or the implementation. Unattended → `needs-input` with
    the table (`../protocols/references/models.md`). Stage subagents receive
    their plan file path in the spawn prompt and dispatch only through it.
 5. **Resolve project rules for the WHOLE pipeline, here, once.** For flow and
@@ -223,7 +227,7 @@ The run page is rendered and OPENED once, right after stage 1
 user watches stages land without touching the terminal. Set `"status"` to
 `"complete"` or `"failed"` when the run ends — the refresh stops with it.
 
-## Stages (exactly eight)
+## Stages (exactly eight, plus the 1b and 6b gates)
 
 1. **librarian --task** — create/refine the work-doc triad via the grilling
    protocol, shaped by the job source (see Invocation): new job = full intake;
@@ -232,6 +236,38 @@ user watches stages land without touching the terminal. Set `"status"` to
    moderator here, planners off-main) — not a silent subagent. **Never fully
    skipped:** if a work doc already exists, librarian validates it against the
    convention and refines gaps; only creation is skipped.
+1b. **plan review** — **MANDATORY GATE:** an `adversary` seat of another
+   lineage reviews the triad before any code exists, read-only. A stage
+   subagent briefs it from `roles/plan-reviewer.md` (this skill's folder),
+   ledgers the host's `plan` seat with `--result <plan.md>`, then runs
+   `node <skills>/protocols/scripts/broker.ts dispatch --plan <flow planFile> --seat plan-review --brief <file> --schema <skills>/protocols/schemas/review-verdict.schema.json`
+   and writes `01b-plan-review.md` (`skill: flow`, the verdict and every
+   finding). **APPROVED** → stage 2. **REVISE** → the loop re-enters stage 1
+   in the MAIN context: librarian disposes of every finding (accept and revise
+   the triad, or rebut with a specific codebase or docs reference — bare
+   disagreement is invalid), then the SAME seat re-reviews with `--resume` and
+   a DELTA brief (triad diff since the reviewed snapshot + per-finding
+   dispositions + round number). Cap: **five rounds**; still REVISE, or a
+   rebuttal the reviewer rejects, → the user decides with both positions
+   verbatim: revise as the reviewer asks / proceed with the dispute recorded
+   / abort (default: abort). Low findings never restart a round. Revisions
+   are stage-1 doc mutations, so the docs-mutate-only-at-1-and-7 rule holds.
+   **Reviewer can't run** (`status: failed` or `unreviewed` — rate limit,
+   outage, identity mismatch, stall) is no verdict, never approval: the stage
+   stops with the seat, pin and cause named, then offers a replacement the
+   user picks — never an automatic one. Candidates, in this order: (1) another
+   approved `adversary` model of a different lineage than the plan's author —
+   an equivalent review; (2) a model of the author's own lineage through the
+   `same-lineage` variant (e.g. the plan was written by Opus and Codex is
+   down → Fable), said in plain words: **"not the same as a review by
+   another provider — same lineage as the plan's author, so it shares its
+   blind spots"**, and recorded in the report as "reviewed, same-lineage".
+   Closed menu: **retry <failed model> / use <candidate> (one row each) /
+   abort** (default: retry). A candidate not yet approved for `adversary`
+   goes through the approval table first; the pick re-plans `--skill flow`
+   (with `--variant same-lineage` for option 2) and the review restarts at
+   round 1 in a fresh session. The author never grades its own plan: the
+   host session is never a candidate.
 2. **work** (flow mode) — implement. Flow mode disables auto-closeout; work emits
    drift notes only, leaving all doc mutation to librarian.
 3. **hunt** *(optional)* — bug audit. Ask run/skip.
@@ -282,8 +318,8 @@ concrete `questions`:
 
 ## Failure, skips, success
 
-- A failed MANDATORY stage (librarian, work, tests, refactor, verify gate,
-  commit) STOPS the run.
+- A failed MANDATORY stage (librarian, plan review, work, tests, refactor,
+  verify gate, commit) STOPS the run.
 - Failed/skipped OPTIONAL stages are recorded as residual risk; the final flow
   report lists them.
 - **A run that skipped a mandatory gate CANNOT report pipeline success.**

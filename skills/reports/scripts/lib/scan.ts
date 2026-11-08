@@ -55,7 +55,7 @@ export type Report = {
 export type Model = { readonly runs: readonly Run[]; readonly reports: readonly Report[] };
 
 /** Mandatory gates, by stage-file order prefix (see flow's eight stages). */
-const GATES = new Set(["05", "06b"]);
+const GATES = new Set(["01b", "05", "06b"]);
 
 /**
  * The only `status` values a report may declare (reports.md). Anything else is

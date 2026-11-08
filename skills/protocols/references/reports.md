@@ -124,6 +124,7 @@ must never redirect writes outside the project.
 
 **One format for every report** — a flow stage report and a standalone report
 differ only in their filename. Flow stages are `<NN>-<skill>.md` (the
+plan-review gate is `01b-plan-review.md` with `skill: flow`; the
 post-refactor verify gate is `06b-verify.md` with `skill: tests`).
 
 ```yaml
