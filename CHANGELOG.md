@@ -9,6 +9,23 @@ contracts), **PATCH** = fixes and wording. `1.0.0` will mean the config
 schema (`configVersion`), the docs convention, and the protocol contracts
 are stable — from then on breaking those is a MAJOR with a migration path.
 
+## [0.10.0] - 2026-11-08
+
+### Added
+- **Plan review before any code.** `flow` gains a mandatory stage 1b: right
+  after intake writes the plan, a model of another lineage reviews it
+  read-only. On REVISE the plan is revised and re-reviewed, up to five rounds,
+  then you decide. If the reviewer cannot run, flow offers a replacement you
+  pick — an equivalent model first, or a same-lineage one clearly labelled as
+  weaker. The shipped `flow` rules template changes accordingly, and
+  `--from plan-review` is a new entry point.
+
+### Fixed
+- Claude review seats running Opus are no longer rejected as "ran Haiku". The
+  identity check now looks for the requested model among every model the
+  Claude CLI reports, not just the first one, which is often a Haiku side call
+  the CLI makes on its own.
+
 ## [0.9.0] - 2026-11-02
 
 ### Changed
