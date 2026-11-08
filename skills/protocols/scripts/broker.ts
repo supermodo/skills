@@ -218,6 +218,18 @@ const parsedJson = (base: Omit<Result, "status">, text: string): Result => {
   try { return { ...base, status: "ok", json: JSON.parse(text), text }; } catch { return { ...base, status: "unreviewed", cause: "output did not match the declared schema (not JSON)", text }; }
 };
 
+// The CLI's modelUsage lists every model the run touched, including the small
+// side calls it makes on its own (a Haiku entry is routine, and often first).
+// Identity holds when ANY entry is the pin; otherwise the entry that did the
+// most output is reported as what actually ran.
+type ClaudeUsage = Record<string, { canonicalModel?: string; outputTokens?: number }>;
+export const claudeServed = (pin: string, usage: ClaudeUsage): string => {
+  const entries = Object.entries(usage).map(([key, u]) => ({ id: u?.canonicalModel ?? key, key, out: u?.outputTokens ?? 0 }));
+  const match = entries.find((e) => e.id === pin || e.key === pin);
+  const heaviest = [...entries].sort((a, b) => b.out - a.out)[0];
+  return match?.id ?? heaviest?.id ?? "unverified";
+};
+
 const dispatchClaude = async (seat: Seat, m: Model, brief: string, cwd: string, session: string | undefined, schema: string | undefined): Promise<Result> => {
   const started = Date.now();
   const args = [
@@ -234,8 +246,7 @@ const dispatchClaude = async (seat: Seat, m: Model, brief: string, cwd: string, 
   const out = r.stdout.split("\n").filter(Boolean)
     .map((l) => { try { return JSON.parse(l) as Record<string, unknown>; } catch { return undefined; } })
     .filter((e): e is Record<string, unknown> => e !== undefined && e.type === "result").pop();
-  const usage = (out?.modelUsage ?? {}) as Record<string, { canonicalModel?: string }>;
-  const effective = Object.values(usage)[0]?.canonicalModel ?? Object.keys(usage)[0] ?? "unverified";
+  const effective = claudeServed(m.pin as string, (out?.modelUsage ?? {}) as ClaudeUsage);
   const base = { session: out?.session_id as string | undefined, effectiveModel: effective, sandbox: `restricted tools=${READ_ONLY_TOOLS}`, durationMs };
   if (r.stalled) return { ...base, status: "failed", cause: "stalled: no output for 5 min" };
   if (r.timedOut) return { ...base, status: "failed", cause: `timed out after ${wallClockFor(seat.effort) / 60000} min` };

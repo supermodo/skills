@@ -21,7 +21,7 @@
       "setup": "The user's real registry: hunt's second-lineage finder cannot be staffed.",
       "prompt": "/supermodo:flow add a --dry-run flag to the import command",
       "assert": [
-        "Step 0 runs `broker.ts plan` once per stage skill that ships a sequence.json (grill, work, hunt, tests, refactor) before stage 1",
+        "Step 0 runs `broker.ts plan` once per stage skill that ships a sequence.json (flow, grill, work, hunt, tests, refactor) before stage 1",
         "The run does NOT start: the unstaffed stage and seat are named with the broker's reason and the menu staff it / run a fully staffed variant / abort is offered",
         "No stage subagent is launched and no stage work is done inline"
       ]
@@ -31,7 +31,7 @@
       "setup": "Registry with leg-work staffed in two lineages but NO adversary assignment.",
       "prompt": "/supermodo:flow add a --dry-run flag to the import command",
       "assert": [
-        "ONE merged approval table covers every stage's proposal rows (adversary rows for grill, work, hunt, tests, refactor seats), with the closed menu approve all / change rows / decline",
+        "ONE merged approval table covers every stage's proposal rows (adversary rows for flow's plan-review, grill, work, hunt, tests, refactor seats), with the closed menu approve all / change rows / decline",
         "Unattended → needs-input with the table; nothing launches and no approval is persisted",
         "The run states which rules files are missing for the stages it would invoke, without materializing any"
       ]

@@ -1,13 +1,14 @@
 ---
 rule: flow
-description: Eight stages, grill through commit, with hunt and tdd optional
+description: Eight stages plus the plan-review and verify gates, grill through commit, with hunt and tdd optional
 default: true
 template: standard
 summary: >
-  Eight stages: intake, work, hunt (optional), tdd fixes, the tests gate,
-  refactor, a post-refactor verify gate, docs alignment, commit.
+  Eight stages: intake, a plan-review gate, work, hunt (optional), tdd fixes,
+  the tests gate, refactor, a post-refactor verify gate, docs alignment, commit.
   Each stage runs in its own subagent; handoff travels through report files.
-  The tests gate and the post-refactor verify gate are mandatory and never move.
+  The plan-review, tests and verify gates are mandatory and never move; on
+  REVISE, intake revises the plan, five rounds max, then you decide.
   Before the run starts, any stage whose process you have not yet approved is
   resolved in one batch, so no subagent stops mid-pipeline to ask.
 ---
@@ -15,6 +16,8 @@ summary: >
 ## Stage sequence
 
 1. `librarian --task` — create or refine the work triad (main context).
+1b. plan review — the `plan-review` seat checks the triad read-only.
+    REVISE loops back into 1, five rounds max, then you decide.
 2. `work` — implement the locked triad.
 3. `hunt` — bug audit. Optional; ask run/skip.
 4. `tdd --debug` — fix what hunt confirmed. Runs only if stage 3 found bugs.

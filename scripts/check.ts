@@ -1057,6 +1057,22 @@ console.log(JSON.stringify(triageAgreement([
     : fail(`triage-agreement probe: ${out.trim().slice(0, 300)}`);
 };
 
+// claude identity: the pin may sit anywhere in modelUsage (the CLI's own Haiku
+// side calls often come first); a run without the pin reports its heaviest model.
+const checkClaudeServed = (skillsDir: string): Result => {
+  const script = join(skillsDir, "protocols/scripts/broker.ts");
+  const probe = `import { claudeServed } from ${JSON.stringify(script)};
+console.log(JSON.stringify([
+  claudeServed("claude-opus-5-5", { "claude-haiku-5-5": { canonicalModel: "claude-haiku-5-5", outputTokens: 40 }, "claude-opus-5-5": { canonicalModel: "claude-opus-5-5", outputTokens: 900 } }),
+  claudeServed("claude-opus-5-5", { "claude-haiku-5-5": { outputTokens: 40 }, "claude-sonnet-5-5": { outputTokens: 900 } }),
+  claudeServed("claude-opus-5-5", {}),
+]));`;
+  const out = ((): string => { try { return String(execFileSync("node", ["--input-type=module", "-e", probe], { stdio: "pipe" })); } catch (e) { return String((e as { stderr?: Buffer }).stderr ?? e); } })();
+  return out.trim().split("\n").pop() === JSON.stringify(["claude-opus-5-5", "claude-sonnet-5-5", "unverified"])
+    ? ok("claude identity matches the pin against every modelUsage entry, not the first (the check can fail)")
+    : fail(`claude-served probe: ${out.trim().slice(0, 300)}`);
+};
+
 // roster-migrate: scan must find exactly the two legacy role files in the
 // fixture (not the user's own agent, not the already-migrated role) and apply
 // must leave them with `job:` and no engine key, body untouched.
@@ -1788,6 +1804,7 @@ const main = (): number => {
     checkTemplateVariants(skillsDir, found),
     checkRoleBriefs(skillsDir, found),
     checkTriageAgreement(skillsDir),
+    checkClaudeServed(skillsDir),
     checkCapacityRetry(root, skillsDir),
     checkNoForgeCliInGuide(root, skillsDir),
     checkJsoncPositions(),

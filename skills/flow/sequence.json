@@ -1,0 +1,23 @@
+{
+  "descriptorVersion": 1,
+  "skill": "flow",
+  "default": "standard",
+  "variants": {
+    "standard": {
+      "promises": "cross-lineage",
+      "nodes": [
+        { "id": "plan", "role": "plan-author", "class": "lead", "inputs": ["brief"], "access": "repo", "host": true },
+        { "id": "plan-review", "role": "plan-reviewer", "class": "adversary", "inputs": ["plan"], "access": "repo", "raw": true,
+          "differentLineageFrom": ["plan"] }
+      ]
+    },
+    "same-lineage": {
+      "promises": "same-lineage",
+      "nodes": [
+        { "id": "plan", "role": "plan-author", "class": "lead", "inputs": ["brief"], "access": "repo", "host": true },
+        { "id": "plan-review", "role": "plan-reviewer", "class": "adversary", "inputs": ["plan"], "access": "repo", "raw": true,
+          "differentSessionFrom": ["plan"] }
+      ]
+    }
+  }
+}

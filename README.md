@@ -65,12 +65,12 @@ flags, behavior).
 
 ## The pipeline
 
-`flow` drives one task through eight stages, each in its own context,
+`flow` drives one task through its stages (three are mandatory gates), each in its own context,
 handing off through report files — the main conversation stays tiny and
 every run is inspectable afterwards:
 
 ```
-librarian --task → work → hunt → tdd --debug → tests ⛔ → refactor → verify ⛔ → librarian → commit
+librarian --task → plan review ⛔ → work → hunt → tdd --debug → tests ⛔ → refactor → verify ⛔ → librarian → commit
 ```
 
 (⛔ = mandatory gate; optional stages skipped only as recorded residual

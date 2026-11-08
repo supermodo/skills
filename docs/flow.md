@@ -7,10 +7,12 @@ own fresh context, and stages talk through report files on disk in
 main conversation tiny on even a long feature, and makes every run
 inspectable afterwards.
 
-## The eight stages
+## The stages
 
 ```
 1 librarian --task   grill the task, lock the triad (spec/plan/tasks)
+1b plan review       another model attacks the plan (MANDATORY gate;
+                     REVISE loops back to 1, max 5 rounds)
 2 work               implement
 3 hunt               bug audit                     (optional)
 4 tdd --debug        fix what hunt found            (if bugs)
@@ -49,7 +51,7 @@ first-in-line pick offered alongside. You always choose; nothing auto-picks.
 
 ### `--from` — where the run starts
 
-Start a fresh run at any later stage: `work`, `hunt`, `tests`, `refactor`,
+Start a fresh run at any later stage: `plan-review`, `work`, `hunt`, `tests`, `refactor`,
 `librarian`, `commit` (`tdd` only when pointed at an existing hunt report or
 a named bug). Rules:
 
